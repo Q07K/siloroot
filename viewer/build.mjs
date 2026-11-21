@@ -308,9 +308,11 @@ const template = fs.readFileSync(TEMPLATE, 'utf8');
 if (!template.includes('__VIEWER_DATA__')) throw new Error('template.html에 __VIEWER_DATA__ 자리가 없습니다');
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
-const ICON = path.join(here, 'brand', 'siloroot-symbol-64.png');
+const ICON = path.join(here, 'brand', 'siloroot-icon-64.png');
 const icon = fs.existsSync(ICON) ? 'data:image/png;base64,' + fs.readFileSync(ICON).toString('base64') : '';
-fs.writeFileSync(OUT_HTML, template.split('__BRAND_ICON__').join(icon).split('__VIEWER_DATA__').join(json));
+const BRAND = path.join(here, 'brand');
+const dataUri = (name) => { const f = path.join(BRAND, name); return fs.existsSync(f) ? 'data:image/png;base64,' + fs.readFileSync(f).toString('base64') : ''; };
+fs.writeFileSync(OUT_HTML, template.split('__BRAND_ICON__').join(icon).split('__BRAND_WORDMARK_DARK__').join(dataUri('siloroot-wordmark-dark-56.png')).split('__BRAND_WORDMARK__').join(dataUri('siloroot-wordmark-56.png')).split('__VIEWER_DATA__').join(json));
 if (!KEEP_SNAPSHOT || !prev) {
   const snapFiles = {};
   for (const d of docs) snapFiles[d.path] = { hash: hash(d.text), text: d.text };
