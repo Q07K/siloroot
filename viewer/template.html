@@ -15,10 +15,10 @@ header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1
 .bar{max-width:1280px;margin:0 auto;padding:10px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
 .brand{display:inline-flex;align-items:center}.brand picture,.brand .logo{display:block;height:22px;width:auto}
 .meta{font-size:13px;color:var(--muted)}
-nav{display:flex;gap:4px;flex-wrap:wrap}
-nav a{padding:9px 12px;border-radius:8px;color:var(--muted);font-weight:500}
-nav a:hover{text-decoration:none;background:var(--code-bg)}
-nav a.on{background:var(--accent-bg);color:var(--accent)}
+#nav{display:flex;gap:4px;flex-wrap:wrap}
+#nav a{padding:9px 12px;border-radius:8px;color:var(--muted);font-weight:500}
+#nav a:hover{text-decoration:none;background:var(--code-bg)}
+#nav a.on{background:var(--accent-bg);color:var(--accent)}
 .search{margin-left:auto;flex:0 1 320px;min-width:200px;min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
 main{max-width:1280px;margin:0 auto;padding:24px 20px 64px}
 h1.page{font-size:22px;margin:0 0 4px}
@@ -148,7 +148,6 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .elabel{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:10px 0 4px}
 .eform{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
 select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
-.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px}
 .fcol{background:var(--code-bg);border-radius:12px;padding:12px}
 .fcol h2{font-size:15px;margin:0 0 10px}
 .fcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px}
@@ -181,6 +180,56 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 .nd.arch{opacity:.35}
 .nd.arch.dim{opacity:.12}
 .legend .lg-attn{background:transparent;border:2.5px solid var(--attn);border-radius:50%;width:12px;height:12px;box-sizing:border-box}
+body.fit{height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body.fit main{flex:1;min-height:0;width:100%;box-sizing:border-box;display:flex;flex-direction:column;padding-bottom:16px}
+body.fit #view{flex:1;min-height:0;display:flex;flex-direction:column}
+body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
+.phead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin:0 0 12px}
+.phead h1.page{margin:0}
+.phead .sub{margin:0}
+.split{flex:1;min-height:0;display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:16px}
+.pane{min-height:0;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.pane.grow{flex:1}
+.pane-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:36px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:14px}
+.pane-b{flex:1;min-height:0;overflow:auto;padding:6px}
+.pane-b.pad{padding:14px 18px}
+.navi{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;text-align:left;border:0;background:none;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;font-size:14px;color:var(--ink);text-decoration:none}
+.navi:hover{background:var(--code-bg);text-decoration:none}
+.navi.on{background:var(--accent-bg);color:var(--accent);font-weight:600}
+.navi .cnt{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;font-weight:400}
+.navi .fname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oitem>span:first-child{display:flex;flex-direction:column;min-width:0}
+.oitem .odesc{font-size:12px;color:var(--faint);font-weight:400}
+.caret{width:14px;flex:none;color:var(--faint);font-size:12px;text-align:center}
+.fdot{width:9px;height:9px;border-radius:3px;flex:none}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--code-bg);border-radius:9px;padding:3px;gap:2px}
+.seg button,.seg a{border:0;background:none;border-radius:7px;padding:5px 11px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer;text-decoration:none}
+.seg button:disabled{opacity:.5;cursor:default}
+.seg .on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px var(--shadow-soft)}
+.pill.sm{min-height:30px;font-size:13px;padding:0 12px}
+.chgh .acts{display:flex;gap:6px;flex:none}
+.pane .chgmd{max-height:none;overflow:visible;border:0;padding:0;background:none}
+.drow{display:flex;gap:12px;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box;padding:9px 6px;border:0;border-bottom:1px solid var(--border);background:none;font:inherit;color:var(--ink);text-align:left}
+.drow .t{min-width:0}
+.drow .r{display:flex;gap:6px;align-items:center;flex:none}
+.drow .when{font-size:12px;color:var(--faint);white-space:nowrap}
+.dfold{cursor:pointer}.dfold:hover{background:var(--code-bg)}
+.dfold .t{display:flex;gap:8px;align-items:center}
+.osec{font-size:13px;color:var(--muted);margin:14px 0 8px;font-weight:600}
+.osec:first-child{margin-top:0}
+.ocard{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--bg)}
+.ocard.done{opacity:.65}
+.ohead{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ocard .note{margin:6px 0 4px}
+.olist{margin:6px 0 0;padding-left:18px;font-size:14px}
+.ogroup{border-bottom:1px solid var(--border);padding:6px 0}
+.ogroup summary{cursor:pointer;padding:4px 0}
+.chip.warn{background:var(--flash-bg);color:var(--ink)}
+.board{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0}
+.fcol{display:flex;flex-direction:column;min-height:0}
+.fcol .fbody{flex:1;min-height:0;overflow:auto}
+.fcol .empty{text-align:center;margin-top:28px;color:var(--faint)}
+@media (max-width:760px){body.fit{height:auto;overflow:visible;display:block}.split,.board{grid-template-columns:1fr}.pane-b{max-height:65vh}.fcol .fbody{max-height:none}}
 </style>
 </head>
 <body>
@@ -365,54 +414,57 @@ function changeItems() {
   return list.sort((a, b) => mt(b.path) - mt(a.path));
 }
 function changeDetail(it) {
-  if (!it) return '';
+  if (!it) return '<p class="empty">왼쪽에서 문서를 고르세요.</p>';
   const d = byPath.get(it.path);
-  let h = '<div class="chgh"><div style="min-width:0"><h3>' + (d ? docLink(it.path) : esc(it.path)) + '</h3><div class="path">' + esc(it.path) + (d ? ' · ' + ago(d.mtime) : '') + '</div></div>' +
-    (d ? '<a class="pill" href="' + docHref(it.path) + '">문서 열기</a>' : '') + '</div>';
+  const acts = (SERVED && it.kind !== 'doc' ? '<button type="button" class="pill on" id="seenOne">확인</button>' : '') +
+    (d ? '<a class="pill" href="' + docHref(it.path) + '">문서 열기</a>' : '');
+  let h = '<div class="chgh"><div style="min-width:0"><h3>' + (d ? docLink(it.path) : esc(it.path)) + '</h3><div class="path">' + esc(it.path) + (d ? ' · ' + fmtTime(d.mtime) + ' 수정' : '') + '</div></div><div class="acts">' + acts + '</div></div>';
   if (it.kind === 'modified') h += it.c.diff ? diffHtml(it.c.diff) : '<p class="empty">바뀐 줄이 너무 많아 비교를 생략했습니다. 문서를 열어 보세요.</p>';
   else if (it.kind === 'added' && d) h += '<p class="note">지난 기준 뒤로 새로 생긴 문서입니다.</p><div class="md chgmd">' + md(d.text, d.linkMap, d.path) + '</div>';
+  else if (it.kind === 'doc' && d) h += '<div class="md chgmd">' + md(d.text, d.linkMap, d.path) + '</div>';
   else h += '<p class="empty">지난 기준 뒤로 지워진 문서입니다.</p>';
   return h;
 }
+const ss = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) { /* 기억 못 해도 동작한다 */ } } };
 function viewRecent() {
-  const C = D.changes;
-  let h = '<h1 class="page">최근 바뀐 것</h1><p class="sub">' + (C.first
-    ? '처음 만든 뷰어라 비교할 이전 상태가 없습니다. 다음에 다시 만들면 그 사이 바뀐 문서와 바뀐 줄이 여기에 나옵니다.'
-    : '지난 생성(' + fmtTime(D.prevBuiltAt) + ') 뒤로 바뀐 문서입니다.') + '</p>';
-  if (!C.first) {
-    const n = C.added.length + C.modified.length + C.removed.length;
-    const served = location.protocol.startsWith('http');
-    h += '<div class="card"><h2>바뀐 문서 ' + n + '개</h2>';
-    if (served && n) h += '<div class="pills"><button type="button" class="pill" id="seen">다 확인했어요</button><span class="note" style="align-self:center">누르면 지금 상태가 비교 기준이 됩니다.</span></div>';
-    if (!n) h += '<p class="empty">바뀐 문서가 없습니다.</p>';
-    else h += '<div class="chgx"><nav class="chgl" aria-label="바뀐 문서">' + changeItems().map(it =>
+  const C = D.changes, items = C.first ? [] : changeItems();
+  let mode = ss.get('fv-recent-mode') || 'changed';
+  if (C.first) mode = 'recent';
+  const recents = [...D.docs].sort((a, b) => b.mtime - a.mtime).slice(0, 50).map(d => ({ kind: 'doc', path: d.path, chip: '<span class="chip">' + ago(d.mtime) + '</span>' }));
+  const list = mode === 'changed' ? items : recents;
+  const sub = C.first ? '처음 만든 뷰어라 비교 기준이 없습니다. 다음 생성부터 바뀐 문서가 쌓입니다.' : '지난 기준(' + fmtTime(D.prevBuiltAt) + ') 뒤로 바뀐 문서 ' + items.length + '개';
+  let h = '<div class="phead"><h1 class="page">최근 바뀐 것</h1><p class="sub">' + sub + '</p></div>';
+  h += '<div class="split"><section class="pane"><div class="pane-h"><div class="seg" role="tablist" aria-label="목록 종류">' +
+    '<button type="button" role="tab" data-m="changed" class="' + (mode === 'changed' ? 'on' : '') + '" aria-selected="' + (mode === 'changed') + '"' + (C.first ? ' disabled' : '') + '>바뀐 문서 ' + items.length + '</button>' +
+    '<button type="button" role="tab" data-m="recent" class="' + (mode === 'recent' ? 'on' : '') + '" aria-selected="' + (mode === 'recent') + '">최근 수정</button></div>' +
+    (SERVED && mode === 'changed' && items.length ? '<button type="button" class="pill sm" id="seen" title="지금 상태를 비교 기준으로">모두 확인</button>' : '') +
+    '</div><nav class="pane-b" aria-label="문서 목록">' + (list.length ? list.map(it =>
       '<button type="button" class="chgi" data-p="' + esc(it.path) + '">' + it.chip +
       '<span class="tt">' + esc(byPath.get(it.path) ? byPath.get(it.path).title : it.path.split('/').pop()) + '</span>' +
-      '<span class="path">' + esc(it.path) + '</span></button>').join('') + '</nav><section class="chgd" id="chgd" aria-live="polite"></section></div>';
-    h += '</div>';
-  }
-  const recent = [...D.docs].sort((a, b) => b.mtime - a.mtime).slice(0, 25);
-  h += '<div class="card"><h2>최근에 수정한 문서</h2>' + recent.map(d =>
-    '<div class="row"><span class="t">' + docLink(d.path) + ' <span class="path">' + esc(d.path) + '</span></span><span class="r">' + ago(d.mtime) + '</span></div>').join('') + '</div>';
+      '<span class="path">' + esc(it.path) + '</span></button>').join('') : '<p class="empty" style="padding:10px">바뀐 문서가 없습니다. 모두 확인했어요.</p>') +
+    '</nav></section><section class="pane"><div class="pane-b pad" id="chgd" aria-live="polite"></div></section></div>';
   $('#view').innerHTML = h;
-  const items = C.first ? [] : changeItems();
-  if (items.length) {
-    let sel = null;
-    try { sel = sessionStorage.getItem('fv-recent-sel'); } catch (e) { sel = null; }
-    if (!items.some(it => it.path === sel)) sel = items[0].path;
-    const pick = p => {
-      try { sessionStorage.setItem('fv-recent-sel', p); } catch (e) { /* 기억 못 해도 보여 준다 */ }
-      document.querySelectorAll('.chgi').forEach(b => { const on = b.dataset.p === p; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); });
-      $('#chgd').innerHTML = changeDetail(items.find(it => it.path === p));
-    };
-    document.querySelectorAll('.chgi').forEach(b => b.addEventListener('click', () => pick(b.dataset.p)));
-    pick(sel);
-  }
+  const key = 'fv-recent-sel-' + mode;
+  const pick = p => {
+    ss.set(key, p);
+    document.querySelectorAll('.chgi').forEach(b => { const on = b.dataset.p === p; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); });
+    $('#chgd').innerHTML = changeDetail(list.find(it => it.path === p));
+    $('#chgd').scrollTop = 0;
+    const one = $('#seenOne');
+    if (one) one.addEventListener('click', async () => {
+      one.disabled = true; one.textContent = '저장 중…';
+      try { await post('/api/seen', { path: p }); location.reload(); } catch (e) { one.disabled = false; one.textContent = '다시 확인'; toast('<span>' + esc(e.message) + '</span>', 4000); }
+    });
+  };
+  document.querySelectorAll('.chgi').forEach(b => b.addEventListener('click', () => pick(b.dataset.p)));
+  document.querySelectorAll('.seg [data-m]').forEach(b => b.addEventListener('click', () => { ss.set('fv-recent-mode', b.dataset.m); viewRecent(); }));
+  if (list.length) { const sel = ss.get(key); pick(list.some(it => it.path === sel) ? sel : list[0].path); }
+  else $('#chgd').innerHTML = changeDetail(null);
   const seen = $('#seen');
   if (seen) seen.addEventListener('click', async () => {
     seen.disabled = true; seen.textContent = '저장 중…';
     try { await post('/api/seen', {}); location.reload(); }
-    catch (e) { seen.disabled = false; seen.textContent = '저장하지 못했습니다. 다시 누르기'; }
+    catch (e) { seen.disabled = false; seen.textContent = '다시 누르기'; }
   });
 }
 
@@ -461,80 +513,128 @@ function snippet(t, q) {
   const s = Math.max(0, i - 40);
   return esc((s ? '…' : '') + t.slice(s, i)) + '<mark class="hl">' + esc(t.slice(i, i + q.length)) + '</mark>' + esc(t.slice(i + q.length, i + q.length + 60)) + '…';
 }
+// 문서: 왼쪽 폴더 트리, 오른쪽 고른 폴더의 문서 목록
+function folderTree() {
+  const root = { name: '맨 위', path: '', kids: new Map(), docs: [], total: 0 };
+  for (const d of D.docs) {
+    const parts = d.path.split('/'); parts.pop();
+    let node = root; root.total++;
+    let acc = '';
+    for (const p of parts) {
+      acc = acc ? acc + '/' + p : p;
+      if (!node.kids.has(p)) node.kids.set(p, { name: p, path: acc, kids: new Map(), docs: [], total: 0 });
+      node = node.kids.get(p); node.total++;
+    }
+    node.docs.push(d);
+  }
+  return root;
+}
+function findFolder(node, p) {
+  if (node.path === p) return node;
+  for (const k of node.kids.values()) { const f = findFolder(k, p); if (f) return f; }
+  return null;
+}
 function viewDocs(q) {
   q = (q || '').trim().toLowerCase();
-  const hit = d => !q || d.title.toLowerCase().includes(q) || d.path.toLowerCase().includes(q) || d.text.toLowerCase().includes(q);
-  const list = D.docs.filter(hit);
-  const groups = new Map();
-  for (const d of list) { if (!groups.has(d.folder)) groups.set(d.folder, []); groups.get(d.folder).push(d); }
-  let h = '<h1 class="page">문서</h1><p class="sub">' + (q ? '"' + esc(q) + '" 검색 결과 ' + list.length + '개' : '마크다운 문서 ' + list.length + '개') + '</p>';
-  for (const f of [...groups.keys()].sort()) {
-    const ds = groups.get(f);
-    h += '<div class="card"><h2><span style="color:' + color(f) + '" aria-hidden="true">■</span> ' + esc(f) + ' <span class="path">' + ds.length + '</span></h2>' + ds.map(d => {
-      const inBody = q && !d.title.toLowerCase().includes(q) && !d.path.toLowerCase().includes(q);
-      return '<div class="row"><span class="t">' + docLink(d.path) + ' <span class="path">' + esc(d.path) + '</span>' + (inBody ? '<div class="path">' + snippet(d.text, q) + '</div>' : '') + '</span><span class="r">' + ago(d.mtime) + '</span></div>';
-    }).join('') + '</div>';
+  const tree = folderTree();
+  let sel = ss.get('fv-docs-folder') || '';
+  if (!findFolder(tree, sel)) sel = '';
+  const closed = new Set(JSON.parse(ss.get('fv-docs-closed') || '[]'));
+  const branch = (node, depth) => {
+    const kids = [...node.kids.values()].sort((a, b) => a.name.localeCompare(b.name));
+    const isOpen = !closed.has(node.path);
+    let h = '<div class="tnode"><button type="button" class="navi tfold' + (!q && node.path === sel ? ' on' : '') + '" data-f="' + esc(node.path) + '" style="padding-left:' + (8 + depth * 14) + 'px">' +
+      (kids.length ? '<span class="caret" data-t="' + esc(node.path) + '" aria-label="' + (isOpen ? '접기' : '펼치기') + '">' + (isOpen ? '▾' : '▸') + '</span>' : '<span class="caret"></span>') +
+      '<span class="fdot" style="background:' + (node.path ? color(node.path.split('/')[0]) : 'var(--faint)') + '"></span><span class="fname">' + esc(node.name) + '</span><span class="cnt">' + node.total + '</span></button>';
+    if (kids.length && isOpen) h += kids.map(k => branch(k, depth + 1)).join('');
+    return h + '</div>';
+  };
+  const row = d => '<div class="drow"><div class="t">' + docLink(d.path) + '<div class="path">' + esc(d.path) + '</div>' +
+    (q && !d.title.toLowerCase().includes(q) && !d.path.toLowerCase().includes(q) ? '<div class="path">' + snippet(d.text, q) + '</div>' : '') + '</div>' +
+    '<div class="r">' + (d.fm && d.fm.type ? '<span class="chip">' + esc(d.fm.type) + '</span>' : '') + (d.fm && d.fm.status ? statusChip(String(d.fm.status)) : '') + '<span class="when">' + ago(d.mtime) + '</span></div></div>';
+  let right;
+  if (q) {
+    const hit = D.docs.filter(d => d.title.toLowerCase().includes(q) || d.path.toLowerCase().includes(q) || d.text.toLowerCase().includes(q));
+    right = '<div class="pane-h"><strong>"' + esc(q) + '" 검색 결과</strong><span class="path">' + hit.length + '개</span></div><div class="pane-b pad">' + (hit.map(row).join('') || '<p class="empty">찾는 문서가 없습니다.</p>') + '</div>';
+  } else {
+    const node = findFolder(tree, sel);
+    const subs = [...node.kids.values()].sort((a, b) => a.name.localeCompare(b.name));
+    const docs = [...node.docs].sort((a, b) => b.mtime - a.mtime);
+    right = '<div class="pane-h"><strong>' + esc(sel ? sel.split('/').join(' / ') : '맨 위') + '</strong><span class="path">문서 ' + docs.length + '개' + (subs.length ? ', 폴더 ' + subs.length + '개' : '') + '</span></div><div class="pane-b pad">' +
+      subs.map(s => '<button type="button" class="drow dfold" data-f="' + esc(s.path) + '"><span class="t"><span class="fdot" style="background:' + color(s.path.split('/')[0]) + '"></span><strong>' + esc(s.name) + '/</strong></span><span class="r"><span class="when">' + s.total + '개</span></span></button>').join('') +
+      (docs.map(row).join('') || (subs.length ? '' : '<p class="empty">이 폴더에는 문서가 없습니다.</p>')) + '</div>';
   }
-  if (!list.length) h += '<p class="empty">찾는 문서가 없습니다.</p>';
+  let h = '<div class="phead"><h1 class="page">문서</h1><p class="sub">마크다운 문서 ' + D.docs.length + '개. 왼쪽에서 폴더를 고르면 그 폴더의 문서가 보입니다.</p></div>';
+  h += '<div class="split"><section class="pane"><div class="pane-h"><strong>폴더</strong></div><nav class="pane-b tree" aria-label="폴더 트리">' + branch(tree, 0) + '</nav></section><section class="pane">' + right + '</section></div>';
   $('#view').innerHTML = h;
+  const go = f => { ss.set('fv-docs-folder', f); if (closed.has(f)) { closed.delete(f); ss.set('fv-docs-closed', JSON.stringify([...closed])); } if ($('#q').value) { $('#q').value = ''; } viewDocs(''); };
+  document.querySelectorAll('.tfold, .dfold').forEach(b => b.addEventListener('click', e => {
+    const t = e.target.closest('.caret[data-t]');
+    if (t) { e.stopPropagation(); const k = t.dataset.t; if (closed.has(k)) closed.delete(k); else closed.add(k); ss.set('fv-docs-closed', JSON.stringify([...closed])); viewDocs(q); return; }
+    go(b.dataset.f);
+  }));
 }
 
 let claimFilter = '전체', showDone = false;
 const claimKind = s => (s.startsWith('기록') ? '기록' : s.startsWith('기억') ? '기억' : s.startsWith('삭제') ? '삭제' : '기타');
+const levelChip = s => '<span class="chip' + (s === '통과' ? ' acc' : s === '부분' ? ' warn' : '') + '">' + esc(s || '이해도 없음') + '</span>';
 function viewObjects(tab) {
   const O = D.objects;
   const tabs = [
-    ['questions', '미해결 질문', O.questions.filter(q => !q.done).length],
-    ['claims', '근거 장부 주장', O.claims.length],
-    ['ideas', '아이디어', O.ideas.length],
-    ['study', '공부 노트', O.study.length],
-    ['typed', '속성으로 분류', O.typed.length],
-    ['issues', '속성 점검', (O.issues || []).length],
+    ['questions', '미해결 질문', O.questions.filter(q => !q.done).length, '문서 안의 할 일 체크박스'],
+    ['claims', '근거 장부 주장', O.claims.length, '장부 표의 주장과 근거 상태'],
+    ['ideas', '아이디어', O.ideas.length, '아직 만들지 않은 것'],
+    ['study', '공부 노트', O.study.length, '문답으로 공부한 주제와 이해도'],
+    ['typed', '속성으로 분류', O.typed.length, '문서 맨 위 type별 모음'],
+    ['issues', '속성 점검', (O.issues || []).length, '속성 약속에 어긋난 곳'],
   ].filter(t => t[0] !== 'claims' || t[2] > 0);
-  let h = '<h1 class="page">객체</h1><p class="sub">문서 안에 흩어진 질문, 주장, 아이디어를 종류별로 모았습니다. 이름을 누르면 원래 문서로 갑니다.</p>';
-  h += '<div class="pills">' + tabs.map(([k, l, n]) => '<a class="pill' + (k === tab ? ' on' : '') + '" href="#objects/' + k + '">' + l + ' ' + n + '</a>').join('') + '</div>';
+  if (!tabs.some(t => t[0] === tab)) tab = tabs[0][0];
+  const cur = tabs.find(t => t[0] === tab);
+  let tools = '', body = '';
   if (tab === 'questions') {
     const qs = O.questions.filter(q => showDone || !q.done);
+    const doneN = O.questions.filter(q => q.done).length;
+    tools = '<button type="button" class="pill sm' + (showDone ? ' on' : '') + '" id="tgDone">끝낸 것도 보기 ' + doneN + '</button>';
     const secs = new Map();
     for (const q of qs) { if (!secs.has(q.section)) secs.set(q.section, []); secs.get(q.section).push(q); }
-    const doneN = O.questions.filter(q => q.done).length;
-    h += '<div class="pills"><button type="button" class="pill' + (showDone ? ' on' : '') + '" id="tgDone">끝낸 것도 보기 (' + doneN + ')</button></div>';
-    for (const [sec, arr] of secs) {
-      h += '<div class="card"><h2>' + esc(sec || '구분 없음') + ' <span class="path">' + arr.length + '</span></h2>' + arr.map(q =>
-        '<div class="row"><span class="t">' + (q.done ? '<span class="chip">끝냄</span>' : '') + '<a href="' + docHref(q.doc) + '"><strong>' + esc(q.title) + '</strong></a><div class="note">' + esc(q.detail) + '</div></span></div>').join('') + '</div>';
-    }
-    if (!qs.length) h += '<p class="empty">남은 질문이 없습니다.</p>';
+    for (const [sec, arr] of secs) body += '<h3 class="osec">' + esc(sec || '구분 없음') + ' <span class="path">' + arr.length + '</span></h3>' + arr.map(q =>
+      '<article class="ocard' + (q.done ? ' done' : '') + '"><div class="ohead">' + (q.done ? '<span class="chip">끝냄</span>' : '<span class="chip warn">남음</span>') + '<a href="' + docHref(q.doc) + '"><strong>' + esc(q.title) + '</strong></a></div>' +
+      (q.detail ? '<p class="note">' + esc(q.detail) + '</p>' : '') + '<div class="path">' + esc(q.doc) + '</div></article>').join('');
+    if (!qs.length) body = '<p class="empty">남은 질문이 없습니다.</p>';
   } else if (tab === 'claims') {
     const counts = {};
     for (const c of O.claims) { const k = claimKind(c.status); counts[k] = (counts[k] || 0) + 1; }
     const kinds = ['전체', '기록', '기억', '삭제', '기타'].filter(k => k === '전체' || counts[k]);
-    h += '<div class="pills">' + kinds.map(k => '<button type="button" class="pill cf' + (k === claimFilter ? ' on' : '') + '" data-k="' + k + '">' + k + ' ' + (k === '전체' ? O.claims.length : counts[k]) + '</button>').join('') + '</div>';
+    tools = '<div class="seg">' + kinds.map(k => '<button type="button" class="cf' + (k === claimFilter ? ' on' : '') + '" data-k="' + k + '">' + k + ' ' + (k === '전체' ? O.claims.length : counts[k]) + '</button>').join('') + '</div>';
     const rows = O.claims.filter(c => claimFilter === '전체' || claimKind(c.status) === claimFilter);
-    h += '<div class="card" style="overflow-x:auto"><table class="objs"><thead><tr><th>주장</th><th>상태</th><th>절</th></tr></thead><tbody>' + rows.map(c =>
-      '<tr><td>' + esc(c.claim) + '</td><td><span class="chip' + (claimKind(c.status) === '기록' ? ' acc' : claimKind(c.status) === '삭제' ? ' del' : '') + '">' + esc(c.status) + '</span></td><td class="note"><a href="' + docHref(c.doc) + '">' + esc(c.section) + '</a></td></tr>').join('') + '</tbody></table></div>';
-  } else if (tab === 'ideas') {
-    h += '<div class="card">' + (O.ideas.map(x => '<div class="row"><span class="t">' + docLink(x.doc, x.title) + ' <span class="path">' + esc(x.doc) + '</span></span><span class="r">' + esc(x.status) + '</span></div>').join('') || '<p class="empty">아이디어가 없습니다.</p>') + '</div>';
-  } else if (tab === 'study') {
-    h += '<div class="card">' + (O.study.map(x => '<div class="row"><span class="t">' + docLink(x.doc, x.title) + ' <span class="path">' + esc(x.first) + '</span></span><span class="r">' + esc(x.level || '이해도 없음') + '</span></div>').join('') || '<p class="empty">공부 노트가 없습니다.</p>') + '</div>';
+    body = '<table class="objs"><thead><tr><th>주장</th><th>상태</th><th>절</th></tr></thead><tbody>' + rows.map(c =>
+      '<tr><td>' + esc(c.claim) + '</td><td><span class="chip' + (claimKind(c.status) === '기록' ? ' acc' : claimKind(c.status) === '삭제' ? ' del' : '') + '">' + esc(c.status) + '</span></td><td class="note"><a href="' + docHref(c.doc) + '">' + esc(c.section) + '</a></td></tr>').join('') + '</tbody></table>';
+  } else if (tab === 'ideas' || tab === 'study') {
+    const arr = tab === 'ideas' ? O.ideas : O.study;
+    body = arr.length ? '<table class="objs"><thead><tr><th>' + (tab === 'ideas' ? '아이디어' : '주제') + '</th><th>' + (tab === 'ideas' ? '상태' : '이해도') + '</th>' + (tab === 'study' ? '<th>처음 본 날</th>' : '') + '</tr></thead><tbody>' + arr.map(x =>
+      '<tr><td>' + docLink(x.doc, x.title) + '<div class="path">' + esc(x.doc) + '</div></td><td>' + (tab === 'study' ? levelChip(x.level) : statusChip(x.status || '없음')) + '</td>' + (tab === 'study' ? '<td class="note">' + esc(x.first || '') + '</td>' : '') + '</tr>').join('') + '</tbody></table>'
+      : '<p class="empty">' + (tab === 'ideas' ? '아이디어가 없습니다.' : '공부 노트가 없습니다.') + '</p>';
   } else if (tab === 'issues') {
     const iss = O.issues || [];
-    if (!iss.length) {
-      h += '<div class="card"><p class="empty">경고가 없습니다. 모든 문서가 metadata-guide.md의 약속을 지키고 있습니다.</p></div>';
-    } else {
+    if (!iss.length) body = '<p class="empty">경고가 없습니다. 모든 문서가 ' + docLink('metadata-guide.md', 'metadata-guide.md') + '의 약속을 지키고 있습니다.</p>';
+    else {
       const g = new Map();
       for (const x of iss) { if (!g.has(x.doc)) g.set(x.doc, []); g.get(x.doc).push(x.msg); }
-      h += '<p class="note" style="margin:0 0 10px">약속은 ' + docLink('metadata-guide.md', 'metadata-guide.md') + '에 있습니다.</p>';
-      for (const [doc, msgs] of g) h += '<div class="card"><h2>' + docLink(doc) + ' <span class="path">' + esc(doc) + '</span></h2><ul style="margin:0;padding-left:18px">' + msgs.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul></div>';
+      body = [...g].map(([doc, msgs]) => '<article class="ocard"><div class="ohead"><span class="chip del">' + msgs.length + '</span>' + docLink(doc) + '</div><ul class="olist">' + msgs.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul></article>').join('');
     }
   } else {
-    if (!O.typed.length) {
-      h += '<div class="card"><p class="empty">아직 속성을 적은 문서가 없습니다. 문서 맨 위에 아래처럼 적으면 여기에 종류별로 모입니다.</p><pre class="diff"><div>---</div><div>type: decision</div><div>status: 확정</div><div>---</div></pre></div>';
-    } else {
+    if (!O.typed.length) body = '<p class="empty">아직 속성을 적은 문서가 없습니다.</p>';
+    else {
       const g = new Map();
       for (const x of O.typed) { if (!g.has(x.type)) g.set(x.type, []); g.get(x.type).push(x); }
-      for (const [t, arr] of g) h += '<div class="card"><h2>' + esc(t) + ' <span class="path">' + arr.length + '</span></h2>' + arr.map(x => '<div class="row"><span class="t">' + docLink(x.doc, x.title) + '</span><span class="r">' + esc(x.status) + '</span></div>').join('') + '</div>';
+      body = [...g].sort((a, b) => b[1].length - a[1].length).map(([t, arr]) => '<details class="ogroup" open><summary><strong>' + esc(t) + '</strong> <span class="path">' + arr.length + '</span></summary>' +
+        arr.map(x => '<div class="drow"><div class="t">' + docLink(x.doc, x.title) + '<div class="path">' + esc(x.doc) + '</div></div><div class="r">' + statusChip(x.status || '없음') + '</div></div>').join('') + '</details>').join('');
     }
   }
+  let h = '<div class="phead"><h1 class="page">객체</h1><p class="sub">문서 안에 흩어진 질문, 아이디어, 노트를 종류별로 모았습니다.</p></div>';
+  h += '<div class="split"><section class="pane"><div class="pane-h"><strong>종류</strong></div><nav class="pane-b" aria-label="객체 종류">' + tabs.map(([k, l, n, desc]) =>
+    '<a class="navi oitem' + (k === tab ? ' on' : '') + '" href="#objects/' + k + '"><span><span class="fname">' + l + '</span><span class="odesc">' + desc + '</span></span><span class="cnt">' + n + '</span></a>').join('') + '</nav></section>' +
+    '<section class="pane"><div class="pane-h"><strong>' + cur[1] + '</strong><span class="path">' + cur[2] + '</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">' + tools + '</span></div><div class="pane-b pad">' + body + '</div></section></div>';
   $('#view').innerHTML = h;
   const td = $('#tgDone'); if (td) td.addEventListener('click', () => { showDone = !showDone; viewObjects('questions'); });
   document.querySelectorAll('.cf').forEach(b => b.addEventListener('click', () => { claimFilter = b.dataset.k; viewObjects('claims'); }));
@@ -823,30 +923,49 @@ function wireDocTools(d) {
   });
 }
 
-function viewFeedback() {
-  const fb = feedbackItems(), rules = ruleItems();
-  const col = (name, list) => '<section class="fcol" aria-label="' + name + '"><h2>' + name + ' <span class="path">' + list.length + '</span></h2>' + (list.map(f =>
+function viewFeedback(tab) {
+  const fb = feedbackItems(), rules = ruleItems(), edits = D.edits || [];
+  const open = fb.filter(f => f.status === '대기' || f.status === '진행 중').length, proposedN = rules.filter(r => r.status === '제안').length;
+  const tabs = [['comments', '댓글', open], ['rules', '규칙 후보', proposedN], ['edits', '웹 편집 기록', edits.length]];
+  if (!tabs.some(t => t[0] === tab)) tab = 'comments';
+  const col = (name, list) => '<section class="fcol" aria-label="' + name + '"><h2>' + name + ' <span class="path">' + list.length + '</span></h2><div class="fbody">' + (list.map(f =>
     '<article class="fcard"><div class="fhead">' + statusChip(f.status) + (f.target ? docLink(f.target) : '') + '</div>' +
     (f.quote ? '<blockquote class="fq">' + esc(cut(f.quote, 160)) + '</blockquote>' : '') +
     '<p class="fc">' + esc(cut(f.comment, 240)) + '</p>' +
     (f.result ? '<details class="fr"><summary>처리 내용</summary><div class="md">' + md(f.result, {}) + '</div></details>' : '') +
     (f.memo ? '<p class="note">' + esc(cut(f.memo.replace(/^- /gm, ''), 160)) + '</p>' : '') +
-    '<div class="frow"><span class="path">' + esc(f.created) + '</span>' + (SERVED ? '<label class="sr" for="s-' + esc(f.path) + '">상태</label><select class="fstat" id="s-' + esc(f.path) + '" data-p="' + esc(f.path) + '">' + ['대기', '진행 중', '완료', '안 함'].map(s => '<option' + (s === f.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' : '') + '<a class="path" href="' + docHref(f.path) + '">파일</a></div></article>').join('') || '<p class="empty">없음</p>') + '</section>';
-  let h = '<h1 class="page">피드백</h1><p class="sub">문서에서 남긴 댓글이 여기 모입니다. AI가 다음 대화에서 대기 중인 것을 집어 가 진행 중으로 바꾸고, 고친 뒤 처리 내용을 적고 완료로 바꿉니다.</p>';
-  h += '<div class="board">' + col('대기', fb.filter(f => f.status === '대기')) + col('진행 중', fb.filter(f => f.status === '진행 중')) + col('완료', fb.filter(f => f.status === '완료' || f.status === '안 함')) + '</div>';
-
-  const proposed = rules.filter(r => r.status === '제안'), approved = rules.filter(r => r.status === '승인'), done = rules.filter(r => r.status === '반영' || r.status === '거절');
-  h += '<h2 class="sect">글쓰기 규칙 후보</h2><p class="sub">웹에서 고친 기록에서 AI가 반복되는 패턴을 찾아 규칙 후보로 올립니다. 승인하면 AI가 writing-guide.md에 이유와 함께 넣습니다.</p>';
-  h += proposed.map(r => '<article class="card rcard"><div class="fhead">' + statusChip(r.status) + '<strong>' + esc(r.title) + '</strong></div><div class="md">' + md(r.rule, r.linkMap) + '</div>' +
-    (r.basis ? '<details class="fr"><summary>근거가 된 수정</summary><div class="md">' + md(r.basis, r.linkMap) + '</div></details>' : '') +
-    (SERVED ? '<div class="crow"><label class="sr" for="n-' + esc(r.path) + '">메모</label><input type="text" class="rnote" id="n-' + esc(r.path) + '" placeholder="한 줄 메모 (선택)"><button type="button" class="pill on rdec" data-p="' + esc(r.path) + '" data-s="승인">승인</button><button type="button" class="pill rdec" data-p="' + esc(r.path) + '" data-s="거절">거절</button></div>' : '') + '</article>').join('');
-  if (!proposed.length) h += '<p class="empty">검토할 규칙 후보가 없습니다.</p>';
-  if (approved.length) h += '<div class="card"><h3>승인됨, 반영 대기 ' + approved.length + '</h3><ul>' + approved.map(r => '<li>' + docLink(r.path, r.title) + '</li>').join('') + '</ul></div>';
-  if (done.length) h += '<details class="card"><summary>반영했거나 거절한 후보 ' + done.length + '</summary><ul>' + done.map(r => '<li>' + statusChip(r.status) + ' ' + docLink(r.path, r.title) + '</li>').join('') + '</ul></details>';
-
-  h += '<h2 class="sect">웹에서 고친 기록</h2>';
-  h += (D.edits || []).length ? '<div class="card">' + D.edits.map(e => '<details class="chg"><summary>' + docLink(e.path) + ' <span class="chip">' + esc(e.kind) + '</span><span class="chip add">+' + e.plus + '</span><span class="chip del">-' + e.minus + '</span> <span class="path">' + esc(fmtTime(Date.parse(e.at))) + '</span><div class="note">' + (e.reason ? '이유: ' + esc(e.reason) : '이유를 적지 않음') + '</div></summary>' + diffHtml(e.diff) + '</details>').join('') + '</div>' : '<p class="empty">아직 웹에서 고친 문서가 없습니다. 문서 화면의 "편집"으로 고치면 여기에 쌓입니다.</p>';
+    '<div class="frow"><span class="path">' + esc(f.created) + '</span>' + (SERVED ? '<label class="sr" for="s-' + esc(f.path) + '">상태</label><select class="fstat" id="s-' + esc(f.path) + '" data-p="' + esc(f.path) + '">' + ['대기', '진행 중', '완료', '안 함'].map(s => '<option' + (s === f.status ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' : '') + '<a class="path" href="' + docHref(f.path) + '">파일</a></div></article>').join('') || '<p class="empty">없음</p>') + '</div></section>';
+  let h = '<div class="phead"><h1 class="page">피드백</h1><div class="seg" role="tablist">' + tabs.map(([k, l, n]) =>
+    '<a role="tab" href="#feedback/' + k + '" class="' + (k === tab ? 'on' : '') + '" aria-selected="' + (k === tab) + '">' + l + (n ? ' <span class="nbadge">' + n + '</span>' : '') + '</a>').join('') + '</div></div>';
+  if (tab === 'comments') {
+    h += '<p class="sub" style="margin:0 0 10px">문서에서 남긴 댓글입니다. AI가 다음 대화에서 대기 중인 것을 집어 가 고친 뒤 처리 내용을 적습니다.</p>';
+    h += '<div class="board">' + col('대기', fb.filter(f => f.status === '대기')) + col('진행 중', fb.filter(f => f.status === '진행 중')) + col('완료', fb.filter(f => f.status === '완료' || f.status === '안 함')) + '</div>';
+  } else if (tab === 'rules') {
+    const proposed = rules.filter(r => r.status === '제안'), approved = rules.filter(r => r.status === '승인'), done = rules.filter(r => r.status === '반영' || r.status === '거절');
+    let b = proposed.map(r => '<article class="ocard rcard"><div class="ohead">' + statusChip(r.status) + '<strong>' + esc(r.title) + '</strong></div><div class="md">' + md(r.rule, r.linkMap) + '</div>' +
+      (r.basis ? '<details class="fr"><summary>근거가 된 수정</summary><div class="md">' + md(r.basis, r.linkMap) + '</div></details>' : '') +
+      (SERVED ? '<div class="crow"><label class="sr" for="n-' + esc(r.path) + '">메모</label><input type="text" class="rnote" id="n-' + esc(r.path) + '" placeholder="한 줄 메모 (선택)"><button type="button" class="pill on rdec" data-p="' + esc(r.path) + '" data-s="승인">승인</button><button type="button" class="pill rdec" data-p="' + esc(r.path) + '" data-s="거절">거절</button></div>' : '') + '</article>').join('');
+    if (!proposed.length) b += '<p class="empty">검토할 규칙 후보가 없습니다.</p>';
+    if (approved.length) b += '<h3 class="osec">승인됨, 반영 대기 <span class="path">' + approved.length + '</span></h3>' + approved.map(r => '<div class="drow"><div class="t">' + docLink(r.path, r.title) + '</div><div class="r">' + statusChip(r.status) + '</div></div>').join('');
+    if (done.length) b += '<details class="ogroup"><summary><strong>반영했거나 거절한 후보</strong> <span class="path">' + done.length + '</span></summary>' + done.map(r => '<div class="drow"><div class="t">' + docLink(r.path, r.title) + '</div><div class="r">' + statusChip(r.status) + '</div></div>').join('') + '</details>';
+    h += '<p class="sub" style="margin:0 0 10px">웹에서 고친 기록에서 AI가 반복되는 패턴을 찾아 올린 후보입니다. 승인하면 writing-guide.md에 들어갑니다.</p>';
+    h += '<section class="pane grow"><div class="pane-b pad">' + b + '</div></section>';
+  } else {
+    h += '<div class="split"><section class="pane"><div class="pane-h"><strong>고친 기록</strong><span class="path">' + edits.length + '</span></div><nav class="pane-b">' + (edits.length ? edits.map((e, i) =>
+      '<button type="button" class="chgi" data-i="' + i + '"><span class="chip">' + esc(e.kind) + '</span><span class="chip add">+' + e.plus + '</span><span class="chip del">-' + e.minus + '</span>' +
+      '<span class="tt">' + esc(byPath.get(e.path) ? byPath.get(e.path).title : e.path) + '</span><span class="path">' + esc(fmtTime(Date.parse(e.at))) + '</span></button>').join('') : '<p class="empty" style="padding:10px">아직 웹에서 고친 문서가 없습니다.</p>') +
+      '</nav></section><section class="pane"><div class="pane-b pad" id="edd"></div></section></div>';
+  }
   $('#view').innerHTML = h;
+  if (tab === 'edits') {
+    const show = i => {
+      const e = edits[i];
+      document.querySelectorAll('.chgi').forEach(b => b.classList.toggle('on', +b.dataset.i === i));
+      $('#edd').innerHTML = e ? '<div class="chgh"><div style="min-width:0"><h3>' + docLink(e.path) + '</h3><div class="path">' + esc(e.path) + ' · ' + esc(fmtTime(Date.parse(e.at))) + '</div></div></div><p class="note">' + (e.reason ? '이유: ' + esc(e.reason) : '이유를 적지 않음') + '</p>' + diffHtml(e.diff) : '<p class="empty">왼쪽에서 기록을 고르세요.</p>';
+    };
+    document.querySelectorAll('.chgi[data-i]').forEach(b => b.addEventListener('click', () => show(+b.dataset.i)));
+    show(edits.length ? 0 : -1);
+  }
   document.querySelectorAll('.fstat').forEach(s => s.addEventListener('change', async () => {
     try { await post('/api/status', { path: s.dataset.p, status: s.value }); location.reload(); } catch (e) { alert(e.message); }
   }));
@@ -1136,10 +1255,12 @@ function viewGraphV(mv) {
 function route() {
   const h = decodeURIComponent(location.hash.slice(1) || 'recent');
   window.scrollTo(0, 0);
+  // 문서 하나를 볼 때만 페이지가 스크롤된다. 나머지 화면은 창 높이에 맞추고 안쪽 칸만 스크롤한다
+  document.body.classList.toggle('fit', !h.startsWith('doc/'));
   if (h.startsWith('doc/')) { setNav('docs'); viewDoc(h.slice(4)); return; }
   if (h === 'objects' || h.startsWith('objects/')) { setNav('objects'); viewObjects(h.split('/')[1] || 'questions'); return; }
   if (h === 'docs') { setNav('docs'); viewDocs($('#q').value); return; }
-  if (h === 'feedback') { setNav('feedback'); viewFeedback(); return; }
+  if (h === 'feedback' || h.startsWith('feedback/')) { setNav('feedback'); viewFeedback(h.split('/')[1]); return; }
   if (h === 'graph') {
     setNav('graph');
     if (MV === '0') { viewGraph(); const p = $('#view h1.page'); if (p) p.insertAdjacentHTML('afterend', variantBar()); }

@@ -48,3 +48,19 @@ test('빈 폴더도 경고 0개로 만들고 장부 주장은 비어 있다', ()
   assert.match(out, /속성 점검: 경고 0개/);
   assert.deepEqual(dataOf(root).objects.claims, []);
 });
+
+test('--seen-path는 그 문서 하나만 비교 기준을 새로 잡는다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '02-study/a.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# a\n');
+  write(root, '02-study/b.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# b\n');
+  execFileSync(process.execPath, [BUILD, root, '--seen']);
+  write(root, '02-study/a.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# a\n\n한 줄 더\n');
+  write(root, '02-study/b.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# b\n\n한 줄 더\n');
+  write(root, '02-study/c.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# c\n');
+  execFileSync(process.execPath, [BUILD, root, '--seen-path', '02-study/a.md']);
+  execFileSync(process.execPath, [BUILD, root, '--seen-path', '02-study/c.md']);
+  const ch = dataOf(root).changes;
+  assert.deepEqual(ch.modified.map((m) => m.path), ['02-study/b.md']);
+  assert.deepEqual(ch.added, []);
+});

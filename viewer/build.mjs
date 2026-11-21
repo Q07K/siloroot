@@ -19,7 +19,7 @@ const args = process.argv.slice(2);
 // 그래야 AI가 점검하려고 실행해도 "최근 바뀐 것"이 지워지지 않는다. --keep-snapshot은 예전 이름이라 그냥 받아 둔다.
 const KEEP_SNAPSHOT = !args.includes('--seen');
 // 폴더는 인자, VIEWER_ROOT 환경 변수, 지금 폴더 순으로 정한다.
-const ROOT = path.resolve(args.find((a) => !a.startsWith('--')) || process.env.VIEWER_ROOT || process.cwd());
+const ROOT = path.resolve(args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--seen-path') || process.env.VIEWER_ROOT || process.cwd());
 const CFG = loadConfig(ROOT) || { dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
 const DIRS = CFG.dirs;
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
@@ -277,6 +277,14 @@ const objects = {
 const hash = (s) => crypto.createHash('sha256').update(s).digest('hex');
 let prev = null;
 try { prev = JSON.parse(fs.readFileSync(SNAP, 'utf8')); } catch { prev = null; }
+// --seen-path <문서>: 그 문서 하나만 "확인함"으로 비교 기준을 새로 잡는다 (뷰어의 개별 확인 버튼)
+const SEEN_PATH = args.includes('--seen-path') ? args[args.indexOf('--seen-path') + 1] : null;
+if (SEEN_PATH && prev) {
+  const cur = docs.find((d) => d.path === SEEN_PATH);
+  if (cur) prev.files[SEEN_PATH] = { hash: hash(cur.text), text: cur.text };
+  else delete prev.files[SEEN_PATH];
+  fs.writeFileSync(SNAP, JSON.stringify(prev));
+}
 
 const changes = { first: !prev, added: [], modified: [], removed: [] };
 if (prev) {

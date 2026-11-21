@@ -181,7 +181,14 @@ async function api(req, res) {
     return send(res, 200, { ok: true, id: entry.id });
   }
 
-  if (req.url === '/api/seen') { build(['--seen']); return send(res, 200, { ok: true }); }
+  if (req.url === '/api/seen') {
+    if (body.path === undefined) { build(['--seen']); return send(res, 200, { ok: true }); }
+    // 문서 하나만 확인: 지운 문서도 받으므로 파일이 있는지는 보지 않고 경로 모양만 확인한다
+    const p = safePath(body.path);
+    if (!p) return send(res, 400, { error: '확인할 수 없는 경로입니다.' });
+    build(['--seen-path', p.rel]);
+    return send(res, 200, { ok: true });
+  }
   return send(res, 404, { error: '없는 요청입니다.' });
 }
 

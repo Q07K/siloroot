@@ -78,3 +78,13 @@ test('다른 Host 이름으로 온 요청은 거절한다 (DNS 리바인딩 막�
     assert.equal(status, 403, p);
   }
 });
+
+test('문서 하나만 확인하면 200을 돌려준다', async () => {
+  const r = await post('/api/seen', { path: '02-study/a.md' });
+  assert.equal(r.status, 200);
+});
+
+test('확인할 경로가 폴더 밖이면 400', async () => {
+  const r = await post('/api/seen', { path: '../밖.md' });
+  assert.equal(r.status, 400);
+});
