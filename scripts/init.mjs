@@ -46,10 +46,12 @@ function ensureClaudeMd(root) {
   const raw = fs.readFileSync(file, 'utf8');
   const eol = raw.includes('\r\n') ? '\r\n' : '\n';
   const blockEol = block.split('\n').join(eol);
+  const starts = raw.split(START).length - 1, ends = raw.split(END).length - 1;
   const a = raw.indexOf(START), b = raw.indexOf(END);
   let next;
-  if (a >= 0 && b > a) next = raw.slice(0, a) + blockEol + raw.slice(b + END.length);
-  else next = raw + (raw.endsWith('\n') || raw === '' ? '' : eol) + eol + blockEol + eol;
+  if (starts === 0 && ends === 0) next = raw + (raw.endsWith('\n') || raw === '' ? '' : eol) + eol + blockEol + eol;
+  else if (starts === 1 && ends === 1 && b > a) next = raw.slice(0, a) + blockEol + raw.slice(b + END.length);
+  else return 'conflict'; // 표시가 짝이 안 맞으면 사용자가 손댄 것이라 보고 건드리지 않는다
   if (next === raw) return 'skipped';
   fs.writeFileSync(file, next);
   return 'updated';
@@ -58,10 +60,11 @@ function ensureClaudeMd(root) {
 export async function initProject(rootArg) {
   const root = path.resolve(rootArg);
   fs.mkdirSync(root, { recursive: true });
-  const created = [], skipped = [];
+  const created = [], skipped = [], warnings = [];
 
   const md = ensureClaudeMd(root);
   (md === 'created' ? created : skipped).push('CLAUDE.md');
+  if (md === 'conflict') warnings.push(`CLAUDE.md의 SiloRoot 표시(${START}, ${END})가 짝이 맞지 않아 건드리지 않았습니다. 두 표시를 한 번씩만 남기거나 모두 지운 뒤 다시 실행하세요.`);
 
   for (const [tpl, dest] of FILES) {
     const full = path.join(root, dest);
@@ -81,7 +84,7 @@ export async function initProject(rootArg) {
   }
 
   execFileSync(process.execPath, [BUILD, root], { stdio: 'ignore' });
-  return { created, skipped, port: cfg.port, url: 'http://127.0.0.1:' + cfg.port };
+  return { created, skipped, warnings, port: cfg.port, url: 'http://127.0.0.1:' + cfg.port };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

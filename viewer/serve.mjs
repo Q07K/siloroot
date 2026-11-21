@@ -185,8 +185,12 @@ async function api(req, res) {
   return send(res, 404, { error: '없는 요청입니다.' });
 }
 
+// 다른 도메인 이름을 127.0.0.1로 돌려 문서를 읽어 가지 못하게(DNS 리바인딩): 이 주소로 온 요청만 받는다
+const HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`]);
+
 http.createServer(async (req, res) => {
   try {
+    if (!HOSTS.has(String(req.headers.host || '').toLowerCase())) { res.writeHead(403); res.end(); return; }
     if (req.method === 'POST' && req.url.startsWith('/api/')) return await api(req, res);
     if (req.method === 'GET' && req.url.startsWith('/file?')) {
       const img = safeImage(new URL(req.url, 'http://x').searchParams.get('path'));

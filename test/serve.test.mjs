@@ -66,3 +66,15 @@ test('설정 파일은 웹에서 고칠 수 없다', async () => {
   assert.equal(r.status, 400);
   assert.equal(fs.readFileSync(file, 'utf8'), beforeText);
 });
+
+test('다른 Host 이름으로 온 요청은 거절한다 (DNS 리바인딩 막기)', async () => {
+  for (const p of ['/', '/health']) {
+    const status = await new Promise((resolve, reject) => {
+      import('node:http').then(({ default: http }) => {
+        const req = http.get({ host: '127.0.0.1', port, path: p, headers: { host: 'evil.example:' + port } }, (res) => { res.resume(); resolve(res.statusCode); });
+        req.on('error', reject);
+      });
+    });
+    assert.equal(status, 403, p);
+  }
+});

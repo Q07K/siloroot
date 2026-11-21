@@ -83,3 +83,19 @@ test('템플릿, 스킬, README에 개인 정보 금지어가 없다', () => {
   }
   assert.deepEqual(hits, []);
 });
+
+test('끝 표시가 없는 CLAUDE.md는 건드리지 않고 경고로 알린다', async () => {
+  const root = makeProject();
+  const original = '# 내 규칙\n\n<!-- siloroot:start -->\n옛 블록\n\nMY OWN RULES KEEP\n';
+  write(root, 'CLAUDE.md', original);
+  const r1 = await initProject(root);
+  await initProject(root);
+  assert.equal(fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8'), original);
+  assert.ok(r1.warnings.some((w) => w.includes('CLAUDE.md')));
+});
+
+test('CLAUDE.md 블록은 실행할 수 없는 "뷰어 다시 만들기" 대신 뷰어의 속성 점검 화면을 가리킨다', () => {
+  const block = fs.readFileSync(path.join(REPO, 'templates', 'CLAUDE.block.md'), 'utf8');
+  assert.doesNotMatch(block, /뷰어를 다시 만들어/);
+  assert.match(block, /속성 점검/);
+});

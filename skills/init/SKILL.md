@@ -13,7 +13,7 @@ description: 지금 프로젝트 폴더를 SiloRoot 작업 공간으로 초기�
    node "${CLAUDE_PLUGIN_ROOT}/scripts/init.mjs" "<프로젝트 폴더 절대 경로>"
    ```
 
-   출력은 JSON이다: `created`(새로 만든 파일), `skipped`(이미 있어 그대로 둔 파일), `port`, `url`.
+   출력은 JSON이다: `created`(새로 만든 파일), `skipped`(이미 있어 그대로 둔 파일), `warnings`(사용자가 직접 정리해야 할 것), `port`, `url`. `warnings`가 있으면 3단계에서 그대로 전한다.
 
 2. 뷰어 서버를 켜고 브라우저로 연다. 프로젝트 폴더에서 실행한다.
 
