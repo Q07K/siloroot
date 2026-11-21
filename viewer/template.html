@@ -6,8 +6,8 @@
 <title>SiloRoot</title>
 <link rel="icon" type="image/png" href="__BRAND_ICON__">
 <style>
-:root{--bg:#ECE5E0;--surface:#F5EFEB;--border:#DDD4CD;--ink:#2F4156;--muted:#4D6878;--faint:#55707E;--accent:#3F6474;--accent-bg:#C8D9E6;--add-bg:#E6F4EA;--add-ink:#1E6B35;--del-bg:#FBE9E9;--del-ink:#8E2A2A;--code-bg:#E6DED7;--line:#CFC5BD}
-@media (prefers-color-scheme: dark){:root{--bg:#1C2733;--surface:#2F4156;--border:#43586E;--ink:#F5EFEB;--muted:#C8D9E6;--faint:#A3B8C6;--accent:#C8D9E6;--accent-bg:#40596D;--add-bg:#173322;--add-ink:#8FD3A4;--del-bg:#3A1C1C;--del-ink:#F0A3A3;--code-bg:#26364A;--line:#52687D}}
+:root{--bg:#ECE5E0;--surface:#F5EFEB;--border:#DDD4CD;--line:#CFC5BD;--code-bg:#E6DED7;--ink:#2F4156;--muted:#4D6878;--faint:#55707E;--accent:#3F6474;--accent-bg:#C8D9E6;--on-accent:#F5EFEB;--add-bg:#DCE8E4;--add-ink:#2F5E55;--del-bg:#EFDCD8;--del-ink:#8A4A44;--flash-bg:#F0DFC4;--flash-bar:#C9A46A;--attn:#B7835A;--shadow:rgba(47,65,86,.10);--shadow-soft:rgba(47,65,86,.06)}
+@media (prefers-color-scheme: dark){:root{--bg:#1C2733;--surface:#2F4156;--border:#43586E;--line:#52687D;--code-bg:#26364A;--ink:#F5EFEB;--muted:#C8D9E6;--faint:#A3B8C6;--accent:#C8D9E6;--accent-bg:#40596D;--on-accent:#1C2733;--add-bg:#24443F;--add-ink:#A9D3C6;--del-bg:#4A2F2E;--del-ink:#E8B7AE;--flash-bg:#5A4A33;--flash-bar:#D9B77E;--attn:#D9A47A;--shadow:rgba(0,0,0,.35);--shadow-soft:rgba(0,0,0,.25)}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;font-size:15px;line-height:1.65}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
@@ -39,6 +39,17 @@ h1.page{font-size:22px;margin:0 0 4px}
 details.chg{border-top:1px solid var(--border);padding:8px 0}
 details.chg:first-of-type{border-top:0}
 details.chg summary{cursor:pointer}
+.chgx{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:16px;margin-top:12px}
+.chgl{display:flex;flex-direction:column;gap:2px;max-height:72vh;overflow:auto}
+.chgi{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:10px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--ink)}
+.chgi:hover{background:var(--code-bg)}
+.chgi.on{background:var(--accent-bg);border-color:var(--line)}
+.chgi .tt{display:block;font-weight:600;font-size:14px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chgd{min-width:0;border-left:1px solid var(--border);padding-left:16px}
+.chgh{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.chgh h3{margin:0;font-size:17px}
+.chgmd{max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px 16px;background:var(--bg)}
+@media (max-width:760px){.chgx{grid-template-columns:1fr}.chgl{max-height:none}.chgd{border-left:0;padding-left:0;border-top:1px solid var(--border);padding-top:12px}}
 pre.diff{margin:8px 0 0;padding:8px 0;background:var(--code-bg);border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.55}
 pre.diff div{padding:0 12px;white-space:pre-wrap;word-break:break-word}
 pre.diff .a{background:var(--add-bg);color:var(--add-ink)}pre.diff .d{background:var(--del-bg);color:var(--del-ink)}pre.diff .g{color:var(--faint)}
@@ -100,11 +111,11 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .nd .lb{font-size:11.5px;fill:var(--ink);stroke:var(--surface);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round;pointer-events:none}
 .nd.sel .lb,.nd.hov .lb{font-weight:700}
 .gtools{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
-.gtools button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;line-height:1;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.gtools button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;line-height:1;cursor:pointer;box-shadow:0 1px 3px var(--shadow-soft)}
 .gtools button:hover{background:var(--code-bg)}
 .gtools button.wide{font-size:12px;font-weight:600}
 .gzoom{position:absolute;bottom:10px;right:14px;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;pointer-events:none}
-.ginfo{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 76px);max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;z-index:2;box-shadow:0 6px 20px rgba(0,0,0,.10)}
+.ginfo{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 76px);max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;z-index:2;box-shadow:0 6px 20px var(--shadow)}
 .ginfo .ghead{display:flex;gap:10px;align-items:flex-start}
 .ginfo .gdot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex:none}
 .ginfo .gx{background:none;border:0;color:var(--faint);font-size:20px;line-height:1;cursor:pointer;width:32px;height:32px;margin:-6px -8px 0 0;border-radius:8px}
@@ -112,22 +123,20 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .ginfo .gstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
 .ginfo .gstats span{background:var(--code-bg);border-radius:8px;padding:6px 8px;font-size:11px;color:var(--muted)}
 .ginfo .gstats b{display:block;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
-.ginfo .gopen{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:9px;background:var(--accent);color:var(--surface);font-weight:600;font-size:14px}
+.ginfo .gopen{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:9px;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:14px}
 .ginfo .gopen:hover{text-decoration:none;opacity:.92}
 .ginfo h3{font-size:12px;color:var(--faint);margin:14px 0 4px;font-weight:600}
 .ginfo ul{list-style:none;margin:0;padding:0}
 .ginfo li{padding:1px 0}
-@media (prefers-color-scheme: dark){.ginfo .gopen{color:#0b0b0b}}
 .vbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 10px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .md .mdimg{display:block;margin:12px 0}
 .md .mdimg img{display:block;max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;box-sizing:border-box}
 .md .mdimg .cap{display:block;font-size:13px;color:var(--muted);margin-top:6px}
-.md .flash,.row.flash{animation:fvflash 6s ease-out;border-radius:4px}
-@keyframes fvflash{0%,40%{background:#FFF1B8;box-shadow:-4px 0 0 #E8B500}100%{background:transparent;box-shadow:none}}
-@media (prefers-color-scheme: dark){@keyframes fvflash{0%,40%{background:#4A3B00;box-shadow:-4px 0 0 #E8B500}100%{background:transparent;box-shadow:none}}}
+.md .flash,.row.flash,.chgi.flash{animation:fvflash 6s ease-out;border-radius:4px}
+@keyframes fvflash{0%,40%{background:var(--flash-bg);box-shadow:-4px 0 0 var(--flash-bar)}100%{background:transparent;box-shadow:none}}
 #toast[hidden]{display:none}
-#toast{position:fixed;right:16px;bottom:16px;z-index:20;display:flex;gap:10px;align-items:center;max-width:calc(100vw - 32px);background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:12px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.12);font-size:14px}
+#toast{position:fixed;right:16px;bottom:16px;z-index:20;display:flex;gap:10px;align-items:center;max-width:calc(100vw - 32px);background:var(--surface);color:var(--ink);border:1px solid var(--border);border-radius:12px;padding:10px 14px;box-shadow:0 6px 20px var(--shadow);font-size:14px}
 .doctools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 10px}
 .side textarea,.eform input,.rnote{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
 .side textarea{resize:vertical;min-height:84px}
@@ -168,10 +177,10 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 .tagt{font-size:12px;fill:var(--ink);pointer-events:none}
 .badge{fill:var(--accent-bg)}
 .badget{font-size:10.5px;font-weight:700;fill:var(--accent);pointer-events:none}
-.attn{fill:none;stroke:#D9822B;stroke-width:2.5}
+.attn{fill:none;stroke:var(--attn);stroke-width:2.5}
 .nd.arch{opacity:.35}
 .nd.arch.dim{opacity:.12}
-.legend .lg-attn{background:transparent;border:2.5px solid #D9822B;border-radius:50%;width:12px;height:12px;box-sizing:border-box}
+.legend .lg-attn{background:transparent;border:2.5px solid var(--attn);border-radius:50%;width:12px;height:12px;box-sizing:border-box}
 </style>
 </head>
 <body>
@@ -196,7 +205,11 @@ for (const e of D.edges) {
   fwd.get(e.from).push(e);
 }
 const folders = [...new Set(D.docs.map(d => d.folder))].sort();
-const PAL = ['#2a78d6', '#eb6834', '#1baf7a', '#c98500', '#d55181', '#008300', '#6250d6', '#e34948', '#7a7974'];
+const DARK = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+// 폴더별 노드 색. 브랜드 네 색(네이비, 틸, 스카이블루, 베이지)에서 채도를 낮춘 톤으로 맞췄다.
+const PAL = DARK
+  ? ['#C8D9E6', '#8FB2C1', '#E6D3BD', '#A9C4B6', '#C3AFC9', '#AEB8C2', '#D9A898', '#7FA3BE', '#F5EFEB']
+  : ['#2F4156', '#567C8D', '#7FA3BE', '#B08D6A', '#6E8F7E', '#8A7091', '#6B7785', '#A26E5C', '#44627A'];
 const color = f => PAL[folders.indexOf(f) % PAL.length];
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -341,6 +354,26 @@ function diffHtml(ops) {
   }).join('') + '</pre>';
 }
 
+// 바뀐 문서 목록: 새 문서, 고친 문서, 지운 문서를 최근에 고친 순으로
+function changeItems() {
+  const C = D.changes, mt = p => (byPath.get(p) ? byPath.get(p).mtime : 0);
+  const list = [
+    ...C.added.map(p => ({ kind: 'added', path: p, chip: '<span class="chip acc">새 문서</span>' })),
+    ...C.modified.map(c => ({ kind: 'modified', path: c.path, c, chip: '<span class="chip add">+' + c.plus + '</span><span class="chip del">-' + c.minus + '</span>' })),
+    ...C.removed.map(p => ({ kind: 'removed', path: p, chip: '<span class="chip del">지워짐</span>' })),
+  ];
+  return list.sort((a, b) => mt(b.path) - mt(a.path));
+}
+function changeDetail(it) {
+  if (!it) return '';
+  const d = byPath.get(it.path);
+  let h = '<div class="chgh"><div style="min-width:0"><h3>' + (d ? docLink(it.path) : esc(it.path)) + '</h3><div class="path">' + esc(it.path) + (d ? ' · ' + ago(d.mtime) : '') + '</div></div>' +
+    (d ? '<a class="pill" href="' + docHref(it.path) + '">문서 열기</a>' : '') + '</div>';
+  if (it.kind === 'modified') h += it.c.diff ? diffHtml(it.c.diff) : '<p class="empty">바뀐 줄이 너무 많아 비교를 생략했습니다. 문서를 열어 보세요.</p>';
+  else if (it.kind === 'added' && d) h += '<p class="note">지난 기준 뒤로 새로 생긴 문서입니다.</p><div class="md chgmd">' + md(d.text, d.linkMap, d.path) + '</div>';
+  else h += '<p class="empty">지난 기준 뒤로 지워진 문서입니다.</p>';
+  return h;
+}
 function viewRecent() {
   const C = D.changes;
   let h = '<h1 class="page">최근 바뀐 것</h1><p class="sub">' + (C.first
@@ -352,18 +385,29 @@ function viewRecent() {
     h += '<div class="card"><h2>바뀐 문서 ' + n + '개</h2>';
     if (served && n) h += '<div class="pills"><button type="button" class="pill" id="seen">다 확인했어요</button><span class="note" style="align-self:center">누르면 지금 상태가 비교 기준이 됩니다.</span></div>';
     if (!n) h += '<p class="empty">바뀐 문서가 없습니다.</p>';
-    for (const c of C.modified) {
-      h += '<details class="chg"' + (C.modified.length <= 5 ? ' open' : '') + '><summary>' + docLink(c.path) +
-        ' <span class="chip add">+' + c.plus + '</span><span class="chip del">-' + c.minus + '</span> <span class="path">' + esc(c.path) + '</span></summary>' + diffHtml(c.diff) + '</details>';
-    }
-    for (const p of C.added) h += '<div class="row"><span class="t"><span class="chip acc">새 문서</span>' + docLink(p) + ' <span class="path">' + esc(p) + '</span></span></div>';
-    for (const p of C.removed) h += '<div class="row"><span class="t"><span class="chip del">지워짐</span>' + esc(p) + '</span></div>';
+    else h += '<div class="chgx"><nav class="chgl" aria-label="바뀐 문서">' + changeItems().map(it =>
+      '<button type="button" class="chgi" data-p="' + esc(it.path) + '">' + it.chip +
+      '<span class="tt">' + esc(byPath.get(it.path) ? byPath.get(it.path).title : it.path.split('/').pop()) + '</span>' +
+      '<span class="path">' + esc(it.path) + '</span></button>').join('') + '</nav><section class="chgd" id="chgd" aria-live="polite"></section></div>';
     h += '</div>';
   }
   const recent = [...D.docs].sort((a, b) => b.mtime - a.mtime).slice(0, 25);
   h += '<div class="card"><h2>최근에 수정한 문서</h2>' + recent.map(d =>
     '<div class="row"><span class="t">' + docLink(d.path) + ' <span class="path">' + esc(d.path) + '</span></span><span class="r">' + ago(d.mtime) + '</span></div>').join('') + '</div>';
   $('#view').innerHTML = h;
+  const items = C.first ? [] : changeItems();
+  if (items.length) {
+    let sel = null;
+    try { sel = sessionStorage.getItem('fv-recent-sel'); } catch (e) { sel = null; }
+    if (!items.some(it => it.path === sel)) sel = items[0].path;
+    const pick = p => {
+      try { sessionStorage.setItem('fv-recent-sel', p); } catch (e) { /* 기억 못 해도 보여 준다 */ }
+      document.querySelectorAll('.chgi').forEach(b => { const on = b.dataset.p === p; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'true' : 'false'); });
+      $('#chgd').innerHTML = changeDetail(items.find(it => it.path === p));
+    };
+    document.querySelectorAll('.chgi').forEach(b => b.addEventListener('click', () => pick(b.dataset.p)));
+    pick(sel);
+  }
   const seen = $('#seen');
   if (seen) seen.addEventListener('click', async () => {
     seen.disabled = true; seen.textContent = '저장 중…';
@@ -389,7 +433,7 @@ function viewDoc(p) {
   const fbs = feedbackFor(p);
   h += '<div class="doctools">' + (SERVED
     ? '<button type="button" class="pill" id="btnEdit">편집</button><span class="note">본문에서 문장을 고르면 오른쪽 댓글 창에 들어갑니다.</span>'
-    : '<span class="note">편집과 댓글은 서버로 열었을 때만 됩니다 (node tools/serve-viewer.mjs).</span>') + '</div>';
+    : '<span class="note">편집과 댓글은 서버로 열었을 때만 됩니다 (뷰어 서버로 열었을 때).</span>') + '</div>';
   h += '<div class="doc"><article class="md" id="art">' + fm + md(d.text, d.linkMap, d.path) + '</article><aside class="side">';
   if (SERVED) h += '<div class="card" id="cbox"><h3>댓글 남기기</h3><div id="cquote" class="cquote" hidden></div><label class="sr" for="ctext">댓글</label><textarea id="ctext" rows="4" placeholder="무엇을 어떻게 바꾸면 좋을지 적어 주세요"></textarea><div class="crow"><button type="button" class="pill on" id="csend">보내기</button><span class="note" id="cmsg"></span></div></div>';
   h += '<div class="card"><h3>이 문서의 피드백 ' + fbs.length + '</h3><ul>' + (fbs.map(f => '<li>' + statusChip(f.status) + ' <a href="#feedback">' + esc(cut(f.comment || f.title, 60)) + '</a></li>').join('') || '<li class="empty">없음</li>') + '</ul></div>';
@@ -1171,7 +1215,7 @@ function flashChanges(oldText, newText) {
     const known = new Set(info.known);
     const fresh = D.docs.map(d => d.path).filter(p => !known.has(p));
     let n = 0;
-    document.querySelectorAll('#view .row').forEach(row => {
+    document.querySelectorAll('#view .row, #view .chgi').forEach(row => {
       const p = row.querySelector('.path');
       if (p && fresh.includes(p.textContent.trim())) { row.classList.add('flash'); n++; }
     });

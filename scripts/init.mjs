@@ -83,7 +83,7 @@ export async function initProject(rootArg) {
     skipped.push('.siloroot/config.json');
   }
 
-  execFileSync(process.execPath, [BUILD, root], { stdio: 'ignore' });
+  execFileSync(process.execPath, [BUILD, root], { stdio: 'ignore', windowsHide: true });
   return { created, skipped, warnings, port: cfg.port, url: 'http://127.0.0.1:' + cfg.port };
 }
 

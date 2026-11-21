@@ -34,7 +34,7 @@ const STATUS = {
 const KINDS = ['표현', '내용', '구조', '기타'];
 
 const build = (extra) => execFileSync(process.execPath, [path.join(here, 'build.mjs'), ROOT, ...extra], {
-  cwd: ROOT, stdio: 'ignore', env: { ...process.env, VIEWER_ROOT: ROOT },
+  cwd: ROOT, stdio: 'ignore', windowsHide: true, env: { ...process.env, VIEWER_ROOT: ROOT }, // 창 없는 서버의 자식이 콘솔 창을 띄우지 않게
 });
 const today = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
 const norm = (t) => t.replace(/^﻿/, '').replace(/\r\n/g, '\n');
