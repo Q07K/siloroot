@@ -1,0 +1,11 @@
+{
+  "name": "siloroot",
+  "owner": { "name": "siloroot" },
+  "plugins": [
+    {
+      "name": "siloroot",
+      "source": "./",
+      "description": "마크다운 폴더 작업 공간 초기화, 뷰어, 문답과 검증 스킬"
+    }
+  ]
+}
