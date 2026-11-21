@@ -1,0 +1,20 @@
+{
+  "description": "SiloRoot 폴더에서만 뷰어를 켜고 할 일을 알린다. .siloroot/config.json이 없는 폴더에서는 아무것도 하지 않는다.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/viewer/autostart.mjs"], "timeout": 15 },
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/viewer/notify.mjs", "--session"], "timeout": 10 }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/viewer/notify.mjs"], "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}
