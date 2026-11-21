@@ -123,7 +123,7 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .md .mdimg{display:block;margin:12px 0}
 .md .mdimg img{display:block;max-width:100%;height:auto;background:#FFFFFF;border:1px solid var(--border);border-radius:10px;padding:8px;box-sizing:border-box}
 .md .mdimg .cap{display:block;font-size:13px;color:var(--muted);margin-top:6px}
-.md .flash{animation:fvflash 6s ease-out;border-radius:4px}
+.md .flash,.row.flash{animation:fvflash 6s ease-out;border-radius:4px}
 @keyframes fvflash{0%,40%{background:#FFF1B8;box-shadow:-4px 0 0 #E8B500}100%{background:transparent;box-shadow:none}}
 @media (prefers-color-scheme: dark){@keyframes fvflash{0%,40%{background:#4A3B00;box-shadow:-4px 0 0 #E8B500}100%{background:transparent;box-shadow:none}}}
 #toast[hidden]{display:none}
@@ -446,7 +446,7 @@ function viewObjects(tab) {
     ['study', '공부 노트', O.study.length],
     ['typed', '속성으로 분류', O.typed.length],
     ['issues', '속성 점검', (O.issues || []).length],
-  ];
+  ].filter(t => t[0] !== 'claims' || t[2] > 0);
   let h = '<h1 class="page">객체</h1><p class="sub">문서 안에 흩어진 질문, 주장, 아이디어를 종류별로 모았습니다. 이름을 누르면 원래 문서로 갑니다.</p>';
   h += '<div class="pills">' + tabs.map(([k, l, n]) => '<a class="pill' + (k === tab ? ' on' : '') + '" href="#objects/' + k + '">' + l + ' ' + n + '</a>').join('') + '</div>';
   if (tab === 'questions') {
@@ -1131,7 +1131,7 @@ function touches(cur, paths) {
   return paths.some(p => p === cur || (/\.(svg|png|jpe?g|gif|webp)$/i.test(p) && d && d.text.includes(p.split('/').pop())));
 }
 function reloadKeeping(info) {
-  try { sessionStorage.setItem('fv-live', JSON.stringify(Object.assign({ y: window.scrollY, hash: location.hash }, info))); } catch (e) { /* 못 남겨도 새로 고침은 한다 */ }
+  try { sessionStorage.setItem('fv-live', JSON.stringify(Object.assign({ y: window.scrollY, hash: location.hash, known: D.docs.map(d => d.path) }, info))); } catch (e) { /* 못 남겨도 새로 고침은 한다 */ }
   location.reload();
 }
 function onFilesChanged(paths) {
@@ -1166,6 +1166,16 @@ function flashChanges(oldText, newText) {
     const n = flashChanges(info.old || '', byPath.get(cur).text);
     const t = toast('<span>방금 바뀐 내용을 반영했어요' + (n ? ' (칠한 곳 ' + n + '군데)' : '') + '.</span>' + (n ? ' <button type="button" class="pill" id="tGo">바뀐 곳으로</button>' : ''), n ? 8000 : 3000);
     const go = $('#tGo'); if (go) go.addEventListener('click', () => { const f = document.querySelector('#art .flash'); if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.hidden = true; });
+  } else if (!cur && Array.isArray(info.known)) {
+    // 새로 생긴 문서: "최근 바뀐 것" 목록의 그 줄을 잠깐 칠한다
+    const known = new Set(info.known);
+    const fresh = D.docs.map(d => d.path).filter(p => !known.has(p));
+    let n = 0;
+    document.querySelectorAll('#view .row').forEach(row => {
+      const p = row.querySelector('.path');
+      if (p && fresh.includes(p.textContent.trim())) { row.classList.add('flash'); n++; }
+    });
+    if (fresh.length) toast('<span>새 문서 ' + fresh.length + '개가 생겼어요.</span>', 5000);
   }
 })();
 if (SERVED && window.EventSource) {
