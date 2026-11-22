@@ -65,6 +65,7 @@ function safeImage(rel) {
 }
 
 // 문서가 바뀌면 열려 있는 화면에 알린다 (Server-Sent Events). 여러 번 연달아 저장해도 한 번에 묶어 보낸다.
+// 연결 그래프는 알림을 받으면 /data로 최신 데이터를 받아 점과 선만 고친다.
 const clients = new Set();
 let pending = new Set(), timer = null;
 function onChange(rel) {
@@ -204,6 +205,12 @@ http.createServer(async (req, res) => {
       if (!img) { res.writeHead(404); res.end(); return; }
       res.writeHead(200, { 'content-type': img.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" });
       res.end(fs.readFileSync(img.full)); return;
+    }
+    // 연결 그래프가 새로 고침 없이 새 문서를 넣고 뺄 때 쓰는 최신 데이터. 비교 기준은 건드리지 않는다.
+    if (req.method === 'GET' && req.url === '/data') {
+      build(['--keep-snapshot', '--data-only']);
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(fs.readFileSync(path.join(CFG.stateDir, 'data-private.json'))); return;
     }
     if (req.method === 'GET' && req.url === '/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive' });

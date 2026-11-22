@@ -18,6 +18,8 @@ const args = process.argv.slice(2);
 // 비교 기준(이전 상태)은 사용자가 "다 확인했어요"를 눌렀을 때(--seen)만 새로 잡는다.
 // 그래야 AI가 점검하려고 실행해도 "최근 바뀐 것"이 지워지지 않는다. --keep-snapshot은 예전 이름이라 그냥 받아 둔다.
 const KEEP_SNAPSHOT = !args.includes('--seen');
+// --data-only: 뷰어 HTML 대신 데이터만 data-private.json에 쓴다. 서버가 그래프를 실시간으로 고칠 때 쓴다(serve.mjs의 /data).
+const DATA_ONLY = args.includes('--data-only');
 // 폴더는 인자, VIEWER_ROOT 환경 변수, 지금 폴더 순으로 정한다.
 const ROOT = path.resolve(args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--seen-path') || process.env.VIEWER_ROOT || process.cwd());
 const CFG = loadConfig(ROOT) || { dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
@@ -312,15 +314,16 @@ try {
 } catch { edits = []; }
 const data = { builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits };
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
-const template = fs.readFileSync(TEMPLATE, 'utf8');
-if (!template.includes('__VIEWER_DATA__')) throw new Error('template.html에 __VIEWER_DATA__ 자리가 없습니다');
-
 fs.mkdirSync(OUT_DIR, { recursive: true });
+if (DATA_ONLY) fs.writeFileSync(path.join(OUT_DIR, 'data-private.json'), json);
+const template = DATA_ONLY ? '' : fs.readFileSync(TEMPLATE, 'utf8');
+if (!DATA_ONLY && !template.includes('__VIEWER_DATA__')) throw new Error('template.html에 __VIEWER_DATA__ 자리가 없습니다');
+
 const ICON = path.join(here, 'brand', 'siloroot-icon-64.png');
 const icon = fs.existsSync(ICON) ? 'data:image/png;base64,' + fs.readFileSync(ICON).toString('base64') : '';
 const BRAND = path.join(here, 'brand');
 const dataUri = (name) => { const f = path.join(BRAND, name); return fs.existsSync(f) ? 'data:image/png;base64,' + fs.readFileSync(f).toString('base64') : ''; };
-fs.writeFileSync(OUT_HTML, template.split('__BRAND_ICON__').join(icon).split('__BRAND_WORDMARK_DARK__').join(dataUri('siloroot-wordmark-dark-56.png')).split('__BRAND_WORDMARK__').join(dataUri('siloroot-wordmark-56.png')).split('__VIEWER_DATA__').join(json));
+if (!DATA_ONLY) fs.writeFileSync(OUT_HTML, template.split('__BRAND_ICON__').join(icon).split('__BRAND_WORDMARK_DARK__').join(dataUri('siloroot-wordmark-dark-56.png')).split('__BRAND_WORDMARK__').join(dataUri('siloroot-wordmark-56.png')).split('__VIEWER_DATA__').join(json));
 if (!KEEP_SNAPSHOT || !prev) {
   const snapFiles = {};
   for (const d of docs) snapFiles[d.path] = { hash: hash(d.text), text: d.text };
@@ -333,4 +336,4 @@ console.log(`객체: 질문 ${objects.questions.length}, 주장 ${objects.claims
 console.log(changes.first ? '처음 생성이라 비교 기준이 없습니다.' : `지난 생성 뒤 바뀐 문서 ${changed}개`);
 console.log(`속성 점검: 경고 ${issues.length}개`);
 for (const x of issues) console.log(`  - ${x.doc}: ${x.msg}`);
-console.log('뷰어: ' + OUT_HTML);
+console.log(DATA_ONLY ? '데이터: ' + path.join(OUT_DIR, 'data-private.json') : '뷰어: ' + OUT_HTML);
