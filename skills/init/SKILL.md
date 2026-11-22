@@ -15,6 +15,8 @@ description: 지금 프로젝트 폴더를 SiloRoot 작업 공간으로 초기�
 
    출력은 JSON이다: `created`(새로 만든 파일), `skipped`(이미 있어 그대로 둔 파일), `warnings`(사용자가 직접 정리해야 할 것), `port`, `url`. `warnings`가 있으면 3단계에서 그대로 전한다.
 
+   이미 있던 `metadata-guide.md`나 `04-feedback/README.md`가 예전 버전이라 새 템플릿의 표 항목(예: `trait` type)이 빠졌으면 `warnings`에 나온다. 파일을 덮어쓰지 말고, `${CLAUDE_PLUGIN_ROOT}/templates/`의 같은 파일과 비교해 빠진 줄만 더할지 사용자에게 묻는다. 사용자가 일부러 지운 줄일 수 있다.
+
 2. 뷰어 서버를 켜고 브라우저로 연다. 프로젝트 폴더에서 실행한다.
 
    ```bash

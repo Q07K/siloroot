@@ -122,3 +122,32 @@ test('CLAUDE.md 블록이 사용자 정보 파일을 불러오고, 그 파일은
   const profile = fs.readFileSync(path.join(root, '05-profile', 'profile.md'), 'utf8');
   assert.equal(count(profile, '| 항목 | 내용 | 근거 | 승인 |'), 3);
 });
+
+test('이미 있는 안내 파일에 새 템플릿의 type 행이 빠졌으면 덮어쓰지 않고 경고로 알린다', async () => {
+  const root = makeProject();
+  await initProject(root);
+  const file = path.join(root, 'metadata-guide.md');
+  const old = fs.readFileSync(file, 'utf8').split('\n').filter((l) => !l.includes('`trait`')).join('\n');
+  fs.writeFileSync(file, old);
+  const res = await initProject(root);
+  assert.equal(fs.readFileSync(file, 'utf8'), old);
+  assert.ok(res.warnings.some((w) => w.startsWith('metadata-guide.md') && w.includes('`trait`')));
+  assert.ok(!res.warnings.some((w) => w.startsWith('04-feedback/README.md')));
+});
+
+test('다시 실행해도 템플릿과 같은 안내 파일에는 경고가 없다', async () => {
+  const root = makeProject();
+  await initProject(root);
+  const res = await initProject(root);
+  assert.deepEqual(res.warnings, []);
+});
+
+test('직접 지시도 후보 파일을 거쳐 profile.md에 들어간다고 CLAUDE.md 블록과 feedback 스킬이 말한다', () => {
+  const block = fs.readFileSync(path.join(REPO, 'templates', 'CLAUDE.block.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(REPO, 'skills', 'feedback', 'SKILL.md'), 'utf8');
+  const desc = (skill.match(/^description:\s*(.+)$/m) || [])[1] || '';
+  for (const t of [block, desc]) assert.match(t, /"앞으로", "항상", "매번"/);
+  assert.match(block, /후보 파일 없이 바로 쓰지 않는다/);
+  assert.match(skill, /직접 지시는 그 말을 승인으로 본다/);
+  assert.match(skill, /이 절차로만 줄을 더한다/);
+});
