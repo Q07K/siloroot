@@ -145,3 +145,23 @@ test('대화 압축으로 다시 시작한 세션에서는 브라우저를 열�
     assert.equal(decide(root, 'compact'), 'skip:compact');
   });
 });
+
+test('AI 코멘트 파일이 9시보다 오래됐으면 세션 시작 때만 갱신을 알린다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '05-profile/ai-comment.md', '---\ntype: note\nstatus: 사용 중\n---\n\n# AI 코멘트\n');
+  const old = new Date(Date.now() - 3 * 86400000);
+  fs.utimesSync(path.join(root, '05-profile/ai-comment.md'), old, old);
+  const out = JSON.parse(run('notify.mjs', root, ['--session']));
+  assert.match(out.hookSpecificOutput.additionalContext, /AI 코멘트 갱신 차례/);
+  assert.equal(run('notify.mjs', root), '');
+});
+
+test('AI 코멘트를 방금 고쳤거나 파일이 없으면 알리지 않는다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  assert.equal(run('notify.mjs', root, ['--session']), '');
+  write(root, '05-profile/ai-comment.md', '---\ntype: note\nstatus: 사용 중\n---\n\n# AI 코멘트\n');
+  // 9시 전에 방금 고친 파일은 다음 9시까지 갱신 차례가 아니고, 9시 뒤에 고친 파일도 그날은 아니다
+  assert.equal(run('notify.mjs', root, ['--session']), '');
+});

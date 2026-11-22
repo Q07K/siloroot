@@ -125,3 +125,33 @@ test('나 화면은 설정의 profile, feedback 폴더 이름을 따른다', () 
   assert.equal(me.profile, 'me/profile.md');
   assert.equal(me.approved.length, 1);
 });
+
+test('공부 노트에 tags(분야)가 없으면 경고', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '02-study/a.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# a\n');
+  assert.match(build(root), /tags에 분야가 없음/);
+});
+
+test('나 화면 레이더: 다섯 축, 계산식, 하루 한 줄 추이, 코멘트 자리', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '02-study/a.md', '---\ntype: study\nstatus: 통과\ntags: [백엔드]\n---\n\n# a\n');
+  write(root, '02-study/b.md', '---\ntype: study\nstatus: 부분\ntags: [AI 검색, RAG]\n---\n\n# b\n');
+  write(root, '03-ideas/x.md', '---\ntype: idea\nstatus: 완료\n---\n\n# x\n');
+  write(root, '03-ideas/y.md', '---\ntype: idea\nstatus: 진행 중\n---\n\n# y\n');
+  assert.doesNotMatch(build(root), /tags에 분야가 없음/);
+  build(root);   // 같은 날 다시 만들어도 추이는 한 줄
+  const me = dataOf(root).objects.me;
+  assert.deepEqual(me.radar.axes.map((a) => a.key), ['depth', 'breadth', 'finish', 'steady', 'taming']);
+  const ax = Object.fromEntries(me.radar.axes.map((a) => [a.key, a.value]));
+  assert.equal(ax.depth, 75);      // (통과 1 + 0.5 x 부분 1) / 2
+  assert.equal(ax.breadth, 33);    // 분야 2 / 목표 6
+  assert.equal(ax.finish, 25);     // (질문 0 + 아이디어 1/2) / 2
+  assert.ok(me.radar.axes.every((a) => a.formula && a.target));
+  assert.equal(me.comment.doc, '05-profile/ai-comment.md');
+  assert.equal(me.comment.mtime, 0);
+  const lines = fs.readFileSync(path.join(root, '.siloroot', 'state', 'me-history.jsonl'), 'utf8').trim().split('\n');
+  assert.equal(lines.length, 1);
+  assert.equal(JSON.parse(lines[0]).v.depth, 75);
+});

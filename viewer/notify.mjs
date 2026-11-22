@@ -3,11 +3,13 @@
 //   --session : 세션을 시작할 때(SessionStart). 남아 있는 할 일을 모두 알린다.
 //   (인자 없음): 사용자가 메시지를 보낼 때(UserPromptSubmit). 지난번 알린 뒤 새로 생긴 것만 알린다.
 // 할 일: 대기, 진행 중인 피드백 / 승인됐지만 아직 반영 안 한 규칙 후보와 사용자 정보 후보 / 규칙 후보를 아직 안 본 웹 편집
+//        / (세션 시작 때만) 갱신 시각이 지난 "나" 화면 AI 코멘트 (lib/me-schedule.mjs)
 // SiloRoot 폴더가 아니거나 할 일이 없으면 아무것도 출력하지 않는다.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from '../lib/config.mjs';
+import { AI_COMMENT_FILE, AI_COMMENT_HOUR, lastSlot, commentDue } from '../lib/me-schedule.mjs';
 
 const cfg = loadConfig(process.env.CLAUDE_PROJECT_DIR || process.cwd());
 if (!cfg) process.exit(0);
@@ -44,6 +46,14 @@ let edits = [];
 try { edits = fs.readFileSync(EDIT_LOG, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)); } catch { edits = []; }
 const fresh = edits.filter((e) => e.id > last && (e.kind === '표현' || e.reason));
 if (fresh.length) items.push({ key: 'edits|' + fresh[fresh.length - 1].id, text: `규칙 후보를 아직 안 본 웹 편집 ${fresh.length}건 (.siloroot/state/web-edits.jsonl, ${last || '처음'} 이후)` });
+
+// "나" 화면 AI 코멘트: 세션을 시작할 때만 본다. 코멘트 파일이 있고(사용자가 한 번 만들어 달라고 해서 쓰기 시작한 뒤), 매일 AI_COMMENT_HOUR가 지났는데 그보다 오래됐으면 알린다
+if (SESSION) {
+  const rel = cfg.dirs.profile + '/' + AI_COMMENT_FILE;
+  let mt = 0;
+  try { mt = fs.statSync(path.join(cfg.root, rel)).mtimeMs; } catch { mt = 0; }
+  if (mt && commentDue(mt)) items.push({ key: 'ai-comment|' + lastSlot().toISOString(), text: `"나" 화면 AI 코멘트 갱신 차례: 매일 ${AI_COMMENT_HOUR}시 이후 첫 세션인데 ${rel}가 그 전에 쓴 것 (F 절차)` });
+}
 
 let seen = {};
 try { seen = JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { seen = {}; }

@@ -12,6 +12,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { diffLines, compact } from './diff.mjs';
 import { loadConfig, DEFAULT_DIRS } from '../lib/config.mjs';
+import { AI_COMMENT_FILE, AI_COMMENT_HOUR } from '../lib/me-schedule.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -193,6 +194,7 @@ const REQUIRED = [
   { prefix: DIRS.study + '/', type: 'study', skip: /(^|\/)README\.md$/i },
   { prefix: DIRS.feedback + '/', type: ['feedback', 'rule', 'trait'], skip: /(^|\/)README\.md$/i },
 ];
+const tagsOf = (d) => { const t = d.fm && d.fm.tags; return (Array.isArray(t) ? t : t ? String(t).split(',') : []).map((s) => String(s).trim()).filter(Boolean); };
 const typeOk = (req, t) => (Array.isArray(req.type) ? req.type.includes(t) : req.type === t);
 const EXEMPT = () => false;
 const issues = [];
@@ -218,6 +220,7 @@ for (const d of docs) {
     if (req && VOCAB[t] && !typeOk(req, t)) warn('이 폴더의 type은 ' + [].concat(req.type).join(' 또는 ') + '여야 함');
   }
   if (fm.created && !/^\d{4}-\d{2}-\d{2}$/.test(String(fm.created))) warn('created는 YYYY-MM-DD 형식이어야 함');
+  if (fm.type === 'study' && !tagsOf(d).length) warn('tags에 분야가 없음 (' + DIRS.study + '/README.md "노트 쓰는 법")');
 }
 
 // ---------- 4. 객체 모으기 ----------
@@ -352,6 +355,102 @@ const objects = {
   typed: docs.filter((d) => d.fm && d.fm.type).map((d) => ({ title: d.title, doc: d.path, type: String(d.fm.type), status: d.fm.status ? String(d.fm.status) : '' })),
   issues,
 };
+
+// ---------- 4-1. "나" 대시보드: 사용 방법 레이더 ----------
+// 축 다섯 개를 폴더 기록으로 계산한다. 목표치를 바꾸려면 ME_TARGETS만 고친다.
+const ME_TARGETS = { breadth: 6, taming: 10, steadyDays: 14, tamingDays: 30 };
+const pad2 = (n) => String(n).padStart(2, '0');
+const ymd = (dt) => dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate()); // 로컬 날짜
+const daysBack = (n) => { const out = []; const t = new Date(); for (let i = 0; i < n; i++) { const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() - i); out.push(ymd(d)); } return out; };
+const pct = (x) => Math.max(0, Math.min(100, Math.round(x * 100)));
+
+function buildRadar(o) {
+  const today = ymd(new Date());
+  const axes = [];
+
+  // 공부 깊이
+  const study = o.study;
+  const pass = study.filter((s) => s.level === '통과').length, part = study.filter((s) => s.level === '부분').length;
+  axes.push({
+    key: 'depth', name: '공부 깊이', value: study.length ? pct((pass + 0.5 * part) / study.length) : 0,
+    formula: '(통과 + 0.5 × 부분) ÷ 공부 노트 수 = (' + pass + ' + 0.5 × ' + part + ') ÷ ' + study.length,
+    target: '모든 노트가 통과', note: '이해도는 노트의 status(검증 기록의 판정)에서 가져온다.',
+    evidence: study.map((s) => ({ text: s.title + ' · ' + (s.level || '이해도 없음'), doc: s.doc })),
+  });
+
+  // 공부 넓이: 공부 노트 tags의 첫 낱말이 분야
+  const fields = {};
+  for (const s of study) { const f = tagsOf(get(s.doc))[0]; if (f) (fields[f] = fields[f] || []).push(s); }
+  const fieldNames = Object.keys(fields).sort((a, b) => fields[b].length - fields[a].length || a.localeCompare(b));
+  axes.push({
+    key: 'breadth', name: '공부 넓이', value: pct(fieldNames.length / ME_TARGETS.breadth),
+    formula: '서로 다른 분야 수 ÷ 목표 ' + ME_TARGETS.breadth + ' = ' + fieldNames.length + ' ÷ ' + ME_TARGETS.breadth,
+    target: '분야 ' + ME_TARGETS.breadth + '개', note: '분야는 공부 노트 tags의 첫 낱말이다 (' + DIRS.study + '/README.md).',
+    evidence: fieldNames.map((f) => ({ text: f + ' ' + fields[f].length + '개: ' + fields[f].map((s) => s.title).join(', ') })),
+  });
+
+  // 마무리
+  const q = o.questions, qDone = q.filter((x) => x.done).length;
+  const ideas = docs.filter((d) => d.path.startsWith(DIRS.ideas + '/') && d.fm && d.fm.type === 'idea');
+  const started = ideas.filter((d) => String(d.fm.status) !== '아이디어');
+  const finished = started.filter((d) => ['완료', '접음'].includes(String(d.fm.status)));
+  const qr = q.length ? qDone / q.length : 0, ir = started.length ? finished.length / started.length : 0;
+  axes.push({
+    key: 'finish', name: '마무리', value: pct((qr + ir) / 2),
+    formula: '(끝낸 질문 비율 + 끝낸 아이디어 비율) ÷ 2 = (' + qDone + '/' + q.length + ' + ' + finished.length + '/' + started.length + ') ÷ 2',
+    target: '둘 다 100%',
+    note: '아이디어는 "아이디어" 상태를 빼고 완료, 접음을 끝낸 것으로 센다. 끝낸 질문을 [x]로 두지 않고 줄째 지우면 여기서 세지 못한다.',
+    evidence: [{ text: '미해결 질문: 끝냄 ' + qDone + ' / 전체 ' + q.length, doc: DIRS.log + '/open-questions.md' },
+      ...started.map((d) => ({ text: d.title + ' · ' + d.fm.status, doc: d.path }))],
+  });
+
+  // 꾸준함: changelog 날짜 제목과 문서 created
+  const window14 = daysBack(ME_TARGETS.steadyDays);
+  const byDay = {};
+  const log = get(DIRS.log + '/changelog.md');
+  if (log) for (const m of log.text.matchAll(/^##\s+(\d{4}-\d{2}-\d{2})\s*$/gm)) (byDay[m[1]] = byDay[m[1]] || new Set()).add('changelog');
+  for (const d of docs) { const c = d.fm && d.fm.created ? String(d.fm.created) : ''; if (c) (byDay[c] = byDay[c] || new Set()).add('새 문서'); }
+  const active = window14.filter((day) => byDay[day]);
+  const newDocs = (day) => docs.filter((d) => d.fm && String(d.fm.created) === day).length;
+  axes.push({
+    key: 'steady', name: '꾸준함', value: pct(active.length / ME_TARGETS.steadyDays),
+    formula: '최근 ' + ME_TARGETS.steadyDays + '일 중 기록이 있는 날 ÷ ' + ME_TARGETS.steadyDays + ' = ' + active.length + ' ÷ ' + ME_TARGETS.steadyDays,
+    target: ME_TARGETS.steadyDays + '일 모두', note: '기록은 changelog의 날짜 제목과 문서의 created다. 기간은 ' + window14[window14.length - 1] + '부터 ' + today + '까지.',
+    evidence: active.map((day) => ({ text: day + ': ' + [byDay[day].has('changelog') ? 'changelog' : '', newDocs(day) ? '새 문서 ' + newDocs(day) + '개' : ''].filter(Boolean).join(', ') })),
+  });
+
+  // AI 길들이기
+  const window30 = new Set(daysBack(ME_TARGETS.tamingDays));
+  const fb = docs.filter((d) => d.path.startsWith(DIRS.feedback + '/') && d.fm && window30.has(String(d.fm.created || '')) && (
+    (['rule', 'trait'].includes(d.fm.type) && ['반영', '거절'].includes(String(d.fm.status))) || (d.fm.type === 'feedback' && String(d.fm.status) === '완료')));
+  const kind = { rule: '글쓰기 규칙', trait: '사용자 정보', feedback: '댓글' };
+  axes.push({
+    key: 'taming', name: 'AI 길들이기', value: pct(fb.length / ME_TARGETS.taming),
+    formula: '최근 ' + ME_TARGETS.tamingDays + '일에 결정한 후보(반영, 거절)와 완료한 댓글 ÷ 목표 ' + ME_TARGETS.taming + ' = ' + fb.length + ' ÷ ' + ME_TARGETS.taming,
+    target: ME_TARGETS.tamingDays + '일에 ' + ME_TARGETS.taming + '건', note: '결정한 날이 따로 적혀 있지 않아 후보와 댓글의 created로 기간을 본다.',
+    evidence: fb.map((d) => ({ text: kind[d.fm.type] + ' · ' + d.fm.status + ' · ' + d.title.replace(/^(규칙 후보|사용자 정보 후보):\s*/, ''), doc: d.path })),
+  });
+
+  return { today, targets: ME_TARGETS, axes };
+}
+
+// 축별 추이: 하루 한 줄. 같은 날 다시 만들면 그날 줄을 바꾼다.
+function meHistory(radar) {
+  const f = path.join(OUT_DIR, 'me-history.jsonl');
+  let rows = [];
+  try { rows = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter((r) => r && r.date && r.v); } catch { rows = []; }
+  const v = Object.fromEntries(radar.axes.map((a) => [a.key, a.value]));
+  rows = rows.filter((r) => r.date !== radar.today).concat([{ date: radar.today, v }]).sort((a, b) => a.date.localeCompare(b.date));
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.writeFileSync(f, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  return rows;
+}
+
+objects.me.radar = buildRadar(objects);
+objects.me.history = meHistory(objects.me.radar);
+// AI 코멘트와 갱신 시각(매일 hour시 이후 첫 세션에서 훅이 알린다. lib/me-schedule.mjs)
+const AI_COMMENT = DIRS.profile + '/' + AI_COMMENT_FILE;
+objects.me.comment = { doc: AI_COMMENT, hour: AI_COMMENT_HOUR, mtime: get(AI_COMMENT) ? get(AI_COMMENT).mtime : 0 };
 
 // ---------- 5. 지난번과 비교 ----------
 const hash = (s) => crypto.createHash('sha256').update(s).digest('hex');
