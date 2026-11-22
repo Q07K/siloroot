@@ -116,6 +116,8 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .gchip .cnt{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
 .gempty{position:absolute;left:0;right:0;top:40%;text-align:center}
 .nd.sel .lb,.nd.hov .lb{font-weight:700}
+#gl path.bun{stroke-opacity:.5}
+#gl path.bun.hot{stroke-opacity:1}
 .gtools{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
 .gtools button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;line-height:1;cursor:pointer;box-shadow:0 1px 3px var(--shadow-soft)}
 .gtools button:hover{background:var(--code-bg)}
@@ -1052,7 +1054,8 @@ function runForce(G, W, H, o) {
 const DISK = { charge: -110, link: 34, grav: 0.07, isoGrav: 0.05, ticks: 320 };
 // o(선택): anchor(점) → 당길 중심 {x, y} (같은 묶음은 같은 객체), grav(점) → 중력 세기, sameGroup(a, b) → 척력을 걸 쌍인가,
 //          linkScale(s, t) → 선 세기 배율, noFit → 화면 맞추기를 건너뛴다 (폴더 군집은 뒤에서 원으로 맞춘다),
-//          link, charge, gap → 선 길이, 척력, 충돌 여유 (없으면 DISK 값과 2)
+//          link, charge, gap → 선 길이, 척력, 충돌 여유 (없으면 DISK 값과 2),
+//          edgeRepelOk(점, 선의 두 끝) → 이 점을 이 선에서 밀어낼지 (없으면 모든 점)
 function runDisk(G, W, H, rad, o = {}) {
   const { nodes, links } = G;
   const ORIGIN = { x: 0, y: 0 };
@@ -1087,6 +1090,23 @@ function runDisk(G, W, H, rad, o = {}) {
       if (l >= r * r) continue;
       const d = Math.sqrt(l) || 0.01, m = (r - d) / d * 0.5 * 0.7;
       dx *= m; dy *= m; A.vx -= dx; A.vy -= dy; B.vx += dx; B.vy += dy;
+    }
+    // 선과 점 사이 띄우기: 배치 후반(모양이 잡힌 뒤)에, 선 가운데쯤을 지나는 점이 반지름 + 8보다 가까우면 점은 밀고 선의 두 끝은 조금 당긴다
+    if (it > DISK.ticks * 0.35) for (const l of links) {
+      const s = nodes[l.a], t = nodes[l.b], ex = t.x - s.x, ey = t.y - s.y, L2 = ex * ex + ey * ey;
+      if (L2 < 1) continue;
+      for (const q of nodes) {
+        if (q === s || q === t || (o.edgeRepelOk && !o.edgeRepelOk(q, s, t))) continue;
+        const u = ((q.x - s.x) * ex + (q.y - s.y) * ey) / L2;
+        if (u <= 0.02 || u >= 0.98) continue;
+        let dx = q.x - (s.x + ex * u), dy = q.y - (s.y + ey * u);
+        const d = Math.hypot(dx, dy) || 0.01, need = rad(q) + 8;
+        if (d >= need) continue;
+        const k = (need - d) / d * 0.3;
+        dx *= k; dy *= k;
+        q.vx += dx; q.vy += dy;
+        s.vx -= dx * (1 - u) * 0.4; s.vy -= dy * (1 - u) * 0.4; t.vx -= dx * u * 0.4; t.vy -= dy * u * 0.4;
+      }
     }
     for (const p of nodes) { p.vx *= 0.6; p.vy *= 0.6; p.x += p.vx; p.y += p.vy; }
   }
@@ -1245,6 +1265,7 @@ function viewGraphV(mv, carry) {
         sameGroup: (a, b) => a.d.folder === b.d.folder,
         linkScale: (a, b) => (a.d.folder === b.d.folder ? 1 : 0.2),
         link: 56, charge: -200, gap: 8,
+        edgeRepelOk: (q, a, b) => q.d.folder === a.d.folder && q.d.folder === b.d.folder,
         noFit: true,
       });
       hulls = new Map();
@@ -1324,14 +1345,205 @@ function viewGraphV(mv, carry) {
     }
   }
   if (SEP) { separateNodes(nodes.map((n, k) => k)); nodes.forEach(n => { n.hx = n.x; n.hy = n.y; }); }
+  // 선이 다른 점에 닿지 않게: 직선이 다른 점(반지름 + EDGE_CLEAR) 가까이 지나면 선 전체를 매끄러운 활 하나(3차 베지에)로 휜다.
+  // 활 모양은 셋을 견준다: 가운데가 가장 휘는 대칭 활, 그리고 가장 걸리는 점 쪽으로 휘는 자리를 옮긴 활 둘. 양쪽 방향으로 모두 해 보고
+  // 모든 점을 비켜 가면서 가장 덜 휘는 것을 고른다. 옆으로 비키는 폭은 선 길이의 EDGE_BEND_MAX까지만이고, 그보다 더 휘어야 하면 직선으로 둔다
+  const EDGE_CLEAR = 7, EDGE_BEND_MAX = 0.22;
+  const shown = n => !GS.hidden.has(n.d.folder) && !(GS.hideIso && !n.deg);
+  function routeD(A, B) {
+    const f1 = v => v.toFixed(1), line = 'M' + f1(A.x) + ' ' + f1(A.y) + ' L' + f1(B.x) + ' ' + f1(B.y);
+    const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy);
+    if (L < 1 || coarseTrunk) return line;   // 끄는 동안은 곧게, 놓으면 다시 계산
+    const ux = dx / L, uy = dy / L, nx = -uy, ny = ux, maxOff = L * EDGE_BEND_MAX, obs = [];
+    for (const n of nodes) {
+      if (n === A || n === B || !shown(n)) continue;
+      const px = n.x - A.x, py = n.y - A.y, along = px * ux + py * uy;
+      if (along <= 0 || along >= L) continue;
+      const sd = px * nx + py * ny, need = rad(n) + EDGE_CLEAR;
+      if (Math.abs(sd) < need + maxOff) obs.push({ x: along, y: sd, need });   // 선을 따라 x, 옆으로 y (선 기준 좌표)
+    }
+    const hits = obs.filter(o => Math.abs(o.y) < o.need);
+    if (!hits.length) return line;
+    const worst = hits.reduce((a, o) => (o.need - Math.abs(o.y) > a.need - Math.abs(a.y) ? o : a)).x / L;
+    const cl = v => Math.max(0.06, Math.min(0.94, v));
+    const shapes = [[1 / 3, 2 / 3], [cl(worst - 0.22), cl(worst + 0.22)], [cl(worst), cl(worst)]];
+    const N = Math.min(80, Math.max(16, Math.ceil(L / 8)));
+    // 조절점 (t1·L, h), (t2·L, h)인 활의 s 자리 점 (선 기준 좌표). 옆으로 비키는 폭은 어느 모양이든 3s(1-s)h, 가장 클 때 0.75h
+    const at = (t1, t2, h, s) => { const a = 3 * (1 - s) * (1 - s) * s, b = 3 * (1 - s) * s * s; return { x: (a * t1 + b * t2) * L + s * s * s * L, y: (a + b) * h }; };
+    const clear = (t1, t2, h) => { for (let i = 1; i < N; i++) { const q = at(t1, t2, h, i / N); for (const o of obs) if (Math.hypot(q.x - o.x, q.y - o.y) < o.need) return false; } return true; };
+    const hMax = maxOff / 0.75, step = Math.max(1.5, hMax / 30);
+    let best = null;
+    for (const [t1, t2] of shapes) for (const side of [1, -1]) {
+      for (let m = step; m <= hMax && (!best || m < best.m); m += step) if (clear(t1, t2, side * m)) { best = { m, h: side * m, t1, t2 }; break; }
+    }
+    if (!best) return line;
+    const W = (x, y) => f1(A.x + ux * x + nx * y) + ' ' + f1(A.y + uy * x + ny * y);
+    return 'M' + f1(A.x) + ' ' + f1(A.y) + ' C' + W(best.t1 * L, best.h) + ', ' + W(best.t2 * L, best.h) + ', ' + f1(B.x) + ' ' + f1(B.y);
+  }
+  // 폴더 군집: 다른 폴더로 가는 선은 출발 폴더 원 가장자리(도착 폴더 쪽)로 모여 두 폴더 사이를 한 줄기로 흐른 뒤 도착 폴더에서 갈라진다.
+  // 마우스를 올리거나 고른 문서의 선도 같은 다발 길로 강조한다
+  const bundleRank = new Map(); // 같은 폴더 쌍 안에서 줄기를 조금씩 띄울 순번
+  const HULL_AVOID = 14, trunkCache = new Map();
+  let coarseTrunk = false;   // 점이나 원을 끄는 동안 true (줄기 길 찾기를 거친 격자로)
+  const bez = (P, s) => { const u = 1 - s; return { x: u * u * u * P[0].x + 3 * u * u * s * P[1].x + 3 * u * s * s * P[2].x + s * s * s * P[3].x, y: u * u * u * P[0].y + 3 * u * u * s * P[1].y + 3 * u * s * s * P[2].y + s * s * s * P[3].y }; };
+  const bezTan = (P, s) => { const u = 1 - s; const x = 3 * u * u * (P[1].x - P[0].x) + 6 * u * s * (P[2].x - P[1].x) + 3 * s * s * (P[3].x - P[2].x), y = 3 * u * u * (P[1].y - P[0].y) + 6 * u * s * (P[2].y - P[1].y) + 3 * s * s * (P[3].y - P[2].y), m = Math.hypot(x, y) || 1; return { x: x / m, y: y / m }; };
+  // 베지에의 s0~s1 부분을 다시 3차 베지에로 (드 카스텔조)
+  function subBez(P, s0, s1) {
+    const split = (Q, t) => { const L = (p, q) => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t }); const a = L(Q[0], Q[1]), b = L(Q[1], Q[2]), c = L(Q[2], Q[3]), d = L(a, b), e = L(b, c), f = L(d, e); return [[Q[0], a, d, f], [f, e, c, Q[3]]]; };
+    const left = split(P, s1)[0];
+    return split(left, s0 / s1)[1];
+  }
+  // 다발 줄기 길 찾기: 화면을 TRUNK_CELL 크기 격자로 나누고, 다른 폴더 원(반지름 + HULL_AVOID) 안의 칸은 막고,
+  // 출발 폴더 중심에서 도착 폴더 중심까지 가장 짧은 길(A*, 8방향)을 찾는다. 출발, 도착 폴더 원 안은 지나가도 된다.
+  // 찾은 길에서 쓸데없는 꺾임을 걷어 내고(보이는 데까지 건너뛰기), 남은 점을 매끄러운 곡선으로 잇는다. 폴더 쌍마다 한 번 계산해 둔다
+  const TRUNK_CELL = 12;
+  function trunkOf(fa, fb) {
+    const F = hulls.get(fa), G = hulls.get(fb);
+    const CELL = coarseTrunk ? TRUNK_CELL * 2 : TRUNK_CELL;
+    const sig = CELL + ':' + [...hulls].map(([f, h]) => f + h.cx.toFixed(0) + ',' + h.cy.toFixed(0) + ',' + h.r.toFixed(0) + (GS.hidden.has(f) ? 'x' : '')).join(';');
+    const ck = fa + '|' + fb, hit = trunkCache.get(ck);
+    if (hit && hit.sig === sig) return hit;
+    const obs = [...hulls].filter(([f]) => f !== fa && f !== fb && !GS.hidden.has(f)).map(([, h]) => ({ x: h.cx, y: h.cy, r: h.r + HULL_AVOID }));
+    const blocked = (x, y) => obs.some(o => (x - o.x) * (x - o.x) + (y - o.y) * (y - o.y) < o.r * o.r);
+    const segClear = (p, q) => { const n = Math.max(2, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / 6)); for (let i = 1; i < n; i++) { const t = i / n; if (blocked(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t)) return false; } return true; };
+    const S = { x: F.cx, y: F.cy }, E = { x: G.cx, y: G.cy };
+    let pts;
+    if (segClear(S, E)) pts = [S, E];
+    else {
+      // 격자: 모든 원을 담는 범위 + 여백
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const h of hulls.values()) { x0 = Math.min(x0, h.cx - h.r); y0 = Math.min(y0, h.cy - h.r); x1 = Math.max(x1, h.cx + h.r); y1 = Math.max(y1, h.cy + h.r); }
+      x0 -= 80; y0 -= 80; x1 += 80; y1 += 80;
+      const C = CELL, nx = Math.ceil((x1 - x0) / C), ny = Math.ceil((y1 - y0) / C), N = nx * ny;
+      const cx = i => x0 + (i % nx + 0.5) * C, cy = i => y0 + (Math.floor(i / nx) + 0.5) * C;
+      const cellOf = (x, y) => Math.max(0, Math.min(ny - 1, Math.floor((y - y0) / C))) * nx + Math.max(0, Math.min(nx - 1, Math.floor((x - x0) / C)));
+      const wall = new Uint8Array(N);
+      for (let i = 0; i < N; i++) wall[i] = blocked(cx(i), cy(i)) ? 1 : 0;
+      const s0 = cellOf(S.x, S.y), g0 = cellOf(E.x, E.y);
+      wall[s0] = 0; wall[g0] = 0;
+      const gS = new Float64Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), done = new Uint8Array(N);
+      const hh = i => Math.hypot(cx(i) - E.x, cy(i) - E.y);
+      // 작은 이진 힙
+      const heap = [], push = (f, i) => { heap.push([f, i]); let k = heap.length - 1; while (k > 0) { const pa = (k - 1) >> 1; if (heap[pa][0] <= heap[k][0]) break; [heap[pa], heap[k]] = [heap[k], heap[pa]]; k = pa; } };
+      const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+      gS[s0] = 0; push(hh(s0), s0);
+      const D = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2]];
+      while (heap.length) {
+        const [, i] = pop();
+        if (done[i]) continue;
+        done[i] = 1;
+        if (i === g0) break;
+        const ix = i % nx, iy = Math.floor(i / nx);
+        for (const [dx, dy, c] of D) {
+          const jx = ix + dx, jy = iy + dy;
+          if (jx < 0 || jy < 0 || jx >= nx || jy >= ny) continue;
+          const j = jy * nx + jx;
+          if (wall[j] || done[j]) continue;
+          const g = gS[i] + c;
+          if (g < gS[j]) { gS[j] = g; from[j] = i; push(g + hh(j) / C, j); }
+        }
+      }
+      if (from[g0] < 0 && g0 !== s0) pts = [S, E];          // 길이 없으면 곧게
+      else {
+        const raw = [];
+        for (let i = g0; i >= 0; i = from[i]) raw.push({ x: cx(i), y: cy(i) });
+        raw.reverse(); raw[0] = S; raw[raw.length - 1] = E;
+        // 보이는 데까지 건너뛰어 꺾임을 걷어 낸다
+        pts = [raw[0]];
+        let k = 0;
+        while (k < raw.length - 1) { let j = raw.length - 1; while (j > k + 1 && !segClear(raw[k], raw[j])) j--; pts.push(raw[j]); k = j; }
+      }
+    }
+    // 너무 가까운 점(TRUNK_CELL x 2 안)은 하나로 합친다 (짧은 토막이 꺾임을 만든다)
+    pts = pts.filter((q, i) => i === 0 || i === pts.length - 1 || Math.hypot(q.x - pts[i - 1].x, q.y - pts[i - 1].y) > TRUNK_CELL * 2);
+    // 매끄럽게: 각 점의 방향은 들어오는 방향과 나가는 방향의 평균, 조절점은 양옆 토막 가운데 짧은 쪽 길이의 1/3까지만 뻗는다.
+    // 이렇게 하면 곡선이 넘치거나 되접히지 않는다
+    const unit = (x, y) => { const m = Math.hypot(x, y) || 1; return { x: x / m, y: y / m }; };
+    const tanAt = i => {
+      if (i === 0) return unit(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      if (i === pts.length - 1) return unit(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      const a = unit(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y), b = unit(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+      return unit(a.x + b.x, a.y + b.y);
+    };
+    const segLen = i => Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+    let segs = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = pts[i], p2 = pts[i + 1], t1 = tanAt(i), t2 = tanAt(i + 1);
+      const k1 = Math.min(segLen(i), i > 0 ? segLen(i - 1) : Infinity) / 3, k2 = Math.min(segLen(i), i + 1 < pts.length - 1 ? segLen(i + 1) : Infinity) / 3;
+      segs.push([p1, { x: p1.x + t1.x * k1, y: p1.y + t1.y * k1 }, { x: p2.x - t2.x * k2, y: p2.y - t2.y * k2 }, p2]);
+    }
+    if (pts.length === 2) segs = [[S, { x: S.x + (E.x - S.x) / 3, y: S.y + (E.y - S.y) / 3 }, { x: S.x + (E.x - S.x) * 2 / 3, y: S.y + (E.y - S.y) * 2 / 3 }, E]];
+    // 출발 원을 나서는 자리와 도착 원에 들어가는 자리에서 자른다
+    const out = (P, h) => Math.hypot(P.x - h.cx, P.y - h.cy) >= h.r;
+    let iF = 0, sF = 0;
+    find: for (let i = 0; i < segs.length; i++) for (let k = 0; k <= 60; k++) { if (out(bez(segs[i], k / 60), F)) { iF = i; sF = k / 60; break find; } }
+    let iG = segs.length - 1, sG = 1;
+    find2: for (let i = segs.length - 1; i >= 0; i--) for (let k = 60; k >= 0; k--) { if (out(bez(segs[i], k / 60), G)) { iG = i; sG = k / 60; break find2; } }
+    if (iG < iF || (iG === iF && sG <= sF)) { iF = iG = 0; sF = 0.4; sG = 0.6; }
+    const cut = [];
+    for (let i = iF; i <= iG; i++) {
+      const a0 = i === iF ? sF : 0, a1 = i === iG ? sG : 1;
+      if (a1 - a0 > 1e-4) cut.push(a0 === 0 && a1 === 1 ? segs[i] : subBez(segs[i], Math.max(a0, 1e-6), a1));
+    }
+    const res = { sig, segs: cut, tF: bezTan(segs[iF], sF), tG: bezTan(segs[iG], sG) };
+    trunkCache.set(ck, res);
+    return res;
+  }
+  // 부채꼴(문서에서 원 가장자리의 줄기 시작점까지)의 조절점. 같은 폴더의 다른 문서(반지름 + EDGE_CLEAR)에 닿으면 휜다.
+  // 모양은 다섯 가지를 견준다: 첫 조절점만 옆으로(앞, 가운데, 뒤 세 자리), 그리고 줄기와 만나는 쪽 조절점까지 함께 옆으로(절반, 전부).
+  // 줄기 쪽까지 옮기면 만나는 자리에서 살짝 꺾이므로 그만큼 값을 더 쳐서, 양쪽 가운데 가장 덜 휘는 것을 고른다
+  function fanCtrl(N, pt, tan, k) {
+    const b2 = { x: pt.x - tan.x * k, y: pt.y - tan.y * k };
+    const dx = pt.x - N.x, dy = pt.y - N.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    const reach = L * 1.2;
+    const obs = nodes.filter(m => m !== N && m.d.folder === N.d.folder && shown(m)).filter(m => {
+      const px = m.x - N.x, py = m.y - N.y; return Math.abs(px * nx + py * ny) < rad(m) + EDGE_CLEAR + reach;
+    });
+    const make = (f, h1, h2) => [{ x: N.x + dx * f + nx * h1, y: N.y + dy * f + ny * h1 }, { x: b2.x + nx * h2, y: b2.y + ny * h2 }];
+    const clear = C => { const P = [N, C[0], C[1], pt]; for (let i = 1; i < 28; i++) { const q = bez(P, i / 28); for (const m of obs) if (Math.hypot(q.x - m.x, q.y - m.y) < rad(m) + EDGE_CLEAR) return false; } return true; };
+    if (coarseTrunk || !obs.length || clear(make(0.45, 0, 0))) return make(0.45, 0, 0);   // 끄는 동안은 피하기를 건너뛰고 놓으면 다시 계산
+    const shapes = [[0.45, 0, 1], [0.25, 0, 1], [0.65, 0, 1], [0.45, 0.5, 1.4], [0.45, 1, 1.8]];   // [첫 조절점 자리, 줄기 쪽 비율, 값 배율]
+    const step = Math.max(2, L / 36);
+    let best = null;
+    for (const [f, r2, w] of shapes) for (const side of [1, -1]) {
+      for (let h = step; h <= reach; h += step) {
+        if (best && h * w >= best.cost) break;
+        const C = make(f, side * h, side * h * r2);
+        if (clear(C)) { best = { cost: h * w, C }; break; }
+      }
+    }
+    return best ? best.C : make(0.45, 0, 0);
+  }
+  function bundleD(l, i) {
+    const A = nodes[l.a], B = nodes[l.b], F = hulls.get(A.d.folder), G = hulls.get(B.d.folder);
+    const f1 = v => v.toFixed(1);
+    // 줄기는 폴더 이름 순으로 한 방향으로만 계산하고, 반대 방향 선은 뒤집어 쓴다
+    const fwd = A.d.folder < B.d.folder, T = fwd ? trunkOf(A.d.folder, B.d.folder) : trunkOf(B.d.folder, A.d.folder);
+    let segs = T.segs, tS = T.tF, tE = T.tG;
+    if (!fwd) { segs = segs.slice().reverse().map(q => [q[3], q[2], q[1], q[0]]); tS = { x: -T.tG.x, y: -T.tG.y }; tE = { x: -T.tF.x, y: -T.tF.y }; }
+    const key = [A.d.folder, B.d.folder].sort().join('|');
+    if (!bundleRank.has(i)) { const k = [...bundleRank.entries()].filter(([, v]) => v.key === key).length; bundleRank.set(i, { key, k }); }
+    const sp = ((bundleRank.get(i).k % 7) - 3) * 1.1 * (fwd ? 1 : -1);   // 줄기 안에서 1px씩 나란히
+    let cx = G.cx - F.cx, cy = G.cy - F.cy; const cm = Math.hypot(cx, cy) || 1; const nx = -cy / cm, ny = cx / cm;
+    segs = segs.map(q => q.map(v => ({ x: v.x + nx * sp, y: v.y + ny * sp })));
+    const pF = segs[0][0], pG = segs[segs.length - 1][3];
+    const kF = F.r * 0.55, kG = G.r * 0.55;
+    const [a1, a2] = fanCtrl(A, pF, tS, kF);                          // 출발 문서 → 줄기
+    const [b1, b2] = fanCtrl(B, pG, { x: -tE.x, y: -tE.y }, kG);       // 도착 문서 → 줄기 (거꾸로 구해 뒤집어 쓴다)
+    return 'M' + f1(A.x) + ' ' + f1(A.y) +
+      ' C' + f1(a1.x) + ' ' + f1(a1.y) + ', ' + f1(a2.x) + ' ' + f1(a2.y) + ', ' + f1(pF.x) + ' ' + f1(pF.y) +
+      segs.map(q => ' C' + f1(q[1].x) + ' ' + f1(q[1].y) + ', ' + f1(q[2].x) + ' ' + f1(q[2].y) + ', ' + f1(q[3].x) + ' ' + f1(q[3].y)).join('') +
+      ' C' + f1(b2.x) + ' ' + f1(b2.y) + ', ' + f1(b1.x) + ' ' + f1(b1.y) + ', ' + f1(B.x) + ' ' + f1(B.y);
+  }
   function edgeD(l) {
     const A = nodes[l.a], B = nodes[l.b];
+    if (mv === '1' && hulls && A.d.folder !== B.d.folder && hulls.has(A.d.folder) && hulls.has(B.d.folder)) return bundleD(l, links.indexOf(l));
     if (mv === '3') {
       if (Math.abs(A.x - B.x) < 1) return 'M' + A.x + ' ' + A.y + ' C' + (A.x - 70) + ' ' + A.y + ', ' + (B.x - 70) + ' ' + B.y + ', ' + B.x + ' ' + B.y;
       const mx = (A.x + B.x) / 2;
       return 'M' + A.x + ' ' + A.y + ' C' + mx + ' ' + A.y + ', ' + mx + ' ' + B.y + ', ' + B.x + ' ' + B.y;
     }
-    return 'M' + A.x.toFixed(1) + ' ' + A.y.toFixed(1) + ' L' + B.x.toFixed(1) + ' ' + B.y.toFixed(1);
+    return routeD(A, B);
   }
   function nodeSvg(n, k) {
     const f = color(n.d.folder), title = esc(n.d.title + ' (' + n.id + ')');
@@ -1375,7 +1587,8 @@ function viewGraphV(mv, carry) {
     for (const [id, g] of carry.ghostNodes) if (!ix.has(id)) ghosts += '<circle class="ghost" cx="' + g.x.toFixed(1) + '" cy="' + g.y.toFixed(1) + '" r="' + g.r.toFixed(1) + '" fill="' + g.fill + '"></circle>';
   }
   svg += '<rect id="gbg" x="-5000" y="-5000" width="10000" height="10000" fill="transparent"></rect><g id="vp"><g id="gd">' + decor + '</g><g id="gghost">' + ghosts + '</g><g id="gl">';
-  svg += links.map((l, i) => '<path data-i="' + i + '"' + (bornL.has(i) ? ' class="born"' : '') + ' d="' + edgeD(l) + '"></path>').join('');
+  const xfCls = l => (mv === '1' && nodes[l.a].d.folder !== nodes[l.b].d.folder ? 'bun' : '');
+  svg += links.map((l, i) => { const c = [bornL.has(i) ? 'born' : '', xfCls(l)].filter(Boolean).join(' '); return '<path data-i="' + i + '"' + (c ? ' class="' + c + '"' : '') + ' d="' + edgeD(l) + '"></path>'; }).join('');
   svg += '</g><g id="gn">' + nodes.map(nodeSvg).join('') + '</g><g id="ghl">' + hullLabels + '</g></g></svg>';
   h += '<div class="gwrap">' + svg + '<div class="gtools"><button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div>' +
     (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 위 "보기"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
@@ -1626,6 +1839,7 @@ function viewGraphV(mv, carry) {
       : hl && hulls.has(hl.dataset.f) ? { hull: hl.dataset.f, sx: p.x, sy: p.y, moved: 0 }
       : { pan: true, sx: p.x, sy: p.y, ox: GS.x, oy: GS.y, moved: 0 };
     if (drag.hull) svgEl.classList.add('hdrag');
+    coarseTrunk = !drag.pan;
     svgEl.setPointerCapture(e.pointerId); svgEl.classList.add('panning');
   });
   svgEl.addEventListener('pointermove', e => {
@@ -1644,6 +1858,7 @@ function viewGraphV(mv, carry) {
   svgEl.addEventListener('pointerup', () => {
     if (!drag) return;
     const d = drag; drag = null; svgEl.classList.remove('panning'); svgEl.classList.remove('hdrag');
+    if (coarseTrunk) { coarseTrunk = false; links.forEach((l, i) => { if (visibleLink(l)) lEls[i].setAttribute('d', edgeD(l)); }); }
     if (d.hull) { if (d.moved < 3) select(null); }
     else if (d.moved < 3) { if (d.pan) select(null); else pick(d.k); }
     else if (!d.pan) { hoverK = null; if (grown.size) releaseHulls(d.k); paint(); }
@@ -1712,7 +1927,15 @@ function viewGraphV(mv, carry) {
   };
   if (!carry) return;
   // 새 선은 그어지듯 나타나게 길이를 넘긴다. 몇 초 뒤 강조와 지운 흔적을 걷는다.
-  lEls.forEach((el, i) => { if (bornL.has(i)) el.style.setProperty('--len', String(Math.ceil(el.getTotalLength()) + 1)); });
+  // 새로 생긴 선은 태어날 때 길이로 그어지는 효과를 준다. 그 뒤 점이 움직이거나 선이 휘면 길이가 늘어 효과의 점선 간격 때문에 선이 중간에 끊겨 보이므로,
+  // 효과가 끝나면(또는 1.5초 뒤) born을 떼어 보통 선으로 되돌린다
+  lEls.forEach((el, i) => {
+    if (!bornL.has(i)) return;
+    el.style.setProperty('--len', String(Math.ceil(el.getTotalLength()) + 1));
+    const done = () => { el.classList.remove('born'); el.style.removeProperty('--len'); };
+    el.addEventListener('animationend', done, { once: true });
+    setTimeout(done, 1500);
+  });
   if (born.size || bornL.size || carry.ghostNodes.size) setTimeout(() => {
     born.clear(); bornL.clear();
     svgEl.querySelectorAll('.born').forEach(el => el.classList.remove('born'));
