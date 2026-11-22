@@ -1,47 +1,71 @@
 # SiloRoot
 
-도구마다 흩어진 기록(사일로)을 마크다운 폴더 하나(뿌리)로 모으는 Claude Code 플러그인이다. 폴더의 마크다운 파일이 원본이고, 사람은 로컬 뷰어 화면으로, AI는 파일로 같은 내용을 본다. 지금은 본인이 쓰는 v0이다.
+**English** | [한국어](README.ko.md)
 
-## 설치 (이 PC)
+A Claude Code plugin that gathers notes scattered across tools (silos) into one folder of Markdown files (the root). The Markdown files are the source of truth: people read them in a local viewer, and the AI reads and writes the files directly. This is an early version (v0).
+
+## Requirements
+
+- Claude Code
+- Node.js on your `PATH` (the hooks and the viewer run with `node`)
+
+## Install
 
 ```powershell
-claude plugin marketplace add <이 저장소 경로>
-cd <작업 공간으로 쓸 폴더>
+claude plugin marketplace add Q07K/siloroot
+cd <folder to use as your workspace>
 claude plugin install siloroot@siloroot --scope project
 ```
 
-그 폴더에서 Claude Code를 열고 `/siloroot:init`을 실행한다.
+To use a local clone instead, replace the first line with `claude plugin marketplace add <path to the clone>`.
 
-## 스킬
+Then open Claude Code in that folder and run `/siloroot:init`.
 
-| 스킬 | 언제 |
+## Skills
+
+| Skill | When |
 | --- | --- |
-| `/siloroot:init` | 폴더를 작업 공간으로 만든다. 없는 파일만 만들고 뷰어를 연다 |
-| `/siloroot:note` | 기술 개념을 문답으로 공부한다. 공부 노트가 생기고 이어 적힌다 |
-| `/siloroot:verify` | "검증해 줘". Claude가 질문하고 판정해 검증 기록과 이해도를 갱신한다 |
-| `/siloroot:feedback` | 뷰어에서 남긴 댓글과 웹 편집을 처리한다. 훅이 알려 준다 |
+| `/siloroot:init` | Turns the folder into a workspace. Creates only missing files and opens the viewer |
+| `/siloroot:note` | Learn a technical concept through Q&A. Creates and extends study notes. When questions drift to a neighboring topic, splits it into its own note and links the two |
+| `/siloroot:verify` | Say "검증해 줘" (verify me). Claude asks questions, grades your answers, and updates the verification log and understanding level |
+| `/siloroot:feedback` | Processes comments and web edits left in the viewer. The hooks tell you when there is something to process |
 
-## 만들어지는 폴더
+One conversation can move freely between study, ideas, decisions, and projects. The conversation stays as it is; Claude looks at what kind of content came up, files it in the right folder, and links the documents to each other. The rules live in the workspace's `CLAUDE.md` block.
 
-| 경로 | 내용 |
+## Created files
+
+| Path | Contents |
 | --- | --- |
-| `CLAUDE.md` | SiloRoot 표시 블록(폴더 지도와 규칙). 블록 밖은 자유 |
-| `metadata-guide.md`, `writing-guide.md` | 문서 속성 약속, 글쓰기 규칙 |
-| `01-log/` | 작업 기록, 미해결 질문 |
-| `02-study/` | 공부 노트와 주제 목록(이해도) |
-| `03-ideas/` | 아이디어 |
-| `04-feedback/` | 뷰어 댓글, 글쓰기 규칙 후보 |
-| `.siloroot/` | 설정(`config.json`: 포트, 폴더 이름)과 뷰어 생성물(`state/`) |
+| `CLAUDE.md` | A SiloRoot block (folder map and rules). Everything outside the block is yours |
+| `metadata-guide.md`, `writing-guide.md` | Document property conventions, writing rules |
+| `01-log/` | Work log, open questions |
+| `02-study/` | Study notes and the topic list (understanding levels) |
+| `03-ideas/` | Ideas, projects you have started building, and their decision records |
+| `04-feedback/` | Viewer comments, writing-rule candidates |
+| `.siloroot/` | Settings (`config.json`: port, folder names) and viewer output (`state/`) |
 
-## 뷰어
+The templates and skill text are currently in Korean only.
 
-`http://127.0.0.1:<config.json의 port>`. 이 PC 안에서만 열린다. 문서가 바뀌면 화면이 바로 다시 그려지고, 새 문서와 새 줄이 잠깐 노랗게 칠해진다. 외부 네트워크 요청은 없다.
+## Viewer
 
-훅은 `.siloroot/config.json`이 있는 폴더에서만 동작한다. 세션을 시작하면 뷰어 서버를 켜고(그날 첫 세션이면 브라우저도 연다), 메시지를 보낼 때 처리할 피드백이 있으면 알린다. 이미 `.gitignore`가 있는 폴더라면 `.siloroot/state/`를 직접 더한다.
+`http://127.0.0.1:<port from config.json>`. It is reachable only from this machine and makes no external network requests.
 
-## 개발
+- When a document changes, the page redraws right away and briefly highlights new documents and new lines in yellow.
+- The connection graph links documents through `related` properties and backticked paths. If a document is created or deleted while you are looking at the graph, its node and edges are added or removed without a reload.
+
+The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server (and open the browser on the first session of the day); when you send a message they tell you if there is feedback to process. If the folder already has a `.gitignore`, add `.siloroot/state/` to it yourself.
+
+## Development
 
 ```powershell
 npm test
 claude plugin validate .
 ```
+
+The privacy test reads banned words from `test/banned-words.local.txt` (one word per line), which is not committed. Without that file the test runs with no banned words.
+
+The README exists in English (`README.md`) and Korean (`README.ko.md`). When you change one, change the other too.
+
+## License
+
+MIT

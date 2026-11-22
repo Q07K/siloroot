@@ -1,0 +1,71 @@
+# SiloRoot
+
+[English](README.md) | **한국어**
+
+도구마다 흩어진 기록(사일로)을 마크다운 폴더 하나(뿌리)로 모으는 Claude Code 플러그인이다. 폴더의 마크다운 파일이 원본이고, 사람은 로컬 뷰어 화면으로, AI는 파일로 같은 내용을 본다. 아직 초기 버전(v0)이다.
+
+## 준비물
+
+- Claude Code
+- `PATH`에 잡힌 Node.js (훅과 뷰어가 `node`로 실행된다)
+
+## 설치
+
+```powershell
+claude plugin marketplace add Q07K/siloroot
+cd <작업 공간으로 쓸 폴더>
+claude plugin install siloroot@siloroot --scope project
+```
+
+저장소를 내려받아 쓰려면 첫 줄 대신 `claude plugin marketplace add <내려받은 경로>`를 쓴다.
+
+그 폴더에서 Claude Code를 열고 `/siloroot:init`을 실행한다.
+
+## 스킬
+
+| 스킬 | 언제 |
+| --- | --- |
+| `/siloroot:init` | 폴더를 작업 공간으로 만든다. 없는 파일만 만들고 뷰어를 연다 |
+| `/siloroot:note` | 기술 개념을 문답으로 공부한다. 공부 노트가 생기고 이어 적힌다. 질문이 옆 주제로 번지면 노트를 나누고 링크로 묶는다 |
+| `/siloroot:verify` | "검증해 줘". Claude가 질문하고 판정해 검증 기록과 이해도를 갱신한다 |
+| `/siloroot:feedback` | 뷰어에서 남긴 댓글과 웹 편집을 처리한다. 훅이 알려 준다 |
+
+한 대화가 공부, 아이디어, 결정, 프로젝트 사이를 오가도 된다. 대화는 흐르게 두고, Claude가 내용의 종류를 보고 알맞은 폴더에 문서를 나눠 서로 잇는다. 규칙은 작업 공간의 `CLAUDE.md` 블록에 들어간다.
+
+## 만들어지는 폴더
+
+| 경로 | 내용 |
+| --- | --- |
+| `CLAUDE.md` | SiloRoot 표시 블록(폴더 지도와 규칙). 블록 밖은 자유 |
+| `metadata-guide.md`, `writing-guide.md` | 문서 속성 약속, 글쓰기 규칙 |
+| `01-log/` | 작업 기록, 미해결 질문 |
+| `02-study/` | 공부 노트와 주제 목록(이해도) |
+| `03-ideas/` | 아이디어와 만들기 시작한 프로젝트, 그 결정 기록 |
+| `04-feedback/` | 뷰어 댓글, 글쓰기 규칙 후보 |
+| `.siloroot/` | 설정(`config.json`: 포트, 폴더 이름)과 뷰어 생성물(`state/`) |
+
+템플릿과 스킬 문구는 지금 한국어로만 되어 있다.
+
+## 뷰어
+
+`http://127.0.0.1:<config.json의 port>`. 이 PC 안에서만 열린다. 외부 네트워크 요청은 없다.
+
+- 문서가 바뀌면 화면이 바로 다시 그려지고, 새 문서와 새 줄이 잠깐 노랗게 칠해진다.
+- 연결 그래프는 `related`와 백틱 경로로 문서를 잇는다. 보는 중에 문서가 생기거나 지워지면 새로 고침 없이 점과 선이 더해지고 빠진다.
+
+훅은 `.siloroot/config.json`이 있는 폴더에서만 동작한다. 세션을 시작하면 뷰어 서버를 켜고(그날 첫 세션이면 브라우저도 연다), 메시지를 보낼 때 처리할 피드백이 있으면 알린다. 이미 `.gitignore`가 있는 폴더라면 `.siloroot/state/`를 직접 더한다.
+
+## 개발
+
+```powershell
+npm test
+claude plugin validate .
+```
+
+개인 정보 검사 테스트는 git에 올리지 않는 `test/banned-words.local.txt`(한 줄에 낱말 하나)에서 금지어를 읽는다. 파일이 없으면 금지어 없이 지나간다.
+
+README는 영어(`README.md`)와 한국어(`README.ko.md`) 두 벌이다. 한쪽을 고치면 다른 쪽도 같이 고친다.
+
+## 라이선스
+
+MIT

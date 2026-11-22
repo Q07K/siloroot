@@ -74,14 +74,28 @@ test('템플릿, 스킬, README에 개인 정보 금지어가 없다', () => {
     const abs = path.join(REPO, dir);
     if (fs.existsSync(abs)) for (const f of fs.readdirSync(abs, { recursive: true })) if (fs.statSync(path.join(abs, f)).isFile()) files.push(path.join(abs, f));
   }
-  if (fs.existsSync(path.join(REPO, 'README.md'))) files.push(path.join(REPO, 'README.md'));
+  const READMES = ['README.md', 'README.ko.md'].map((f) => path.join(REPO, f)).filter((f) => fs.existsSync(f));
+  files.push(...READMES);
   assert.ok(files.length > 0);
+  // README는 설치 안내에 저장소 주소를 적어야 하므로, plugin.json repository의 소유자 이름만 README에서 허용한다.
+  const repoUrl = JSON.parse(fs.readFileSync(path.join(REPO, '.claude-plugin', 'plugin.json'), 'utf8')).repository || '';
+  const owner = ((repoUrl.match(/github\.com\/([^/]+)\//) || [])[1] || '').toLowerCase();
   const hits = [];
   for (const f of files) {
     const t = fs.readFileSync(f, 'utf8');
-    for (const w of BANNED) if (t.toLowerCase().includes(w.toLowerCase())) hits.push(path.relative(REPO, f) + ': ' + w);
+    const allowed = READMES.includes(f) && owner ? [owner] : [];
+    for (const w of BANNED) if (!allowed.includes(w.toLowerCase()) && t.toLowerCase().includes(w.toLowerCase())) hits.push(path.relative(REPO, f) + ': ' + w);
   }
   assert.deepEqual(hits, []);
+});
+
+test('영어, 한국어 README가 둘 다 있고 서로를 가리킨다', () => {
+  const en = fs.readFileSync(path.join(REPO, 'README.md'), 'utf8');
+  const ko = fs.readFileSync(path.join(REPO, 'README.ko.md'), 'utf8');
+  assert.match(en, /\(README\.ko\.md\)/);
+  assert.match(ko, /\(README\.md\)/);
+  const headings = (t) => t.split('\n').filter((l) => /^##\s/.test(l)).length;
+  assert.equal(headings(en), headings(ko), '두 README의 ## 절 개수가 같아야 한다');
 });
 
 test('끝 표시가 없는 CLAUDE.md는 건드리지 않고 경고로 알린다', async () => {
