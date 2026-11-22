@@ -1,6 +1,6 @@
 {
   "name": "siloroot",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "마크다운 폴더 하나를 원본으로 두고 사람은 뷰어로, AI는 파일로 함께 쓰는 작업 공간을 만든다.",
   "author": { "name": "Q07K", "url": "https://github.com/Q07K" },
   "repository": "https://github.com/Q07K/siloroot",
