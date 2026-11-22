@@ -244,6 +244,9 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .ogroup{border-bottom:1px solid var(--border);padding:6px 0}
 .ogroup summary{cursor:pointer;padding:4px 0}
 .chip.warn{background:var(--flash-bg);color:var(--ink)}
+.meev{margin:6px 0;padding-left:18px;font-size:13px}.meev li{margin:2px 0}
+.mew .t{flex:1}.nopef{margin-top:8px}.nopef textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.mecard{margin-left:auto}
 .board{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0}
 .fcol{display:flex;flex-direction:column;min-height:0}
 .fcol .fbody{flex:1;min-height:0;overflow:auto}
@@ -255,7 +258,7 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 <header><div class="bar">
 <span class="brand"><picture><source srcset="__BRAND_WORDMARK_DARK__" media="(prefers-color-scheme: dark)"><img class="logo" src="__BRAND_WORDMARK__" alt="SiloRoot" height="22"></picture></span>
 <span class="meta" id="meta"></span>
-<nav id="nav" aria-label="화면"><a href="#recent" data-r="recent">최근 바뀐 것</a><a href="#feedback" data-r="feedback">피드백</a><a href="#objects" data-r="objects">객체</a><a href="#docs" data-r="docs">문서</a><a href="#graph" data-r="graph">연결</a></nav>
+<nav id="nav" aria-label="화면"><a href="#recent" data-r="recent">최근 바뀐 것</a><a href="#me" data-r="me">나</a><a href="#feedback" data-r="feedback">피드백</a><a href="#objects" data-r="objects">객체</a><a href="#docs" data-r="docs">문서</a><a href="#graph" data-r="graph">연결</a></nav>
 <input class="search" id="q" type="search" placeholder="제목, 경로, 본문 검색" aria-label="문서 검색">
 </div></header>
 <main id="view"></main>
@@ -452,7 +455,9 @@ function viewRecent() {
   const recents = [...D.docs].sort((a, b) => b.mtime - a.mtime).slice(0, 50).map(d => ({ kind: 'doc', path: d.path, chip: '<span class="chip">' + ago(d.mtime) + '</span>' }));
   const list = mode === 'changed' ? items : recents;
   const sub = C.first ? '처음 만든 뷰어라 비교 기준이 없습니다. 다음 생성부터 바뀐 문서가 쌓입니다.' : '지난 기준(' + fmtTime(D.prevBuiltAt) + ') 뒤로 바뀐 문서 ' + items.length + '개';
-  let h = '<div class="phead"><h1 class="page">최근 바뀐 것</h1><p class="sub">' + sub + '</p></div>';
+  const mc = meCounts();
+  const meCard = '<a class="pill sm mecard" href="#me" title="AI가 지금 쓰고 있는 나에 대한 정보">AI가 아는 나: 승인 ' + mc.approved + ' · 기다리는 후보 ' + mc.pending + '</a>';
+  let h = '<div class="phead"><h1 class="page">최근 바뀐 것</h1><p class="sub">' + sub + '</p>' + meCard + '</div>';
   h += '<div class="split"><section class="pane"><div class="pane-h"><div class="seg" role="tablist" aria-label="목록 종류">' +
     '<button type="button" role="tab" data-m="changed" class="' + (mode === 'changed' ? 'on' : '') + '" aria-selected="' + (mode === 'changed') + '"' + (C.first ? ' disabled' : '') + '>바뀐 문서 ' + items.length + '</button>' +
     '<button type="button" role="tab" data-m="recent" class="' + (mode === 'recent' ? 'on' : '') + '" aria-selected="' + (mode === 'recent') + '">최근 수정</button></div>' +
@@ -747,6 +752,74 @@ function wireDocTools(d) {
       } catch (e) { msg.textContent = e.message; msg.className = 'note err'; }
     });
   });
+}
+
+// ---------- 나: AI가 지금 쓰고 있는 사용자 정보 ----------
+// 데이터는 viewer/build.mjs의 parseMe().
+// 점수나 평가는 만들지 않는다. 원본 파일에 있는 문장과 근거만 보여 주고, 틀린 항목에는 댓글을 남긴다.
+function meCounts() {
+  const M = D.objects.me || { approved: [], pending: [], rejected: [], writing: { principles: [], banned: [] } };
+  return { M, approved: M.approved.length, pending: M.pending.length, rejected: M.rejected.length, writing: M.writing.principles.length + M.writing.banned.length };
+}
+function viewMe() {
+  const { M, approved, pending, rejected, writing } = meCounts();
+  const nope = (target, quote) => SERVED
+    ? '<div class="crow"><button type="button" class="pill sm nope" data-t="' + esc(target) + '" data-q="' + esc(quote) + '">이건 아니에요</button></div><div class="nopef" hidden></div>'
+    : '';
+  const ev = (list, src) => list.length || src
+    ? '<details class="fr"><summary>근거 ' + list.length + '개' + (src ? ' · ' + esc(src.split('/').pop().replace(/\.md$/, '')) : '') + '</summary><ul class="meev">' + list.map(e => '<li>' + esc(e) + '</li>').join('') + '</ul>' + (src ? '<a class="path" href="' + docHref(src) + '">후보 파일 열기</a>' : '') + '</details>'
+    : '';
+  const item = a => '<article class="ocard"><div class="ohead"><strong>' + esc(a.item) + '</strong>' + (a.approvedAt ? '<span class="chip add">승인 ' + esc(a.approvedAt) + '</span>' : '') + '</div>' +
+    '<p class="fc">' + esc(a.content) + '</p>' + ev(a.evidence, a.source) + nope(M.profile, a.item + ': ' + a.content) + '</article>';
+
+  let b = '';
+  if (M.pending.length) {
+    b += '<h3 class="osec">기다리는 후보 <span class="path">' + M.pending.length + '</span></h3>';
+    b += M.pending.map(t => '<article class="ocard"><div class="ohead">' + statusChip(t.status) + '<strong>' + esc(t.item || t.title) + '</strong>' + (t.group ? '<span class="chip">' + esc(t.group) + '</span>' : '') + '</div>' +
+      '<p class="fc">' + esc(t.content) + '</p>' + ev(t.evidence, t.doc) +
+      '<p class="note">' + (t.status === '승인' ? '승인했고 AI가 profile.md에 옮길 차례입니다.' : '대화에서 "' + esc(t.doc.split('/').pop().replace(/\.md$/, '')) + ' 승인" 또는 "거절"이라고 말하거나 파일의 status를 바꿉니다.') + '</p></article>').join('');
+  }
+  for (const g of M.groups) {
+    const list = M.approved.filter(a => a.group === g);
+    b += '<h3 class="osec">' + esc(g) + ' <span class="path">' + list.length + '</span></h3>';
+    b += list.length ? list.map(item).join('') : '<p class="empty">아직 없음</p>';
+  }
+  const wrow = (w, quote) => '<div class="drow mew"><div class="t"><strong>' + esc(w.name) + '</strong><div class="note">' + esc(w.content) + '</div>' + nope(M.writing.doc, quote) + '</div><div class="r">' + (w.source ? '<span class="chip">' + esc(w.source.replace(/`/g, '')) + '</span>' : '') + '</div></div>';
+  const wsec = (title, list, quote) => list.length ? '<h3 class="osec">' + title + '</h3>' + list.map(w => wrow(w, quote(w))).join('') : '';
+  b += '<details class="ogroup"><summary><strong>글쓰기</strong> <span class="path">' + (M.writing.principles.length ? '원칙 ' + M.writing.principles.length + ' · ' : '') + '쓰지 않는 표현 ' + M.writing.banned.length + '</span></summary>' +
+    wsec('원칙', M.writing.principles, w => w.name + ': ' + w.content) +
+    wsec('쓰지 않는 표현', M.writing.banned, w => w.name + ' → ' + w.content) +
+    (writing ? '' : '<p class="empty">아직 없음</p>') +
+    '<p class="note"><a href="' + docHref(M.writing.doc) + '">writing-guide.md 열기</a></p></details>';
+  b += '<details class="ogroup"><summary><strong>AI가 잘못 본 것</strong> <span class="path">거절한 후보 ' + rejected + '</span></summary>' +
+    (M.rejected.length ? M.rejected.map(r => '<article class="ocard done"><div class="ohead">' + statusChip('거절') + '<span class="chip">' + esc(r.kind) + '</span><strong>' + esc(r.title) + '</strong></div>' +
+      (r.content ? '<p class="fc">' + esc(r.content) + '</p>' : '') + ev(r.evidence, r.doc) + (r.memo.length ? '<p class="note">' + esc(r.memo.join(' ')) + '</p>' : '') + '</article>').join('') : '<p class="empty">없음</p>') + '</details>';
+
+  const chip = (n, label, cls) => '<span class="chip' + (cls || '') + '">' + label + ' ' + n + '</span>';
+  let h = '<div class="phead"><h1 class="page">나</h1><p class="sub">AI가 지금 쓰고 있는 나에 대한 정보와 그 근거입니다. 틀린 항목에는 댓글을 남기세요.</p>' +
+    '<div>' + chip(approved, '승인됨', ' add') + chip(pending, '기다리는 후보', pending ? ' acc' : '') + chip(rejected, '거절한 후보', '') + chip(writing, '글쓰기 규칙', '') + '</div></div>';
+  if (!SERVED) h += '<p class="note" style="margin:0 0 10px">댓글은 뷰어 서버로 열었을 때만 남길 수 있습니다.</p>';
+  h += '<section class="pane grow"><div class="pane-b pad">' + b + '</div></section>';
+  $('#view').innerHTML = h;
+
+  document.querySelectorAll('.nope').forEach(btn => btn.addEventListener('click', () => {
+    const f = btn.parentElement.nextElementSibling;
+    if (!f.hidden) { f.hidden = true; return; }
+    f.hidden = false;
+    f.innerHTML = '<div class="cquote"><span class="note">고른 부분</span><div>' + esc(cut(btn.dataset.q, 200)) + '</div></div>' +
+      '<textarea rows="3" class="nopet" aria-label="댓글" placeholder="어디가 틀렸고 실제로는 어떤지 적어 주세요"></textarea>' +
+      '<div class="crow"><button type="button" class="pill on sm nopes">보내기</button><button type="button" class="pill sm nopec">취소</button><span class="note nopem"></span></div>';
+    const ta = f.querySelector('.nopet'), msg = f.querySelector('.nopem');
+    ta.focus();
+    f.querySelector('.nopec').addEventListener('click', () => { f.hidden = true; });
+    f.querySelector('.nopes').addEventListener('click', async () => {
+      const body = ta.value.trim();
+      if (!body) { msg.textContent = '댓글을 먼저 적어 주세요.'; msg.className = 'note nopem err'; ta.focus(); return; }
+      msg.textContent = '보내는 중…'; msg.className = 'note nopem';
+      try { await post('/api/feedback', { target: btn.dataset.t, quote: btn.dataset.q, body }); msg.textContent = '남겼어요. AI가 다음 대화에서 집어 갑니다.'; f.querySelector('.nopes').disabled = true; }
+      catch (e) { msg.textContent = e.message; msg.className = 'note nopem err'; }
+    });
+  }));
 }
 
 function viewFeedback(tab) {
@@ -1355,6 +1428,7 @@ function route() {
   if (h === 'objects' || h.startsWith('objects/')) { setNav('objects'); viewObjects(h.split('/')[1] || 'questions'); return; }
   if (h === 'docs') { setNav('docs'); viewDocs($('#q').value); return; }
   if (h === 'feedback' || h.startsWith('feedback/')) { setNav('feedback'); viewFeedback(h.split('/')[1]); return; }
+  if (h === 'me') { setNav('me'); viewMe(); return; }
   if (h === 'graph') {
     setNav('graph');
     viewGraphV(MV);
