@@ -6,6 +6,7 @@
 // 실행: node viewer/serve.mjs <프로젝트 폴더>  →  http://127.0.0.1:<설정의 port>
 // GET /health 는 { siloroot: true, root, viewers } 를 돌려준다. 훅이 이 포트가 내 폴더의 서버인지,
 // 뷰어 화면이 이미 열려 있는지(viewers: /events에 붙은 화면 수) 확인할 때 쓴다.
+// 화면을 찍으려고 띄운 headless 브라우저는 사람이 보는 화면이 아니므로 viewers에 세지 않는다.
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -216,11 +217,15 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive' });
       res.write(': connected\n\n');
+      res.headless = /Headless/i.test(req.headers['user-agent'] || '');
       clients.add(res);
       req.on('close', () => clients.delete(res));
       return;
     }
-    if (req.method === 'GET' && req.url === '/health') return send(res, 200, { siloroot: true, root: ROOT, viewers: clients.size });
+    if (req.method === 'GET' && req.url === '/health') {
+      const viewers = [...clients].filter((c) => !c.headless).length;
+      return send(res, 200, { siloroot: true, root: ROOT, viewers });
+    }
     if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
       build(['--keep-snapshot']);
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });

@@ -125,6 +125,21 @@ test('뷰어 화면이 이미 열려 있으면 브라우저를 다시 열지 않
   });
 });
 
+test('화면을 찍으려고 띄운 headless 브라우저는 열린 화면으로 세지 않는다', async () => {
+  await withServer(async ({ root, base }) => {
+    const ac = new AbortController();
+    const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.0.0 Safari/537.36 Edg/158.0.0.0';
+    const res = await fetch(base + '/events', { signal: ac.signal, headers: { 'user-agent': ua } });
+    await res.body.getReader().read();
+    try {
+      assert.equal((await (await fetch(base + '/health')).json()).viewers, 0);
+      assert.equal(decide(root, 'startup'), 'open:no-viewer');
+    } finally {
+      ac.abort();
+    }
+  });
+});
+
 test('대화 압축으로 다시 시작한 세션에서는 브라우저를 열지 않는다', async () => {
   await withServer(({ root }) => {
     assert.equal(decide(root, 'compact'), 'skip:compact');
