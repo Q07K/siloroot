@@ -855,7 +855,8 @@ function runForce(G, W, H, o) {
   if (!nodes.length) return;
   const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y), pad = o.pad || 70;
   const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const s = Math.min((W - 2 * pad) / Math.max(1, maxX - minX), (H - 2 * pad) / Math.max(1, maxY - minY));
+  // 문서가 몇 개 안 되면 화면 끝까지 늘리지 않는다. 늘리면 점 두세 개가 양 끝으로 흩어져 이어진 모습이 안 보인다
+  const s = Math.min(o.maxScale || 1.6, (W - 2 * pad) / Math.max(1, maxX - minX), (H - 2 * pad) / Math.max(1, maxY - minY));
   nodes.forEach(n => { n.x = pad + (n.x - minX) * s + ((W - 2 * pad) - (maxX - minX) * s) / 2; n.y = pad + (n.y - minY) * s + ((H - 2 * pad) - (maxY - minY) * s) / 2; });
 }
 const labelW = t => { let w = 0; for (const ch of t) w += /[ㄱ-힝]/.test(ch) ? 12.2 : 6.8; return Math.round(w); };
