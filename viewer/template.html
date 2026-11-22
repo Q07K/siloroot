@@ -247,6 +247,32 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .meev{margin:6px 0;padding-left:18px;font-size:13px}.meev li{margin:2px 0}
 .mew .t{flex:1}.nopef{margin-top:8px}.nopef textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 .mecard{margin-left:auto}
+.medash{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+.mebox{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}
+.mebox h3{margin:0 0 8px;font-size:14px}
+.radar{display:block;width:100%;max-width:420px;height:auto;margin:0 auto}
+.radar .ring{fill:none;stroke:var(--line);stroke-width:1}
+.radar .spoke{stroke:var(--line);stroke-width:1}
+.radar .area{fill:var(--accent-bg);fill-opacity:.7;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}
+.radar .pt{fill:var(--accent);stroke:var(--bg);stroke-width:2}
+.radar .ax{cursor:pointer}
+.radar .ax text{font-size:13px;fill:var(--muted)}
+.radar .ax .v{font-weight:700;fill:var(--ink)}
+.radar .ax.on text{fill:var(--accent);font-weight:700}
+.radar .ax .hit{fill:transparent}
+.meaxes{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0 10px}
+.meaxis{border-top:1px solid var(--border);padding-top:10px}
+.meaxis .f{font-size:13px;color:var(--muted);margin:4px 0}
+.mecomment .md{font-size:14px}.mecomment .md h1{font-size:15px;margin:0 0 6px}
+.metrend{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.metrend .tr{min-width:0}.metrend .tr .n{font-size:13px;color:var(--muted)}.metrend .tr .v{font-size:20px;font-weight:700}
+.spark{display:block;width:100%;height:36px}
+.spark polyline{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.spark circle{fill:var(--accent)}
+.mesched{font-size:13px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:0 0 10px;display:grid;gap:3px}
+.mesched .k{display:inline-block;min-width:44px;font-weight:600;color:var(--ink)}
+.metrend .sx{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+@media (max-width:760px){.medash{grid-template-columns:1fr}.metrend{grid-template-columns:repeat(2,minmax(0,1fr))}.mepane .pane-b{max-height:none}.mepane .pane-b.pad{padding:10px}.mebox{padding:10px}.radar .ax text{font-size:16px}}
 .board{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0}
 .fcol{display:flex;flex-direction:column;min-height:0}
 .fcol .fbody{flex:1;min-height:0;overflow:auto}
@@ -755,11 +781,81 @@ function wireDocTools(d) {
 }
 
 // ---------- 나: AI가 지금 쓰고 있는 사용자 정보 ----------
-// 데이터는 viewer/build.mjs의 parseMe().
-// 점수나 평가는 만들지 않는다. 원본 파일에 있는 문장과 근거만 보여 주고, 틀린 항목에는 댓글을 남긴다.
+// 데이터는 viewer/build.mjs의 parseMe()와 buildRadar().
+// 위쪽은 폴더 기록으로 계산한 사용 방법 레이더(축마다 계산식과 근거를 보여 준다), 아래쪽은 AI가 쓰는 사용자 정보와 근거.
+let meAxis = 'depth'; // 고른 축. 실시간 갱신은 페이지를 새로 고치므로 sessionStorage에 남긴다
+try { meAxis = sessionStorage.getItem('fv-me-axis') || meAxis; } catch (e) { /* 못 읽으면 첫 축 */ }
 function meCounts() {
   const M = D.objects.me || { approved: [], pending: [], rejected: [], writing: { principles: [], banned: [] } };
   return { M, approved: M.approved.length, pending: M.pending.length, rejected: M.rejected.length, writing: M.writing.principles.length + M.writing.banned.length };
+}
+function meRadarSvg(axes) {
+  const W = 420, H = 320, cx = 210, cy = 158, R = 108, n = axes.length;
+  const at = (i, r) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+  const f1 = v => v.toFixed(1);
+  const poly = r => axes.map((_, i) => at(i, r).map(f1).join(',')).join(' ');
+  let g = [25, 50, 75, 100].map(p => '<polygon class="ring" points="' + poly(R * p / 100) + '"/>').join('');
+  g += axes.map((_, i) => { const [x, y] = at(i, R); return '<line class="spoke" x1="' + cx + '" y1="' + cy + '" x2="' + f1(x) + '" y2="' + f1(y) + '"/>'; }).join('');
+  g += '<polygon class="area" points="' + axes.map((a, i) => at(i, R * a.value / 100).map(f1).join(',')).join(' ') + '"/>';
+  g += axes.map((a, i) => { const [x, y] = at(i, R * a.value / 100); return '<circle class="pt" r="4.5" cx="' + f1(x) + '" cy="' + f1(y) + '"><title>' + esc(a.name + ' ' + a.value) + '</title></circle>'; }).join('');
+  g += axes.map((a, i) => {
+    const [x, y] = at(i, R + 16), anchor = Math.abs(x - cx) < 4 ? 'middle' : x > cx ? 'start' : 'end';
+    const dy = y < cy - R * 0.5 ? -16 : y > cy + R * 0.5 ? 6 : -6;
+    const hx = anchor === 'start' ? x - 4 : anchor === 'end' ? x - 96 : x - 50;
+    return '<g class="ax' + (a.key === meAxis ? ' on' : '') + '" data-k="' + a.key + '"><rect class="hit" x="' + f1(hx) + '" y="' + f1(y + dy - 15) + '" width="100" height="36"/>' +
+      '<text x="' + f1(x) + '" y="' + f1(y + dy) + '" text-anchor="' + anchor + '">' + esc(a.name) + '</text>' +
+      '<text class="v" x="' + f1(x) + '" y="' + f1(y + dy + 16) + '" text-anchor="' + anchor + '">' + a.value + '</text></g>';
+  }).join('');
+  return '<svg class="radar" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(axes.map(a => a.name + ' ' + a.value).join(', ')) + '">' + g + '</svg>';
+}
+// rows: [{date, v}] 날짜 순. 가로 위치는 날짜 간격대로
+function meSpark(rows, tip) {
+  const W = 160, H = 36, pad = 5, y = v => (H - pad - (H - 2 * pad) * v / 100).toFixed(1);
+  const t = r => new Date(r.date + 'T00:00:00').getTime(), t0 = t(rows[0]), span = t(rows[rows.length - 1]) - t0 || 1;
+  const x = r => (pad + (W - 2 * pad) * (t(r) - t0) / span).toFixed(1);
+  const pts = rows.map(r => x(r) + ',' + y(r.val)).join(' ');
+  return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(tip) + '"><title>' + esc(tip) + '</title><polyline points="' + pts + '" vector-effect="non-scaling-stroke"/></svg>';
+}
+const meYmd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const meAddDays = (ymd, n) => { const d = new Date(ymd + 'T00:00:00'); d.setDate(d.getDate() + n); return meYmd(d); };
+// 코멘트 갱신 시각: lib/me-schedule.mjs의 lastSlot과 같은 계산
+function meLastSlot(hour, now) { const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour); if (now < d) d.setDate(d.getDate() - 1); return d; }
+function meDash(M) {
+  const R = M.radar;
+  if (!R) return '';
+  const axes = R.axes, cur = axes.find(a => a.key === meAxis) || axes[0];
+  const evi = cur.evidence.length ? '<ul class="meev">' + cur.evidence.map(e => '<li>' + (e.doc ? '<a href="' + docHref(e.doc) + '">' + esc(e.text) + '</a>' : esc(e.text)) + '</li>').join('') + '</ul>' : '<p class="empty">근거 없음</p>';
+  let h = '<div class="medash"><section class="mebox"><h3>사용 방법 레이더 <span class="path">0~100 · ' + esc(R.today) + ' 기준</span></h3>' + meRadarSvg(axes) +
+    '<div class="meaxes" role="group" aria-label="축 고르기">' + axes.map(a => '<button type="button" class="pill sm meax' + (a.key === cur.key ? ' on' : '') + '" data-k="' + a.key + '" aria-pressed="' + (a.key === cur.key) + '">' + esc(a.name) + ' ' + a.value + '</button>').join('') + '</div>' +
+    '<div class="meaxis"><strong>' + esc(cur.name) + ' ' + cur.value + '</strong><p class="f">계산: ' + esc(cur.formula) + '</p><p class="f">목표: ' + esc(cur.target) + '</p>' + (cur.note ? '<p class="f">' + esc(cur.note) + '</p>' : '') +
+    '<details class="fr"' + (cur.evidence.length <= 6 ? ' open' : '') + '><summary>근거 ' + cur.evidence.length + '개</summary>' + evi + '</details></div></section>';
+  const C = M.comment || { doc: '', hour: 9, mtime: 0 };   // 빌더가 늘 채운다
+  const c = D.docs.find(d => d.path === C.doc);
+  const fmt = d => new Date(d).toLocaleString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  const now = new Date(), slot = meLastSlot(C.hour, now), next = new Date(slot); next.setDate(next.getDate() + 1);
+  const due = !C.mtime || C.mtime < slot.getTime();
+  const sched = '<div class="mesched"><div><span class="k">갱신</span>매일 ' + C.hour + '시가 지난 뒤 처음 여는 대화에서 AI가 고칩니다</div>' +
+    '<div><span class="k">마지막</span>' + (C.mtime ? esc(fmt(C.mtime)) : '아직 없음') + '</div>' +
+    '<div><span class="k">다음</span>' + (due ? '<span class="chip warn">갱신할 차례</span> 다음 대화를 열면 고칩니다' : esc(fmt(next)) + ' 이후 첫 대화') + '</div></div>';
+  h += '<section class="mebox mecomment"><h3>AI 코멘트 <span class="chip">AI의 의견, 승인된 정보 아님</span></h3>' + sched +
+    (c ? '<div class="md">' + md(c.text, c.linkMap, c.path) + '</div><p class="note"><a href="' + docHref(c.path) + '">' + esc(c.path) + ' 열기</a></p>'
+      : '<p class="empty">아직 없음</p>') + '</section></div>';
+  const hist = M.history || [], weekAgo = meAddDays(R.today, -7);
+  const base = hist.filter(r => r.date <= weekAgo).pop();
+  const head = base
+    ? '오늘(' + R.today.slice(5) + ') 값을 일주일 전 기록(' + base.date.slice(5) + ')과 비교합니다.'
+    : '일주일 전 기록이 아직 없습니다. 기록은 ' + (hist[0] ? hist[0].date.slice(5) : R.today.slice(5)) + '부터 쌓였고 ' + meAddDays(hist[0] ? hist[0].date : R.today, 7).slice(5) + '부터 비교할 수 있습니다.';
+  const recent = hist.filter(r => r.date >= meAddDays(R.today, -30));
+  h += '<section class="mebox" style="margin-bottom:14px"><h3>일주일 전과 비교</h3><p class="note" style="margin:0 0 10px">' + head + ' 뷰어를 만들 때마다 그날 다섯 값을 하루 한 줄씩 남깁니다.</p><div class="metrend">' +
+    axes.map(a => {
+      const b0 = base ? base.v[a.key] : null, d = typeof b0 === 'number' ? a.value - b0 : null;
+      const chip = d === null ? '' : ' <span class="chip ' + (d > 0 ? 'add' : d < 0 ? 'del' : '') + '">' + (d > 0 ? '+' + d : d < 0 ? d : '그대로') + '</span>';
+      const sub = d === null ? '비교할 기록 없음' : '일주일 전 ' + b0;
+      const rows = recent.filter(r => typeof r.v[a.key] === 'number').map(r => ({ date: r.date, val: r.v[a.key] }));
+      const line = rows.length > 1 ? meSpark(rows, rows.map(r => r.date.slice(5) + ' ' + r.val).join(' · ')) + '<div class="sx"><span>' + rows[0].date.slice(5) + '</span><span>' + rows[rows.length - 1].date.slice(5) + '</span></div>' : '';
+      return '<div class="tr"><div class="n">' + esc(a.name) + '</div><div class="v">' + a.value + chip + '</div><div class="note">' + sub + '</div>' + line + '</div>';
+    }).join('') + '</div></section>';
+  return h;
 }
 function viewMe() {
   const { M, approved, pending, rejected, writing } = meCounts();
@@ -796,11 +892,19 @@ function viewMe() {
       (r.content ? '<p class="fc">' + esc(r.content) + '</p>' : '') + ev(r.evidence, r.doc) + (r.memo.length ? '<p class="note">' + esc(r.memo.join(' ')) + '</p>' : '') + '</article>').join('') : '<p class="empty">없음</p>') + '</details>';
 
   const chip = (n, label, cls) => '<span class="chip' + (cls || '') + '">' + label + ' ' + n + '</span>';
-  let h = '<div class="phead"><h1 class="page">나</h1><p class="sub">AI가 지금 쓰고 있는 나에 대한 정보와 그 근거입니다. 틀린 항목에는 댓글을 남기세요.</p>' +
+  let h = '<div class="phead"><h1 class="page">나</h1><p class="sub">폴더 기록으로 본 내 사용 방법과, AI가 지금 쓰고 있는 나에 대한 정보입니다. 틀린 항목에는 댓글을 남기세요.</p>' +
     '<div>' + chip(approved, '승인됨', ' add') + chip(pending, '기다리는 후보', pending ? ' acc' : '') + chip(rejected, '거절한 후보', '') + chip(writing, '글쓰기 규칙', '') + '</div></div>';
   if (!SERVED) h += '<p class="note" style="margin:0 0 10px">댓글은 뷰어 서버로 열었을 때만 남길 수 있습니다.</p>';
-  h += '<section class="pane grow"><div class="pane-b pad">' + b + '</div></section>';
+  h += '<section class="pane grow mepane"><div class="pane-b pad">' + meDash(M) + '<h2 class="osec" style="font-size:15px;color:var(--ink)">AI가 쓰는 나에 대한 정보</h2>' + b + '</div></section>';
   $('#view').innerHTML = h;
+  document.querySelectorAll('.meax, .radar .ax').forEach(el => el.addEventListener('click', () => {
+    const pb = $('#view .pane-b'), sc = pb ? pb.scrollTop : 0, wy = window.scrollY;
+    meAxis = el.dataset.k;
+    try { sessionStorage.setItem('fv-me-axis', meAxis); } catch (e) { /* 못 남겨도 화면은 바꾼다 */ }
+    viewMe();
+    if ($('#view .pane-b')) $('#view .pane-b').scrollTop = sc;
+    window.scrollTo(0, wy);
+  }));
 
   document.querySelectorAll('.nope').forEach(btn => btn.addEventListener('click', () => {
     const f = btn.parentElement.nextElementSibling;

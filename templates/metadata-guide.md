@@ -39,7 +39,7 @@ tags: [CSS]
 | `title` | 문서에 `#` 제목이 없을 때 | 짧은 이름 | 뷰어와 그래프에 보일 이름 |
 | `created` | 권장 | `YYYY-MM-DD` | 처음 적은 날 |
 | `related` | 선택 | 경로 목록 `[a.md, b/c.md]` | 함께 봐야 하는 문서. 뷰어가 연결선으로 그린다 |
-| `tags` | 선택 | 짧은 낱말 목록 | 검색용. 3개 이내 |
+| `tags` | 선택 (공부 노트는 필수) | 짧은 낱말 목록 | 검색용. 3개 이내. 공부 노트는 첫 낱말이 분야다 (`02-study/README.md`) |
 
 ### 객체 종류
 
@@ -74,10 +74,10 @@ tags: [CSS]
 
 | 폴더 | type | 비고 |
 | --- | --- | --- |
-| `02-study/` | `study` (`README.md`는 `index`) | `status`는 이해도다. `02-study/README.md` 주제 목록의 이해도와 같게 맞춘다 |
+| `02-study/` | `study` (`README.md`는 `index`) | `status`는 이해도다. `02-study/README.md` 주제 목록의 이해도와 같게 맞춘다. `tags`에 분야를 하나 이상 단다 |
 | `03-ideas/` | `idea`, 결정은 `decision` (`README.md`는 `index`) | 아이디어 하나에 파일 하나. 만들기 시작하면 `status`만 `진행 중`으로 바꾸고 옮기지 않는다. 따로 남길 결정은 `<아이디어 이름>-decision-<내용>.md`로 옆에 둔다 |
 | `04-feedback/` | `feedback`, `rule`, `trait` (`README.md`는 `index`) | 형식은 `04-feedback/README.md`와 `/siloroot:feedback`을 따른다 |
-| `05-profile/` | `profile.md`는 `ledger` | 승인된 사용자 정보만 둔다 |
+| `05-profile/` | `profile.md`는 `ledger`, `ai-comment.md`는 `note` | `profile.md`에는 승인된 사용자 정보만 둔다. `ai-comment.md`는 뷰어 "나" 화면에 보이는 AI의 의견이라 승인을 거치지 않고, 대화에 불러오지 않는다 |
 | `01-log/` | 기록은 `log`, `open-questions.md`는 `ledger` | |
 | 맨 위 | 규칙은 `guide`, `README.md`는 `index` | |
 
