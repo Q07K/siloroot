@@ -26,12 +26,23 @@ test('설정의 study 폴더에서 공부 노트와 이해도를 읽는다', () 
   assert.equal(d.objects.study[0].level, '통과');
 });
 
-test('ideas 폴더 문서의 type이 idea가 아니면 경고', () => {
+test('ideas 폴더 문서의 type이 idea나 decision이 아니면 경고', () => {
   const root = makeProject();
   writeConfig(root, { port: 4180 });
   write(root, '03-ideas/a.md', '---\ntype: study\nstatus: 통과\n---\n\n# a\n');
   const out = build(root);
-  assert.match(out, /이 폴더의 type은 idea여야 함/);
+  assert.match(out, /이 폴더의 type은 idea 또는 decision여야 함/);
+});
+
+test('ideas 폴더의 decision 문서는 경고 없이 아이디어 목록에서 빠진다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '03-ideas/app.md', '---\ntype: idea\nstatus: 진행 중\nrelated: [03-ideas/app-decision-db.md]\n---\n\n# 앱\n');
+  write(root, '03-ideas/app-decision-db.md', '---\ntype: decision\nstatus: 확정\nrelated: [03-ideas/app.md]\n---\n\n# DB 고르기\n');
+  const out = build(root);
+  assert.match(out, /속성 점검: 경고 0개/);
+  const d = dataOf(root);
+  assert.deepEqual(d.objects.ideas.map((i) => i.doc), ['03-ideas/app.md']);
 });
 
 test('결과물은 .siloroot/state에 쓰고 _viewer는 만들지 않는다', () => {

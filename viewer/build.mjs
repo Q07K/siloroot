@@ -186,7 +186,7 @@ const VOCAB = {
 };
 // 폴더마다 정해진 type. 여기 없는 폴더도 type 자체는 모두 필수다.
 const REQUIRED = [
-  { prefix: DIRS.ideas + '/', type: 'idea', skip: /(^|\/)README\.md$/i },
+  { prefix: DIRS.ideas + '/', type: ['idea', 'decision'], skip: /(^|\/)README\.md$/i },
   { prefix: DIRS.study + '/', type: 'study', skip: /(^|\/)README\.md$/i },
   { prefix: DIRS.feedback + '/', type: ['feedback', 'rule'], skip: /(^|\/)README\.md$/i },
 ];
@@ -266,7 +266,7 @@ const objects = {
   questions: parseQuestions(get(DIRS.log + '/open-questions.md')),
   claims: [],
   ideas: docs
-    .filter((d) => d.path.startsWith(DIRS.ideas + '/') && !/README\.md$/i.test(d.path))
+    .filter((d) => d.path.startsWith(DIRS.ideas + '/') && !/README\.md$/i.test(d.path) && !(d.fm && d.fm.type === 'decision'))
     .map((d) => ({ title: d.title, doc: d.path, status: (d.fm && d.fm.status ? String(d.fm.status) : ((d.text.match(/^-\s*상태:\s*(.+)$/m) || [])[1] || '')).trim() })),
   study: parseStudy(),
   typed: docs.filter((d) => d.fm && d.fm.type).map((d) => ({ title: d.title, doc: d.path, type: String(d.fm.type), status: d.fm.status ? String(d.fm.status) : '' })),

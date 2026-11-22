@@ -45,10 +45,10 @@ tags: [CSS]
 
 | type | 무엇 | status 값 |
 | --- | --- | --- |
-| `idea` | 아직 만들지 않은 아이디어 | 아이디어, 진행 중, 보류, 접음, 완료 |
+| `idea` | 아이디어. 만들기 시작한 프로젝트도 `진행 중`으로 여기에 둔다 | 아이디어, 진행 중, 보류, 접음, 완료 |
 | `study` | 문답으로 검증하는 공부 노트 | 검증 전, 부분, 통과 |
 | `decision` | 따로 남길 결정 하나 | 제안, 확정, 바뀜 |
-| `project` | 진행 중인 프로젝트의 설명 문서 | 진행 중, 보류, 완료 |
+| `project` | 진행 중인 프로젝트의 설명 문서. 기본으로는 쓰지 않고 `idea`의 `진행 중`으로 대신한다 | 진행 중, 보류, 완료 |
 | `feedback` | 뷰어에서 남긴 댓글 하나 | 대기, 진행 중, 완료, 안 함 |
 | `rule` | 글쓰기 규칙 후보 하나 | 제안, 승인, 거절, 반영 |
 
@@ -74,7 +74,7 @@ tags: [CSS]
 | 폴더 | type | 비고 |
 | --- | --- | --- |
 | `02-study/` | `study` (`README.md`는 `index`) | `status`는 이해도다. `02-study/README.md` 주제 목록의 이해도와 같게 맞춘다 |
-| `03-ideas/` | `idea` (`README.md`는 `index`) | 아이디어 하나에 파일 하나 |
+| `03-ideas/` | `idea`, 결정은 `decision` (`README.md`는 `index`) | 아이디어 하나에 파일 하나. 만들기 시작하면 `status`만 `진행 중`으로 바꾸고 옮기지 않는다. 따로 남길 결정은 `<아이디어 이름>-decision-<내용>.md`로 옆에 둔다 |
 | `04-feedback/` | `feedback` 또는 `rule` (`README.md`는 `index`) | 형식은 `04-feedback/README.md`를 따른다 |
 | `01-log/` | 기록은 `log`, `open-questions.md`는 `ledger` | |
 | 맨 위 | 규칙은 `guide`, `README.md`는 `index` | |
