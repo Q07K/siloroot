@@ -170,23 +170,18 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 #gl path.hot{stroke:var(--accent);stroke-width:2;opacity:1}
 #gl path.dim{opacity:.1}
 .hull circle{fill-opacity:.07;stroke-opacity:.45;stroke-width:1.5;stroke-dasharray:6 5}
-.hull text,.ringg text{font-size:13px;font-weight:700;fill:var(--muted);stroke:var(--surface);stroke-width:4px;paint-order:stroke}
-.ringg circle{fill:none;stroke:var(--line);stroke-dasharray:4 6;stroke-width:1.2}
+.hlab text{font-size:13px;font-weight:700;fill:var(--ink);stroke:var(--surface);stroke-width:6px;stroke-linejoin:round;paint-order:stroke;cursor:grab}
+.mv1 .hull circle{cursor:grab}
+.mv1.hdrag,.mv1.hdrag .hull circle,.mv1.hdrag .hlab text{cursor:grabbing}
 .band{fill:var(--code-bg);opacity:.6}
 .colh{font-size:14px;font-weight:700;fill:var(--ink)}
 .colc{font-weight:400;fill:var(--faint)}
 .mv3 .nd .lb{font-size:calc(11px * var(--zk,1))}
-.tagbox{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
-.nd.tag:hover .tagbox,.nd.tag.hov .tagbox{stroke:var(--accent)}
-.nd.tag.sel .tagbox{stroke:var(--accent);stroke-width:2.5;fill:var(--accent-bg)}
-.tagt{font-size:12px;fill:var(--ink);pointer-events:none}
-.badge{fill:var(--accent-bg)}
-.badget{font-size:10.5px;font-weight:700;fill:var(--accent);pointer-events:none}
 .attn{fill:none;stroke:var(--attn);stroke-width:2.5}
 .nd.arch{opacity:.35}
 .nd.arch.dim{opacity:.12}
 /* 실시간 갱신: 새로 생긴 점은 커지며 나타나고 둘레가 퍼진다. 새 선은 그어지듯 나타난다. 지운 점과 선은 흐려지며 사라진다 */
-.nd.born .dot,.nd.born .tagbox{animation:fvborn .7s cubic-bezier(.2,1.5,.4,1) both;transform-box:fill-box;transform-origin:center}
+.nd.born .dot{animation:fvborn .7s cubic-bezier(.2,1.5,.4,1) both;transform-box:fill-box;transform-origin:center}
 .nd.born .halo{animation:fvhalo 1.6s ease-out 2 both;transform-box:fill-box;transform-origin:center}
 .nd.born .lb{font-weight:700}
 #gl path.born{stroke:var(--accent);stroke-width:2;stroke-dasharray:var(--len);stroke-dashoffset:var(--len);animation:fvdraw .9s .3s ease-out forwards}
@@ -197,7 +192,7 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 @keyframes fvhalo{0%{opacity:.5;transform:scale(1)}100%{opacity:0;transform:scale(2.4)}}
 @keyframes fvdraw{to{stroke-dashoffset:0}}
 @keyframes fvgone{from{opacity:1}to{opacity:0}}
-@media (prefers-reduced-motion: reduce){.nd.born .dot,.nd.born .tagbox,.nd.born .halo,#gl path.born,#gghost .ghost{animation-duration:.01s}}
+@media (prefers-reduced-motion: reduce){.nd.born .dot,.nd.born .halo,#gl path.born,#gghost .ghost{animation-duration:.01s}}
 .legend .lg-attn{background:transparent;border:2.5px solid var(--attn);border-radius:50%;width:12px;height:12px;box-sizing:border-box}
 body.fit{height:100vh;overflow:hidden;display:flex;flex-direction:column}
 body.fit main{flex:1;min-height:0;width:100%;box-sizing:border-box;display:flex;flex-direction:column;padding-bottom:16px}
@@ -983,15 +978,15 @@ function viewFeedback(tab) {
 })();
 
 // ---------- 그래프 시안 (v=1~5). 고르면 고른 안만 남기고 이 절은 지운다 ----------
-const MV = new URLSearchParams(location.search).get('v') || '0';
+const MV_ASKED = new URLSearchParams(location.search).get('v') || '0';
+const LABEL_ZOOM = 1.5; // 연결 그래프에서 이름표가 보이기 시작하는 배율 (150%)
 const VARIANTS = [
-  ['0', '지금', '지금 쓰는 그래프입니다. 점을 끌면 이어진 문서가 따라오고, 확대하면 가려졌던 이름이 더 보입니다.'],
-  ['1', '1. 폴더 군집', '같은 폴더 문서끼리 모으고 폴더마다 영역을 그립니다. 어느 폴더가 어느 폴더와 이어지는지 봅니다.'],
-  ['2', '2. 중심 문서', '문서 하나를 가운데 두고 한 단계, 두 단계 연결을 고리로 펼칩니다. 점을 누르면 그 문서가 가운데로 옵니다.'],
-  ['3', '3. 종류별 열', '문서 종류(type)마다 열을 나눕니다. 규칙에서 장부, 카드, 시안으로 이어지는 흐름을 봅니다.'],
-  ['4', '4. 상태와 최근성', '색은 최근에 고친 정도, 크기는 들어오는 연결 수입니다. 주황 고리는 다시 볼 공부 노트와 아이디어입니다. 보관 문서는 켜면 흐리게 보입니다.'],
-  ['5', '5. 이름표와 시안 접기', '점 대신 이름표를 그리고 시안은 카드 안에 접어 숫자로 보입니다. 화살표는 가리키는 방향입니다.'],
+  ['0', '지금', '지금 쓰는 그래프입니다. 점을 끌면 이어진 문서가 따라옵니다. 이름은 150% 이상 확대하면 보이고, 그 전에는 점에 마우스를 올리거나 누른 문서의 이름만 보입니다.'],
+  ['1', '1. 폴더 군집', '같은 폴더 문서끼리 모으고 폴더마다 영역을 그립니다. 영역이나 폴더 이름을 끌면 폴더째 옮기고, 점을 영역 밖으로 끌면 영역이 늘어납니다.'],
+  ['3', '2. 종류별 열', '문서 종류(type)마다 열을 나눕니다. 규칙에서 장부, 카드, 시안으로 이어지는 흐름을 봅니다.'],
+  ['4', '3. 상태와 최근성', '색은 최근에 고친 정도, 크기는 들어오는 연결 수입니다. 주황 고리는 다시 볼 공부 노트와 아이디어입니다. 보관 문서는 켜면 흐리게 보입니다.'],
 ];
+const MV = VARIANTS.some(v => v[0] === MV_ASKED) ? MV_ASKED : '0'; // 2(중심 문서), 5(이름표와 시안 접기)는 2026-11-23에 뺐다
 const TYPE_ORDER = ['guide', 'index', 'ledger', 'log', 'resume', 'idea', 'study', 'decision', 'project', 'note', 'card', 'draft'];
 const TYPE_KO = { guide: '규칙', index: '목차', ledger: '장부', log: '기록', resume: '이력서', idea: '아이디어', study: '공부', decision: '결정', project: '프로젝트', note: '메모', card: '카드', draft: '시안', other: '그 밖' };
 const ATTN = new Set(['검토 전', '검증 전', '부분', '아이디어', '제안']);
@@ -1000,11 +995,10 @@ function variantBar() {
   const cur = VARIANTS.find(v => v[0] === MV) || VARIANTS[0];
   return '<div class="vbar"><span class="glabel">시안</span>' + VARIANTS.map(([k, l]) => '<a class="pill' + (k === MV ? ' on' : '') + '" href="?v=' + k + '#graph">' + l + '</a>').join('') + '</div><p class="note" style="margin:-4px 0 12px">' + esc(cur[2]) + '</p>';
 }
-function graphData(collapseDrafts) {
-  const keep = D.docs.filter(d => !(collapseDrafts && d.fm && d.fm.type === 'draft') && (GS.showCommon || !isCommon(d)) && (GS.showArch || !isArch(d)));
-  const nodes = keep.map(d => ({ id: d.path, d, deg: 0, inc: 0, x: 0, y: 0, vx: 0, vy: 0, drafts: 0 }));
+function graphData() {
+  const keep = D.docs.filter(d => (GS.showCommon || !isCommon(d)) && (GS.showArch || !isArch(d)));
+  const nodes = keep.map(d => ({ id: d.path, d, deg: 0, inc: 0, x: 0, y: 0, vx: 0, vy: 0 }));
   const idx = new Map(nodes.map((n, k) => [n.id, k]));
-  if (collapseDrafts) for (const d of D.docs) if (d.fm && d.fm.type === 'draft') for (const r of (d.related || [])) { const k = idx.get(r); if (k != null) nodes[k].drafts++; }
   const lmap = new Map();
   for (const e of D.edges) {
     if (e.from === e.to || GS.kinds[e.kind] === false) continue;
@@ -1036,7 +1030,7 @@ function runForce(G, W, H, o) {
       A.vx += dx / d * f; A.vy += dy / d * f; B.vx -= dx / d * f; B.vy -= dy / d * f;
     }
     for (const n of nodes) {
-      const a = o.anchor ? o.anchor(n) : { x: W / 2, y: H / 2, s: n.deg ? o.grav : o.grav * 2.7 };
+      const a = o.anchor ? o.anchor(n) : { x: W / 2, y: H / 2, s: n.deg ? o.grav : (o.isoGrav != null ? o.isoGrav : o.grav * 2.7) };
       n.vx += (a.x - n.x) * a.s; n.vy += (a.y - n.y) * a.s;
       n.x += Math.max(-20, Math.min(20, n.vx * alpha)); n.y += Math.max(-20, Math.min(20, n.vy * alpha));
       n.vx *= 0.5; n.vy *= 0.5;
@@ -1049,6 +1043,61 @@ function runForce(G, W, H, o) {
   const s = Math.min(o.maxScale || 1.6, (W - 2 * pad) / Math.max(1, maxX - minX), (H - 2 * pad) / Math.max(1, maxY - minY));
   nodes.forEach(n => { n.x = pad + (n.x - minX) * s + ((W - 2 * pad) - (maxX - minX) * s) / 2; n.y = pad + (n.y - minY) * s + ((H - 2 * pad) - (maxY - minY) * s) / 2; });
 }
+// "지금" 보기의 원판 배치. 큰 노드 그래프가 원판을 이루는 규칙을 d3-force와 같은 방식으로 돌린다.
+// - 처음 자리: 해바라기 잎차례(황금각 나선)
+// - 척력: 모든 점끼리, 거리에 반비례(평면에서 거리에 비례하는 중력과 맞서 밀도가 고른 원판을 만든다)
+// - 용수철: 길이 DISK.link, 세기는 1/(두 점 중 적은 연결 수)라 허브 쪽이 약하다. 잎이 허브 둘레를 고르게 채운다
+// - 중력: 가운데로, 거리에 비례. 연결 없는 점은 약하게 걸어 맨 바깥 띠로 밀려나게 한다
+// - 충돌: 점 반지름 + 2
+const DISK = { charge: -110, link: 34, grav: 0.07, isoGrav: 0.05, ticks: 320 };
+// o(선택): anchor(점) → 당길 중심 {x, y} (같은 묶음은 같은 객체), grav(점) → 중력 세기, sameGroup(a, b) → 척력을 걸 쌍인가,
+//          linkScale(s, t) → 선 세기 배율, noFit → 화면 맞추기를 건너뛴다 (폴더 군집은 뒤에서 원으로 맞춘다),
+//          link, charge, gap → 선 길이, 척력, 충돌 여유 (없으면 DISK 값과 2)
+function runDisk(G, W, H, rad, o = {}) {
+  const { nodes, links } = G;
+  const ORIGIN = { x: 0, y: 0 };
+  const anchorOf = o.anchor || (() => ORIGIN), gravOf = o.grav || (p => (p.deg ? DISK.grav : DISK.isoGrav));
+  const LINK = o.link || DISK.link, CHARGE = o.charge || DISK.charge, GAP = o.gap != null ? o.gap : 2;
+  const ga = Math.PI * (3 - Math.sqrt(5)), seen = new Map();
+  // 처음 자리: 중심마다 해바라기 잎차례
+  nodes.forEach(p => { const c = anchorOf(p), i = seen.get(c) || 0; seen.set(c, i + 1); const r = 10 * Math.sqrt(0.5 + i), a = i * ga; p.x = c.x + r * Math.cos(a); p.y = c.y + r * Math.sin(a); p.vx = 0; p.vy = 0; });
+  let alpha = 1;
+  const alphaDecay = 1 - Math.pow(0.001, 1 / DISK.ticks);
+  for (let it = 0; it < DISK.ticks; it++) {
+    alpha += (0 - alpha) * alphaDecay;
+    for (const l of links) {
+      const s = nodes[l.a], t = nodes[l.b];
+      let x = t.x + t.vx - s.x - s.vx, y = t.y + t.vy - s.y - s.vy;
+      const d = Math.hypot(x, y) || 1e-6, k = (d - LINK) / d * alpha / Math.min(s.deg, t.deg) * (o.linkScale ? o.linkScale(s, t) : 1), b = s.deg / (s.deg + t.deg);
+      x *= k; y *= k; t.vx -= x * b; t.vy -= y * b; s.vx += x * (1 - b); s.vy += y * (1 - b);
+    }
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const A = nodes[i], B = nodes[j];
+      if (o.sameGroup && !o.sameGroup(A, B)) continue;
+      let dx = B.x - A.x, dy = B.y - A.y, l = dx * dx + dy * dy;
+      if (l < 1) { dx = (i - j) * 0.01 + 0.5; dy = 0.5; l = dx * dx + dy * dy; }
+      const w = CHARGE * alpha / l;
+      A.vx += dx * w; A.vy += dy * w; B.vx -= dx * w; B.vy -= dy * w;
+    }
+    for (const p of nodes) { const c = anchorOf(p), g = gravOf(p) * alpha; p.vx += (c.x - p.x) * g; p.vy += (c.y - p.y) * g; }
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const A = nodes[i], B = nodes[j], r = rad(A) + rad(B) + GAP;
+      let dx = B.x + B.vx - A.x - A.vx, dy = B.y + B.vy - A.y - A.vy;
+      const l = dx * dx + dy * dy;
+      if (l >= r * r) continue;
+      const d = Math.sqrt(l) || 0.01, m = (r - d) / d * 0.5 * 0.7;
+      dx *= m; dy *= m; A.vx -= dx; A.vy -= dy; B.vx += dx; B.vy += dy;
+    }
+    for (const p of nodes) { p.vx *= 0.6; p.vy *= 0.6; p.x += p.vx; p.y += p.vy; }
+  }
+  // 화면에 맞춘다. 줄이지는 않고(충돌로 띄운 간격이 무너지지 않게) 늘리기만 1.6배까지
+  if (!nodes.length || o.noFit) return;
+  const pad = 50, xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const s = Math.max(1, Math.min(1.6, (W - 2 * pad) / Math.max(1, maxX - minX), (H - 2 * pad) / Math.max(1, maxY - minY)));
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  nodes.forEach(n => { n.x = W / 2 + (n.x - cx) * s; n.y = H / 2 + (n.y - cy) * s; });
+}
 const labelW = t => { let w = 0; for (const ch of t) w += /[ㄱ-힝]/.test(ch) ? 12.2 : 6.8; return Math.round(w); };
 
 // 실시간 갱신 때: 있던 점은 있던 자리에 두고, 새 점만 이어진 점 곁(없으면 같은 폴더 곁)의 빈자리에 놓는다.
@@ -1058,7 +1107,6 @@ function placeCarried(G, pos, W, H, anchorOf, hulls) {
   const placed = nodes.map(n => { const p = pos.get(n.id); if (p) { n.x = p.x; n.y = p.y; } return !!p; });
   const free = (n, x, y) => nodes.every((m, j) => {
     if (!placed[j]) return true;
-    if (n.w) return Math.abs(m.x - x) > (m.w + n.w) / 2 + 12 || Math.abs(m.y - y) > 38;
     return Math.hypot(m.x - x, m.y - y) > 46;
   });
   nodes.forEach((n, k) => {
@@ -1084,8 +1132,28 @@ function placeCarried(G, pos, W, H, anchorOf, hulls) {
     placed[k] = true;
   });
 }
+// 점들을 모두 담는 가장 작은 원(중심 x, y와 반지름 r). 점 반지름은 부르는 쪽에서 더한다
+function enclosingCircle(pts) {
+  const inside = (q, c) => c && Math.hypot(q.x - c.x, q.y - c.y) <= c.r + 1e-7;
+  const two = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, r: Math.hypot(a.x - b.x, a.y - b.y) / 2 });
+  const three = (a, b, c) => {
+    const bx = b.x - a.x, by = b.y - a.y, cx = c.x - a.x, cy = c.y - a.y, d = 2 * (bx * cy - by * cx);
+    if (Math.abs(d) < 1e-9) return [two(a, b), two(a, c), two(b, c)].sort((p, q) => q.r - p.r)[0];
+    const ux = (cy * (bx * bx + by * by) - by * (cx * cx + cy * cy)) / d, uy = (bx * (cx * cx + cy * cy) - cx * (bx * bx + by * by)) / d;
+    return { x: a.x + ux, y: a.y + uy, r: Math.hypot(ux, uy) };
+  };
+  let c = null;
+  for (let i = 0; i < pts.length; i++) if (!inside(pts[i], c)) {
+    c = { x: pts[i].x, y: pts[i].y, r: 0 };
+    for (let j = 0; j < i; j++) if (!inside(pts[j], c)) {
+      c = two(pts[i], pts[j]);
+      for (let k = 0; k < j; k++) if (!inside(pts[k], c)) c = three(pts[i], pts[j], pts[k]);
+    }
+  }
+  return c;
+}
 // 폴더 원끼리 겹치면 원과 그 안의 점을 함께 밀어 떼어 놓는다
-const HULL_GAP = 28;
+const HULL_GAP = 56;
 function separateHulls(hulls, nodes) {
   const list = [...hulls.values()];
   list.forEach(h => { h.dx = 0; h.dy = 0; });
@@ -1132,9 +1200,9 @@ let LIVE = null, graphWaiting = false;
 
 // carry: 실시간 갱신 때 넘기는 이전 상태(점 자리, 확대와 이동, 고른 점, 사라질 점과 선). 없으면 처음부터 배치한다.
 function viewGraphV(mv, carry) {
-  const G = graphData(mv === '5');
+  const G = graphData();
   const { nodes, links, adj, inc } = G;
-  let W = 1200, H = 760, decor = '', ring = null;
+  let W = 1200, H = 760, decor = '', hullLabels = '';
   const foldersHere = [...new Set(nodes.map(n => n.d.folder))].sort();
   const ix = new Map(nodes.map((n, k) => [n.id, k]));
   // 폴더 군집(1)의 폴더 원. 점이 원 밖으로 나가면 원 둘레(점 크기만큼 안쪽)로 되돌린다
@@ -1144,16 +1212,15 @@ function viewGraphV(mv, carry) {
     const dx = n.x - h.cx, dy = n.y - h.cy, d = Math.hypot(dx, dy), lim = Math.max(0, h.r - m);
     if (d > lim) { n.x = h.cx + dx / (d || 1) * lim; n.y = h.cy + dy / (d || 1) * lim; }
   };
-  // 줄 세우기 배치(2, 3)는 문서 하나만 늘어도 자리가 다시 정해지므로 처음부터 배치하고 확대와 이동만 이어 간다
-  const keep = !!(carry && mv !== '2' && mv !== '3');
+  // 줄 세우기 배치(3)는 문서 하나만 늘어도 자리가 다시 정해지므로 처음부터 배치하고 확대와 이동만 이어 간다
+  const keep = !!(carry && mv !== '3');
   if (carry) {
     GS.sel = carry.sel != null && ix.has(carry.sel) ? ix.get(carry.sel) : null;
-    GS.center = carry.center != null && ix.has(carry.center) ? ix.get(carry.center) : null;
   }
 
   if (mv === '1') {
-    // 폴더 원은 배치할 때 한 번 정하고 그 뒤로는 움직이지 않는다. 점은 끌어도, 이웃에 끌려가도, 새로 생겨도 자기 폴더 원 안에 머문다.
-    // 원이 점을 따라가게 하면 멀리 끈 점 하나 때문에 원이 부풀어 옆 폴더 원과 겹친다.
+    // 폴더 원은 배치할 때 정한다. 점은 이웃에 끌려가도, 새로 생겨도 자기 폴더 원 안에 머문다.
+    // 원을 끌면 원이 움직이고 안의 점은 늦게 따라온다. 점을 원 밖으로 끌면 그쪽으로만 원을 늘였다가 놓으면 부드럽게 되돌린다(moveHull, growFor, releaseHulls, 멈추면 tightHulls로 꼭 맞추고 spreadHulls로 떼어 놓기). 원끼리는 pushHulls가 떼어 놓는다.
     const fc = foldersHere.length;
     const anchors = {};
     foldersHere.forEach((f, i) => { const a = i / fc * Math.PI * 2 - Math.PI / 2; anchors[f] = { x: W / 2 + Math.cos(a) * W * 0.3, y: H / 2 + Math.sin(a) * H * 0.3 }; });
@@ -1164,8 +1231,22 @@ function viewGraphV(mv, carry) {
       nodes.forEach(n => { const p = carry.pos.get(n.id); if (p) { n.x = p.x; n.y = p.y; clampIn(n, 14); } });
       placeCarried(G, new Map(nodes.filter(n => carry.pos.has(n.id)).map(n => [n.id, { x: n.x, y: n.y }])), W, H, null, hulls);
     } else {
+      // 군집 결속도: 같은 폴더 문서와 이어진 선의 수를 폴더 안 최댓값으로 나눈 값(0~1). 높을수록 폴더 중심으로 세게 당긴다
+      nodes.forEach(n => { n.inDeg = 0; });
+      for (const l of links) { const A = nodes[l.a], B = nodes[l.b]; if (A.d.folder === B.d.folder) { A.inDeg++; B.inDeg++; } }
+      const maxIn = {};
+      nodes.forEach(n => { maxIn[n.d.folder] = Math.max(maxIn[n.d.folder] || 0, n.inDeg); });
+      nodes.forEach(n => { n.coh = maxIn[n.d.folder] ? Math.sqrt(n.inDeg / maxIn[n.d.folder]) : 0; });
       if (keep) placeCarried(G, carry.pos, W, H, n => anchors[n.d.folder]);
-      else runForce(G, W, H, { rep: 2600, rest: 110, spring: 0.008, anchor: n => ({ x: anchors[n.d.folder].x, y: anchors[n.d.folder].y, s: 0.03 }) });
+      // 폴더마다 작은 원판: 폴더 중심으로 당기고(결속도가 높을수록 세게), 같은 폴더 점끼리만 밀고, 다른 폴더로 가는 선은 약하게
+      else runDisk(G, W, H, n => 5 + Math.min(11, Math.sqrt(n.deg) * 2.4), {
+        anchor: n => anchors[n.d.folder],
+        grav: n => 0.03 + 0.08 * n.coh,
+        sameGroup: (a, b) => a.d.folder === b.d.folder,
+        linkScale: (a, b) => (a.d.folder === b.d.folder ? 1 : 0.2),
+        link: 56, charge: -200, gap: 8,
+        noFit: true,
+      });
       hulls = new Map();
       for (const f of foldersHere) {
         const ns = nodes.filter(n => n.d.folder === f);
@@ -1181,23 +1262,10 @@ function viewGraphV(mv, carry) {
       nodes.forEach(n => clampIn(n, 14));
     }
     for (const [f, h] of hulls) {
+      if (h.r0 == null) h.r0 = h.r; // 점을 밖으로 끌어 늘어난 원이 놓은 뒤 돌아갈 크기
       const cnt = nodes.filter(n => n.d.folder === f).length;
-      decor += '<g class="hull" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle><text x="' + h.cx.toFixed(1) + '" y="' + (h.cy - h.r - 8).toFixed(1) + '" text-anchor="middle">' + esc(f) + ' ' + cnt + '</text></g>';
-    }
-  } else if (mv === '2' && nodes.length) {
-    let c = GS.center != null && GS.center < nodes.length ? GS.center : nodes.reduce((b, n, k) => (n.deg > nodes[b].deg ? k : b), 0);
-    GS.center = c;
-    const dist = nodes.map(() => Infinity); dist[c] = 0;
-    const q = [c];
-    while (q.length) { const u = q.shift(); for (const v of adj[u]) if (dist[v] === Infinity) { dist[v] = dist[u] + 1; q.push(v); } }
-    W = 1100; H = 1100;
-    const R = [0, 180, 330, 470];
-    ring = nodes.map((n, k) => Math.min(3, dist[k]));
-    const names = ['', '바로 이어진 문서', '두 단계', '그 밖'];
-    for (let r = 0; r <= 3; r++) {
-      const ks = nodes.map((n, k) => k).filter(k => ring[k] === r).sort((a, b) => nodes[a].d.folder.localeCompare(nodes[b].d.folder) || nodes[a].d.title.localeCompare(nodes[b].d.title));
-      ks.forEach((k, j) => { const a = j / Math.max(1, ks.length) * Math.PI * 2 - Math.PI / 2 + r * 0.35; nodes[k].x = W / 2 + Math.cos(a) * R[r]; nodes[k].y = H / 2 + Math.sin(a) * R[r]; });
-      if (r > 0) decor += '<g class="ringg"><circle cx="' + W / 2 + '" cy="' + H / 2 + '" r="' + R[r] + '"></circle><text x="' + W / 2 + '" y="' + (H / 2 - R[r] - 8) + '" text-anchor="middle">' + names[r] + ' ' + ks.length + '</text></g>';
+      decor += '<g class="hull" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle></g>';
+      hullLabels += '<g class="hull hlab" data-f="' + esc(f) + '"><text x="' + h.cx.toFixed(1) + '" y="' + (h.cy - h.r - 8).toFixed(1) + '" text-anchor="middle">' + esc(f) + ' ' + cnt + '</text></g>';
     }
   } else if (mv === '3' && nodes.length) {
     const typeOf = n => (n.d.fm && TYPE_ORDER.includes(n.d.fm.type) ? n.d.fm.type : 'other');
@@ -1213,28 +1281,14 @@ function viewGraphV(mv, carry) {
       decor += '<text class="colh" x="' + (x - 6) + '" y="68">' + TYPE_KO[t] + ' <tspan class="colc">' + ks.length + '</tspan></text>';
       ks.forEach((k, j) => { nodes[k].x = x; nodes[k].y = top + j * step; });
     });
-  } else if (mv === '5') {
-    nodes.forEach(n => { n.w = labelW(short(n.d.title)) + 34 + (n.drafts ? 30 : 0); n.h = 26; });
-    W = 1600; H = 1000;
-    if (keep) placeCarried(G, carry.pos, W, H);
-    else runForce(G, W, H, { rep: 42000, rest: 250, spring: 0.012, grav: 0.0022, pad: 120 });
-    // 이름표끼리 겹치면 덜 겹치는 축으로 밀어낸다
-    for (let it = 0; it < (keep ? 0 : 300); it++) {
-      let moved = false;
-      for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
-        const A = nodes[i], B = nodes[j];
-        const ox = (A.w + B.w) / 2 + 10 - Math.abs(A.x - B.x), oy = (A.h + B.h) / 2 + 10 - Math.abs(A.y - B.y);
-        if (ox <= 0 || oy <= 0) continue;
-        moved = true;
-        if (ox < oy) { const s = (A.x < B.x ? -1 : 1) * ox / 2; A.x += s; B.x -= s; }
-        else { const s = (A.y < B.y ? -1 : 1) * oy / 2; A.y += s; B.y -= s; }
-      }
-      if (!moved) break;
-    }
   } else if (keep) {
     placeCarried(G, carry.pos, W, H);
+  } else if (mv === '0') {
+    // 지금 보기: 원판 그래프 규칙 (runDisk). 점 반지름은 아래 rad와 같은 식
+    runDisk(G, W, H, n => 5 + Math.min(11, Math.sqrt(n.deg) * 2.4));
   } else {
-    runForce(G, W, H, { rep: 5200, rest: 130, spring: 0.015, grav: 0.0022 });
+    // 척력을 세게, 용수철은 짧고 단단하게: 이어진 문서는 무리를 짓고, 연결 없는 문서는 용수철이 없어 바깥 고리로 밀려난다
+    runForce(G, W, H, { rep: 9000, rest: 70, spring: 0.025, grav: 0.0035, isoGrav: 0.0045 });
   }
   // 이번에 새로 나타난 점과 선 (실시간 갱신 때만)
   const linkKey = l => [nodes[l.a].id, nodes[l.b].id].sort().join('|');
@@ -1250,7 +1304,26 @@ function viewGraphV(mv, carry) {
   // 주황 고리는 다시 볼 공부 노트와 아이디어에만 붙인다 (카드의 "검토 전"까지 붙이면 고리가 너무 많아 뜻이 흐려진다)
   const needsLook = n => ATTN.has(status(n)) && !!n.d.fm && (n.d.fm.type === 'study' || n.d.fm.type === 'idea');
   const rad = n => (mv === '4' ? 5 + Math.min(12, Math.sqrt(n.inc) * 3) : 5 + Math.min(11, Math.sqrt(n.deg) * 2.4));
-
+  // 점끼리 겹치지 않게: 두 점 사이가 반지름 합 + NODE_GAP보다 가까우면 반씩 밀어낸다. 종류별 열(3)은 줄 세우기라 빼고 쓴다.
+  const NODE_GAP = mv === '1' ? 10 : 6, SEP = mv !== '3';
+  function separateNodes(ks) {
+    for (let it = 0; it < 200; it++) {
+      let moved = false;
+      for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
+        const A = nodes[ks[i]], B = nodes[ks[j]];
+        let dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy);
+        const need = rad(A) + rad(B) + NODE_GAP;
+        if (d >= need) continue;
+        if (d < 0.01) { dx = Math.cos(i + j); dy = Math.sin(i + j); d = 1; }
+        const push = (need - d) / 2, ux = dx / d, uy = dy / d;
+        A.x -= ux * push; A.y -= uy * push; B.x += ux * push; B.y += uy * push;
+        clampIn(A, rad(A) + 4); clampIn(B, rad(B) + 4);
+        moved = true;
+      }
+      if (!moved) break;
+    }
+  }
+  if (SEP) { separateNodes(nodes.map((n, k) => k)); nodes.forEach(n => { n.hx = n.x; n.hy = n.y; }); }
   function edgeD(l) {
     const A = nodes[l.a], B = nodes[l.b];
     if (mv === '3') {
@@ -1258,24 +1331,10 @@ function viewGraphV(mv, carry) {
       const mx = (A.x + B.x) / 2;
       return 'M' + A.x + ' ' + A.y + ' C' + mx + ' ' + A.y + ', ' + mx + ' ' + B.y + ', ' + B.x + ' ' + B.y;
     }
-    if (mv === '5') {
-      let [P, Q] = l.rev && !l.fwd ? [B, A] : [A, B];
-      const dx = Q.x - P.x, dy = Q.y - P.y, len = Math.hypot(dx, dy) || 1;
-      const cut = (N, sx, sy) => { const t = Math.min((N.w / 2 + 2) / (Math.abs(sx) || 1e-6), (N.h / 2 + 2) / (Math.abs(sy) || 1e-6), 0.45); return [N.x + sx * t, N.y + sy * t]; };
-      const [x1, y1] = cut(P, dx, dy), [x2, y2] = cut(Q, -dx, -dy);
-      const cx = (x1 + x2) / 2 - dy / len * len * 0.08, cy = (y1 + y2) / 2 + dx / len * len * 0.08;
-      return 'M' + x1.toFixed(1) + ' ' + y1.toFixed(1) + ' Q' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ' ' + x2.toFixed(1) + ' ' + y2.toFixed(1);
-    }
     return 'M' + A.x.toFixed(1) + ' ' + A.y.toFixed(1) + ' L' + B.x.toFixed(1) + ' ' + B.y.toFixed(1);
   }
   function nodeSvg(n, k) {
     const f = color(n.d.folder), title = esc(n.d.title + ' (' + n.id + ')');
-    if (mv === '5') {
-      const x0 = -n.w / 2;
-      return '<g class="nd tag' + (born.has(k) ? ' born' : '') + '" data-k="' + k + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')"><rect class="tagbox" x="' + x0 + '" y="-13" width="' + n.w + '" height="26" rx="13"><title>' + title + '</title></rect>' +
-        '<circle cx="' + (x0 + 13) + '" cy="0" r="4.5" fill="' + f + '"></circle><text class="tagt" x="' + (x0 + 24) + '" y="4">' + esc(short(n.d.title)) + '</text>' +
-        (n.drafts ? '<rect class="badge" x="' + (n.w / 2 - 32) + '" y="-9" width="24" height="18" rx="9"></rect><text class="badget" x="' + (n.w / 2 - 20) + '" y="4" text-anchor="middle">+' + n.drafts + '</text>' : '') + '</g>';
-    }
     const r = rad(n);
     const fill = mv === '4' ? REC[recency(n)] : f;
     const extra = mv === '4' && needsLook(n) ? '<circle class="attn" r="' + (r + 4).toFixed(1) + '"></circle>' : '';
@@ -1309,7 +1368,6 @@ function viewGraphV(mv, carry) {
   if (!GS.showCommon && commons.length) h += '<div class="pills gcommon"><span class="glabel">공통 문서</span>' + commons.map(d => '<a class="gchip" href="' + docHref(d.path) + '" title="' + esc(d.path) + '"><i style="background:' + color(d.folder) + '"></i>' + esc(d.title) + '<span class="cnt">' + new Set((back.get(d.path) || []).filter(e => e.from !== d.path).map(e => e.from)).size + '</span></a>').join('') + '</div>';
   h += '</div>';
   let svg = '<svg id="gsvg" class="mv' + mv + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="문서 연결 그래프">';
-  svg += '<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--faint)"></path></marker></defs>';
   // 지운 점과 선은 이전 자리에 잠깐 남겼다가 흐리게 지운다
   let ghosts = '';
   if (carry) {
@@ -1317,8 +1375,8 @@ function viewGraphV(mv, carry) {
     for (const [id, g] of carry.ghostNodes) if (!ix.has(id)) ghosts += '<circle class="ghost" cx="' + g.x.toFixed(1) + '" cy="' + g.y.toFixed(1) + '" r="' + g.r.toFixed(1) + '" fill="' + g.fill + '"></circle>';
   }
   svg += '<rect id="gbg" x="-5000" y="-5000" width="10000" height="10000" fill="transparent"></rect><g id="vp"><g id="gd">' + decor + '</g><g id="gghost">' + ghosts + '</g><g id="gl">';
-  svg += links.map((l, i) => '<path data-i="' + i + '"' + (bornL.has(i) ? ' class="born"' : '') + ' d="' + edgeD(l) + '"' + (mv === '5' && l.fwd !== l.rev ? ' marker-end="url(#arr)"' : '') + '></path>').join('');
-  svg += '</g><g id="gn">' + nodes.map(nodeSvg).join('') + '</g></g></svg>';
+  svg += links.map((l, i) => '<path data-i="' + i + '"' + (bornL.has(i) ? ' class="born"' : '') + ' d="' + edgeD(l) + '"></path>').join('');
+  svg += '</g><g id="gn">' + nodes.map(nodeSvg).join('') + '</g><g id="ghl">' + hullLabels + '</g></g></svg>';
   h += '<div class="gwrap">' + svg + '<div class="gtools"><button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div>' +
     (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 위 "보기"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
   $('#view').innerHTML = h;
@@ -1332,9 +1390,11 @@ function viewGraphV(mv, carry) {
 
   // 이름표: 중요한 순서(고른 점, 그 이웃, 연결 많은 점)로 놓고, 이미 놓인 이름표나 다른 점과 겹치면 그 이름은 숨긴다.
   // 이름표 글자는 확대해도 화면에서 같은 크기라서, 확대하면 자리가 생겨 이름이 더 보인다.
+  // LABEL_ZOOM보다 덜 확대했을 때는 이름표를 숨기고, 마우스를 올리거나 고른 점의 이름만 보인다.
   function labelPlan(focus, near) {
     const show = new Array(nodes.length).fill(false);
     if (mv === '3') return show.fill(true);
+    if (GS.k < LABEL_ZOOM - 1e-6) { if (focus != null && focus < nodes.length) show[focus] = true; return show; }
     const z = 1 / GS.k, vis = nodes.map((n, k) => k).filter(visibleNode);
     const pri = k => (k === focus ? 3e6 : born.has(k) ? 2.5e6 : near && near.has(k) ? 2e6 : 0) + (mv === '4' && needsLook(nodes[k]) ? 1e6 : 0) + nodes[k].deg * 100 + (nodes[k].inc || 0);
     const order = vis.slice().sort((a, b) => pri(b) - pri(a));
@@ -1381,13 +1441,15 @@ function viewGraphV(mv, carry) {
   // 점을 끌면 이어진 점들이 줄에 끌려 따라오고, 둘레의 점은 살짝 비켜 준다. 놓으면 잠깐 흔들리다 멈추고 그 자리에 남는다.
   // 줄마다 처음 길이를 쉬는 길이로 둔다. 그래야 끄는 점과 상관없는 곳은 움직이지 않는다.
   links.forEach(l => { l.rest = Math.hypot(nodes[l.a].x - nodes[l.b].x, nodes[l.a].y - nodes[l.b].y); });
-  const HOME = mv === '2' || mv === '3' ? 0.06 : 0.012;
+  const HOME = mv === '3' ? 0.06 : 0.012;
   let pinned = null;
-  let alpha = 0, raf = null;
+  let alpha = 0, raf = null, hullBusy = false, homeBusy = false, settleFrames = 0, fitRounds = 0;
   function simStep() {
+    if (hulls) hullBusy = tweenHulls();
+    homeBusy = false;
     const vis = nodes.map((n, k) => k).filter(visibleNode);
     for (const l of links) {
-      if (!visibleLink(l)) continue;
+      if (!visibleLink(l) || l.loose) continue;
       const A = nodes[l.a], B = nodes[l.b], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 0.01, f = (d - l.rest) / d * 0.035;
       A.vx += dx * f; A.vy += dy * f; B.vx -= dx * f; B.vy -= dy * f;
     }
@@ -1402,9 +1464,12 @@ function viewGraphV(mv, carry) {
     for (const k of vis) {
       const n = nodes[k];
       if (k === pinned) { n.vx = 0; n.vy = 0; continue; }
-      n.vx += (n.hx - n.x) * HOME; n.vy += (n.hy - n.y) * HOME;
+      const hk = movingF.has(n.d.folder) ? HOME * 4 : HOME;
+      n.vx += (n.hx - n.x) * hk; n.vy += (n.hy - n.y) * hk;
       n.vx *= 0.6; n.vy *= 0.6;
-      n.x += Math.max(-25, Math.min(25, n.vx * alpha)); n.y += Math.max(-25, Math.min(25, n.vy * alpha));
+      const step = movingF.has(n.d.folder) ? Math.max(alpha, 0.6) : alpha;
+      n.x += Math.max(-25, Math.min(25, n.vx * step)); n.y += Math.max(-25, Math.min(25, n.vy * step));
+      if (movingF.has(n.d.folder) && Math.abs(n.hx - n.x) + Math.abs(n.hy - n.y) > 1.5) homeBusy = true;
       clampIn(n, rad(n) + 4);
       place(k);
     }
@@ -1413,10 +1478,128 @@ function viewGraphV(mv, carry) {
   function loop() {
     simStep();
     if (!drag) alpha *= 0.93;
-    if (drag || alpha > 0.03) raf = requestAnimationFrame(loop);
-    else { raf = null; pinned = null; nodes.forEach(n => { n.hx = n.x; n.hy = n.y; n.vx = 0; n.vy = 0; }); links.forEach(l => { l.rest = Math.hypot(nodes[l.a].x - nodes[l.b].x, nodes[l.a].y - nodes[l.b].y); }); paint(); }
+    settleFrames = drag ? 0 : settleFrames + 1;
+    if (drag || alpha > 0.03 || hullBusy || (homeBusy && settleFrames < 300)) raf = requestAnimationFrame(loop);
+    else {
+      movingF.clear(); links.forEach(l => { delete l.loose; });
+      if (SEP) { separateNodes(nodes.map((n, k) => k).filter(visibleNode)); nodes.forEach((n, k) => place(k)); links.forEach((l, i) => { if (visibleLink(l)) lEls[i].setAttribute('d', edgeD(l)); }); }
+      if (hulls && fitRounds < 3 && tightHulls(true)) { spreadHulls(); fitRounds++; hullBusy = true; alpha = Math.max(alpha, 0.3); raf = requestAnimationFrame(loop); return; }
+      fitRounds = 0;
+      raf = null; pinned = null; nodes.forEach(n => { n.hx = n.x; n.hy = n.y; n.vx = 0; n.vy = 0; }); links.forEach(l => { l.rest = Math.hypot(nodes[l.a].x - nodes[l.b].x, nodes[l.a].y - nodes[l.b].y); }); paint(); }
   }
-  const wake = () => { alpha = 1; if (!raf) raf = requestAnimationFrame(loop); };
+  const wake = () => { alpha = 1; settleFrames = 0; if (!raf) raf = requestAnimationFrame(loop); };
+
+  // 폴더 군집(1): 원을 끌면 원이 움직이고 안의 점은 조금 늦게 따라온다(돌아갈 자리만 옮기고, 처진 점은 원 둘레가 끌고 간다).
+  // 점을 원 밖으로 끌면 그쪽으로 원이 늘어나고, 놓으면 점은 원 안으로 돌아가고 원은 부드럽게 원래 크기로 줄어든다.
+  // 원끼리 겹치면 끌고 있는 원은 두고 다른 원을 민다.
+  const grown = new Set(), movingF = new Set();
+  function moveHull(f, dx, dy) {
+    for (const l of links) { const fa = nodes[l.a].d.folder, fb = nodes[l.b].d.folder; if (fa !== fb && (fa === f || fb === f)) l.loose = true; }
+    const h = hulls.get(f); h.cx += dx; h.cy += dy;
+    if (h.to) { h.to.cx += dx; h.to.cy += dy; }
+    nodes.forEach(n => { if (n.d.folder === f) { n.hx += dx; n.hy += dy; } });
+    movingF.add(f);
+  }
+  function pushHulls(fixed) {
+    const fs = [...hulls.keys()];
+    for (let it = 0; it < 120; it++) {
+      let moved = false;
+      for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
+        const A = hulls.get(fs[i]), B = hulls.get(fs[j]);
+        let dx = B.cx - A.cx, dy = B.cy - A.cy, d = Math.hypot(dx, dy);
+        if (d < 0.01) { dx = 1; dy = 0; d = 1; }
+        const over = A.r + B.r + HULL_GAP - d;
+        if (over <= 0.5) continue;
+        moved = true;
+        const ux = dx / d, uy = dy / d;
+        if (fs[i] === fixed) moveHull(fs[j], ux * over, uy * over);
+        else if (fs[j] === fixed) moveHull(fs[i], -ux * over, -uy * over);
+        else { moveHull(fs[i], -ux * over / 2, -uy * over / 2); moveHull(fs[j], ux * over / 2, uy * over / 2); }
+      }
+      if (!moved) break;
+    }
+  }
+  function drawHulls() {
+    for (const [f, h] of hulls) {
+      const c = svgEl.querySelector('#gd .hull[data-f="' + CSS.escape(f) + '"] circle'), t = svgEl.querySelector('#ghl .hull[data-f="' + CSS.escape(f) + '"] text');
+      if (c) { c.setAttribute('cx', h.cx.toFixed(1)); c.setAttribute('cy', h.cy.toFixed(1)); c.setAttribute('r', h.r.toFixed(1)); }
+      if (t) { t.setAttribute('x', h.cx.toFixed(1)); t.setAttribute('y', (h.cy - h.r - 8).toFixed(1)); }
+    }
+  }
+  // 줄어드는 원: 매 프레임 목표(to)로 12%씩 다가간다. 아직 움직이는 원이 있으면 true
+  function tweenHulls() {
+    let busy = false, any = false;
+    for (const h of hulls.values()) {
+      if (!h.to) continue;
+      any = true;
+      h.cx += (h.to.cx - h.cx) * 0.12; h.cy += (h.to.cy - h.cy) * 0.12; h.r += (h.to.r - h.r) * 0.12;
+      if (Math.abs(h.to.cx - h.cx) + Math.abs(h.to.cy - h.cy) + Math.abs(h.to.r - h.r) < 0.6) { h.cx = h.to.cx; h.cy = h.to.cy; h.r = h.to.r; delete h.to; }
+      else busy = true;
+    }
+    if (any) drawHulls();
+    return busy;
+  }
+  // 점을 원 밖으로 끌면 그 점 쪽으로만 원을 늘인다: 지금 원과 그 점을 함께 담는 가장 작은 원
+  function growFor(n) {
+    const h = hulls && hulls.get(n.d.folder); if (!h) return;
+    const d = Math.hypot(n.x - h.cx, n.y - h.cy), need = d + rad(n) + 4;
+    if (need <= h.r || d < 0.01) return;
+    if (!grown.has(n.d.folder)) { h.base = h.to ? { cx: h.to.cx, cy: h.to.cy, r: h.to.r } : { cx: h.cx, cy: h.cy, r: h.r }; delete h.to; } // 늘이기 전 자리와 크기
+    const nr = (h.r + need) / 2, shift = nr - h.r;
+    h.cx += (n.x - h.cx) / d * shift; h.cy += (n.y - h.cy) / d * shift; h.r = nr;
+    grown.add(n.d.folder); pushHulls(n.d.folder); drawHulls();
+  }
+  // 폴더 원을 안의 점에 꼭 맞춘다: 점들을 모두 담는 가장 작은 원 + 점 반지름 + 여백 HULL_FIT_PAD.
+  // 처음 그릴 때(animate 없음)와 움직임이 멈출 때(animate) 부른다. 맞춘 크기는 끌기를 놓은 뒤 돌아갈 크기(r0)도 된다
+  const HULL_FIT_PAD = 30;
+  function tightHulls(animate) {
+    let changed = false;
+    for (const [f, h] of hulls) {
+      const ns = nodes.filter(n => n.d.folder === f);
+      if (!ns.length) continue;
+      const c = enclosingCircle(ns);
+      const r = Math.max(28, Math.max(...ns.map(n => Math.hypot(n.x - c.x, n.y - c.y) + rad(n))) + HULL_FIT_PAD);
+      const cur = h.to || h;
+      if (Math.abs(cur.cx - c.x) + Math.abs(cur.cy - c.y) + Math.abs(cur.r - r) < 0.5) continue;
+      changed = true; h.r0 = r;
+      if (animate) h.to = { cx: c.x, cy: c.y, r };
+      else { h.cx = c.x; h.cy = c.y; h.r = r; delete h.to; }
+    }
+    return changed;
+  }
+  function spreadHulls() {
+    const fs = [...hulls.keys()];
+    for (let it = 0; it < 80; it++) {
+      let moved = false;
+      for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
+        const A = hulls.get(fs[i]), B = hulls.get(fs[j]), ta = A.to || A, tb = B.to || B;
+        let dx = tb.cx - ta.cx, dy = tb.cy - ta.cy, d = Math.hypot(dx, dy);
+        if (d < 0.01) { dx = 1; dy = 0; d = 1; }
+        const over = ta.r + tb.r + HULL_GAP - d;
+        if (over <= 0.5) continue;
+        moved = true;
+        const ux = dx / d * over / 2, uy = dy / d * over / 2;
+        moveHull(fs[i], -ux, -uy); moveHull(fs[j], ux, uy);
+      }
+      if (!moved) break;
+    }
+  }
+  // 놓은 뒤: 늘어난 원은 늘이기 전 자리와 크기로 돌아가고, 끈 점은 그 원 안쪽을 돌아갈 자리로 삼는다
+  function releaseHulls(k) {
+    for (const f of grown) {
+      const h = hulls.get(f), b = h.base || { cx: h.cx, cy: h.cy, r: h.r0 || h.r };
+      h.to = { cx: b.cx, cy: b.cy, r: b.r };
+      delete h.base;
+    }
+    const n = k != null ? nodes[k] : null, h = n && hulls.get(n.d.folder);
+    if (h && h.to) {
+      const lim = Math.max(0, h.to.r - rad(n) - 12), dx = n.x - h.to.cx, dy = n.y - h.to.cy, d = Math.hypot(dx, dy) || 1;
+      if (d > lim) { n.hx = h.to.cx + dx / d * lim; n.hy = h.to.cy + dy / d * lim; }
+      pinned = null; movingF.add(n.d.folder);
+    }
+    grown.clear();
+    wake();
+  }
 
   function select(k) {
     GS.sel = k;
@@ -1428,7 +1611,6 @@ function viewGraphV(mv, carry) {
     const nb = [...adj[k]].sort((a, b) => nodes[b].deg - nodes[a].deg);
     box.innerHTML = '<div class="ghead"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div style="flex:1;min-width:0"><strong>' + esc(n.d.title) + '</strong><div class="path">' + esc(n.id) + (status(n) ? ' · ' + esc(status(n)) : '') + '</div></div><button type="button" class="gx" id="gclose" aria-label="닫기">×</button></div>' +
       '<div class="gstats"><span><b>' + ins + '</b>들어옴</span><span><b>' + outs + '</b>나감</span><span><b>' + ago(n.d.mtime) + '</b>수정</span></div>' +
-      (n.drafts ? '<p class="note" style="margin:0 0 10px">접힌 시안 ' + n.drafts + '개</p>' : '') +
       '<a class="gopen" href="' + docHref(n.id) + '">문서 열기</a><h3>연결된 문서 ' + nb.length + '</h3><ul>' +
       (nb.map(j => '<li><button type="button" class="lnk gnb" data-k="' + j + '"><span style="color:' + color(nodes[j].d.folder) + '" aria-hidden="true">●</span> ' + esc(nodes[j].d.title) + '</button></li>').join('') || '<li class="empty">없음</li>') + '</ul>';
     box.hidden = false;
@@ -1436,11 +1618,14 @@ function viewGraphV(mv, carry) {
     box.querySelectorAll('.gnb').forEach(b => b.addEventListener('click', () => pick(+b.dataset.k)));
     paint();
   }
-  function pick(k) { if (mv === '2') { GS.center = k; GS.sel = k; viewGraphV(mv); return; } select(k); }
+  function pick(k) { select(k); }
   svgEl.addEventListener('wheel', e => { e.preventDefault(); const p = toVB(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   svgEl.addEventListener('pointerdown', e => {
-    const nd = e.target.closest('.nd'), p = toVB(e);
-    drag = nd ? { k: +nd.dataset.k, sx: p.x, sy: p.y, moved: 0 } : { pan: true, sx: p.x, sy: p.y, ox: GS.x, oy: GS.y, moved: 0 };
+    const nd = e.target.closest('.nd'), hl = !nd && hulls ? e.target.closest('.hull') : null, p = toVB(e);
+    drag = nd ? { k: +nd.dataset.k, sx: p.x, sy: p.y, moved: 0 }
+      : hl && hulls.has(hl.dataset.f) ? { hull: hl.dataset.f, sx: p.x, sy: p.y, moved: 0 }
+      : { pan: true, sx: p.x, sy: p.y, ox: GS.x, oy: GS.y, moved: 0 };
+    if (drag.hull) svgEl.classList.add('hdrag');
     svgEl.setPointerCapture(e.pointerId); svgEl.classList.add('panning');
   });
   svgEl.addEventListener('pointermove', e => {
@@ -1449,17 +1634,19 @@ function viewGraphV(mv, carry) {
     if (drag.pan) { drag.moved = Math.max(drag.moved, Math.hypot(dx, dy)); GS.x = drag.ox + dx; GS.y = drag.oy + dy; apply(); return; }
     drag.moved += Math.hypot(dx, dy);
     if (drag.moved < 3) return;
+    if (drag.hull) { moveHull(drag.hull, dx / GS.k, dy / GS.k); pushHulls(drag.hull); drawHulls(); drag.sx = p.x; drag.sy = p.y; wake(); return; }
     // 끄는 동안은 그 점과 이웃만 또렷하게
     if (hoverK !== drag.k) { hoverK = drag.k; paint(); }
-    const n = nodes[drag.k]; n.x += dx / GS.k; n.y += dy / GS.k; clampIn(n, rad(n) + 4); n.hx = n.x; n.hy = n.y; drag.sx = p.x; drag.sy = p.y; pinned = drag.k;
+    const n = nodes[drag.k]; n.x += dx / GS.k; n.y += dy / GS.k; if (hulls) growFor(n); n.hx = n.x; n.hy = n.y; drag.sx = p.x; drag.sy = p.y; pinned = drag.k;
     place(drag.k);
     wake();
   });
   svgEl.addEventListener('pointerup', () => {
     if (!drag) return;
-    const d = drag; drag = null; svgEl.classList.remove('panning');
-    if (d.moved < 3) { if (d.pan) select(null); else pick(d.k); }
-    else if (!d.pan) { hoverK = null; paint(); }
+    const d = drag; drag = null; svgEl.classList.remove('panning'); svgEl.classList.remove('hdrag');
+    if (d.hull) { if (d.moved < 3) select(null); }
+    else if (d.moved < 3) { if (d.pan) select(null); else pick(d.k); }
+    else if (!d.pan) { hoverK = null; if (grown.size) releaseHulls(d.k); paint(); }
     // 끄는 동안 문서가 바뀌었으면 놓은 뒤에 반영한다
     if (graphWaiting) { graphWaiting = false; setTimeout(graphLiveUpdate, 0); }
   });
@@ -1467,10 +1654,21 @@ function viewGraphV(mv, carry) {
   svgEl.addEventListener('dblclick', e => { const nd = e.target.closest('.nd'); if (nd) location.hash = 'doc/' + encodeURIComponent(nodes[+nd.dataset.k].id); });
   $('#zin').addEventListener('click', () => zoomAt(W / 2, H / 2, 1.3));
   $('#zout').addEventListener('click', () => zoomAt(W / 2, H / 2, 1 / 1.3));
-  $('#zfit').addEventListener('click', () => { GS.k = 1; GS.x = 0; GS.y = 0; apply(); });
+  // 맞춤: 지금 보이는 점과 폴더 원(위의 이름 자리까지)이 모두 들어오게 배율과 위치를 정한다. 끌어서 넓혀 둔 뒤에도 맞는다.
+  function fitView() {
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    const add = (a, b, c, d) => { x1 = Math.min(x1, a); y1 = Math.min(y1, b); x2 = Math.max(x2, c); y2 = Math.max(y2, d); };
+    nodes.forEach((n, k) => { if (visibleNode(k)) { const r = rad(n) + 4; add(n.x - r, n.y - r, n.x + r + (mv === '3' ? 110 : 0), n.y + r); } });
+    if (hulls) for (const [f, h] of hulls) if (!GS.hidden.has(f)) add(h.cx - h.r, h.cy - h.r - 26, h.cx + h.r, h.cy + h.r);
+    if (!isFinite(x1)) { GS.k = 1; GS.x = 0; GS.y = 0; apply(); return; }
+    const pad = 30, k = Math.max(0.25, Math.min(1.5, (W - 2 * pad) / Math.max(1, x2 - x1), (H - 2 * pad) / Math.max(1, y2 - y1)));
+    GS.k = k; GS.x = W / 2 - k * (x1 + x2) / 2; GS.y = H / 2 - k * (y1 + y2) / 2;
+    apply();
+  }
+  $('#zfit').addEventListener('click', fitView);
   const refresh = () => { if (GS.sel != null && GS.sel < nodes.length && !visibleNode(GS.sel)) select(null); saveGS(); paint(); };
   // 줄 종류, 공통 문서, 보관 문서는 배치 자체가 바뀌므로 다시 그린다
-  const relayout = () => { GS.sel = null; GS.center = null; saveGS(); viewGraphV(mv); };
+  const relayout = () => { GS.sel = null; saveGS(); viewGraphV(mv); };
   document.querySelectorAll('#gf .fchip').forEach(b => b.addEventListener('click', () => {
     const f = b.dataset.f; if (GS.hidden.has(f)) GS.hidden.delete(f); else GS.hidden.add(f);
     b.classList.toggle('off', GS.hidden.has(f)); b.setAttribute('aria-pressed', String(!GS.hidden.has(f))); refresh();
@@ -1479,6 +1677,17 @@ function viewGraphV(mv, carry) {
   $('#gcom').addEventListener('click', () => { GS.showCommon = !GS.showCommon; relayout(); });
   $('#garch').addEventListener('click', () => { GS.showArch = !GS.showArch; relayout(); });
   $('#giso').addEventListener('click', e => { GS.hideIso = !GS.hideIso; e.currentTarget.classList.toggle('on', GS.hideIso); refresh(); });
+  if (hulls) {
+    tightHulls(false); spreadHulls();
+    nodes.forEach(n => { n.x = n.hx; n.y = n.hy; });
+    movingF.clear();
+    const fit = fitHulls(hulls, nodes); W = fit.W; H = fit.H;
+    nodes.forEach(n => { n.hx = n.x; n.hy = n.y; });
+    svgEl.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    nodes.forEach((n, k) => place(k));
+    links.forEach((l, i) => { if (visibleLink(l)) lEls[i].setAttribute('d', edgeD(l)); });
+    drawHulls();
+  }
   apply();
   if (GS.sel != null && GS.sel < nodes.length) select(GS.sel);
 
@@ -1493,8 +1702,7 @@ function viewGraphV(mv, carry) {
         before: new Set(nodes.map(n => n.id)),
         beforeLinks: new Set(links.map(linkKey)),
         sel: GS.sel != null && nodes[GS.sel] ? nodes[GS.sel].id : null,
-        center: GS.center != null && nodes[GS.center] ? nodes[GS.center].id : null,
-        ghostNodes: new Map(vis.map(k => [nodes[k].id, { x: nodes[k].x, y: nodes[k].y, r: mv === '5' ? 9 : rad(nodes[k]), fill: mv === '4' ? REC[recency(nodes[k])] : color(nodes[k].d.folder) }])),
+        ghostNodes: new Map(vis.map(k => [nodes[k].id, { x: nodes[k].x, y: nodes[k].y, r: rad(nodes[k]), fill: mv === '4' ? REC[recency(nodes[k])] : color(nodes[k].d.folder) }])),
         ghostLinks: new Map(links.filter(visibleLink).map(l => [linkKey(l), edgeD(l)])),
         // 폴더 원과 그림 크기도 이어 간다. 그림 크기가 바뀌면 확대와 이동이 어긋난다
         hulls: hulls ? new Map([...hulls].map(([f, h]) => [f, { cx: h.cx, cy: h.cy, r: h.r }])) : null,
