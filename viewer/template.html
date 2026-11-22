@@ -108,7 +108,13 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .nd.hov .halo,.nd.sel .halo{opacity:.22}
 .nd.sel .dot{stroke:var(--ink);stroke-width:2.5}
 .nd.dim{opacity:.18}
-.nd .lb{font-size:11.5px;fill:var(--ink);stroke:var(--surface);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round;pointer-events:none}
+.nd .lb{font-size:calc(11.5px * var(--zk,1));fill:var(--ink);stroke:var(--surface);stroke-width:calc(3.5px * var(--zk,1));paint-order:stroke;stroke-linejoin:round;pointer-events:none}
+.gcommon{margin-bottom:10px;align-items:center}
+.gchip{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:13px;text-decoration:none}
+.gchip:hover{background:var(--code-bg)}
+.gchip i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.gchip .cnt{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.gempty{position:absolute;left:0;right:0;top:40%;text-align:center}
 .nd.sel .lb,.nd.hov .lb{font-weight:700}
 .gtools{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
 .gtools button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;line-height:1;cursor:pointer;box-shadow:0 1px 3px var(--shadow-soft)}
@@ -169,7 +175,7 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 .band{fill:var(--code-bg);opacity:.6}
 .colh{font-size:14px;font-weight:700;fill:var(--ink)}
 .colc{font-weight:400;fill:var(--faint)}
-.mv3 .nd .lb{font-size:11px}
+.mv3 .nd .lb{font-size:calc(11px * var(--zk,1))}
 .tagbox{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
 .nd.tag:hover .tagbox,.nd.tag.hov .tagbox{stroke:var(--accent)}
 .nd.tag.sel .tagbox{stroke:var(--accent);stroke-width:2.5;fill:var(--accent-bg)}
@@ -641,212 +647,19 @@ function viewObjects(tab) {
 }
 
 // ---------- 연결 그래프 ----------
-// 배치는 한 번만 계산해 두고, 필터는 숨기기만 한다. 그래야 켜고 끌 때 점이 제자리에 있다.
-let G = null;
-const GS = { k: 1, x: 0, y: 0, hidden: new Set(), hideIso: false, allLabels: false, kinds: { link: true, code: true, prop: true }, sel: null };
+// 기본으로는 줄을 적게 보인다: 경로 글자 연결, 공통 문서(규칙, 목차, 장부, 기록), 보관 문서는 꺼 두고 버튼으로 켠다.
+// 공통 문서는 거의 모든 문서가 언급해서 그래프 가운데를 실타래로 만든다. 그래프 위 한 줄에 칩으로 따로 보인다.
+const COMMON_TYPES = new Set(['guide', 'index', 'ledger', 'log']);
+const GS = { k: 1, x: 0, y: 0, hidden: new Set(), hideIso: false, showCommon: false, showArch: false, kinds: { link: true, code: false, prop: true }, sel: null, center: null };
 try {
-  const s = JSON.parse(localStorage.getItem('fv-graph') || 'null');
-  if (s) { GS.hidden = new Set(s.hidden || []); GS.hideIso = !!s.hideIso; GS.allLabels = !!s.allLabels; if (s.kinds) GS.kinds = s.kinds; }
+  const s = JSON.parse(localStorage.getItem('fv-graph2') || 'null');
+  if (s) { GS.hidden = new Set(s.hidden || []); GS.hideIso = !!s.hideIso; GS.showCommon = !!s.showCommon; GS.showArch = !!s.showArch; if (s.kinds) GS.kinds = Object.assign(GS.kinds, s.kinds); }
 } catch (e) { /* 저장소를 못 쓰면 기본값으로 동작 */ }
 function saveGS() {
-  try { localStorage.setItem('fv-graph', JSON.stringify({ hidden: [...GS.hidden], hideIso: GS.hideIso, allLabels: GS.allLabels, kinds: GS.kinds })); } catch (e) { /* 무시 */ }
+  try { localStorage.setItem('fv-graph2', JSON.stringify({ hidden: [...GS.hidden], hideIso: GS.hideIso, showCommon: GS.showCommon, showArch: GS.showArch, kinds: GS.kinds })); } catch (e) { /* 무시 */ }
 }
-const rad = n => 5 + Math.min(11, Math.sqrt(n.deg) * 2.4);
-
-function layout() {
-  if (G) return G;
-  const W = 1200, H = 760;
-  const nodes = D.docs.map((d, k) => ({ id: d.path, d, deg: 0, x: W / 2 + Math.cos(k * 2.39996) * (30 + k * 4), y: H / 2 + Math.sin(k * 2.39996) * (30 + k * 4), vx: 0, vy: 0 }));
-  const idx = new Map(nodes.map((n, k) => [n.id, k]));
-  const lmap = new Map();
-  for (const e of D.edges) {
-    if (e.from === e.to) continue;
-    let a = idx.get(e.from), b = idx.get(e.to);
-    if (a == null || b == null) continue;
-    if (a > b) [a, b] = [b, a];
-    const key = a + '|' + b;
-    if (!lmap.has(key)) lmap.set(key, { a, b, kinds: new Set() });
-    lmap.get(key).kinds.add(e.kind);
-  }
-  const links = [...lmap.values()];
-  for (const l of links) { nodes[l.a].deg++; nodes[l.b].deg++; }
-  for (let it = 0; it < 500; it++) {
-    const alpha = 1 - it / 500;
-    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
-      const A = nodes[i], B = nodes[j];
-      let dx = A.x - B.x, dy = A.y - B.y; const d2 = dx * dx + dy * dy + 0.01, d = Math.sqrt(d2), f = 5200 / d2;
-      dx /= d; dy /= d; A.vx += dx * f; A.vy += dy * f; B.vx -= dx * f; B.vy -= dy * f;
-    }
-    for (const l of links) {
-      const A = nodes[l.a], B = nodes[l.b], dx = B.x - A.x, dy = B.y - A.y, d = Math.sqrt(dx * dx + dy * dy) + 0.01, f = (d - 130) * 0.015;
-      A.vx += dx / d * f; A.vy += dy / d * f; B.vx -= dx / d * f; B.vy -= dy / d * f;
-    }
-    for (const n of nodes) {
-      const g = n.deg ? 0.0022 : 0.006;
-      n.vx += (W / 2 - n.x) * g; n.vy += (H / 2 - n.y) * g;
-      n.x += Math.max(-20, Math.min(20, n.vx * alpha)); n.y += Math.max(-20, Math.min(20, n.vy * alpha));
-      n.vx *= 0.5; n.vy *= 0.5;
-    }
-  }
-  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys), pad = 60;
-  const s = Math.min((W - 2 * pad) / Math.max(1, maxX - minX), (H - 2 * pad) / Math.max(1, maxY - minY));
-  nodes.forEach(n => { n.x = pad + (n.x - minX) * s + ((W - 2 * pad) - (maxX - minX) * s) / 2; n.y = pad + (n.y - minY) * s + ((H - 2 * pad) - (maxY - minY) * s) / 2; });
-  const adj = nodes.map(() => new Set()), inc = nodes.map(() => []);
-  links.forEach((l, i) => { adj[l.a].add(l.b); adj[l.b].add(l.a); inc[l.a].push(i); inc[l.b].push(i); });
-  G = { W, H, nodes, links, adj, inc };
-  return G;
-}
-
-function viewGraph() {
-  const { W, H, nodes, links, adj, inc } = layout();
-  const counts = {};
-  nodes.forEach(n => { counts[n.d.folder] = (counts[n.d.folder] || 0) + 1; });
-  const iso = nodes.filter(n => !n.deg).length;
-  const linkN = links.filter(l => l.kinds.has('link')).length, codeN = links.filter(l => l.kinds.has('code')).length, propN = links.filter(l => l.kinds.has('prop')).length;
-  let h = '<h1 class="page">연결</h1><p class="sub">휠로 확대하고 빈 곳을 끌어 움직입니다. 점을 누르면 연결된 문서가 보이고, 두 번 누르면 문서가 열립니다. 점은 끌어서 옮길 수 있습니다.</p>';
-  h += '<div class="gfilters"><div class="pills" id="gf"><span class="glabel">폴더</span>' + folders.map(f =>
-    '<button type="button" class="fchip' + (GS.hidden.has(f) ? ' off' : '') + '" data-f="' + esc(f) + '" aria-pressed="' + !GS.hidden.has(f) + '"><i style="background:' + color(f) + '"></i>' + esc(f) + '<span class="cnt">' + counts[f] + '</span></button>').join('') +
-    '<button type="button" class="pill" id="gall">모두 켜기</button></div>';
-  h += '<div class="pills"><span class="glabel">보기</span><button type="button" class="pill gk' + (GS.kinds.link ? ' on' : '') + '" data-kind="link">마크다운 링크 ' + linkN + '</button>' +
-    '<button type="button" class="pill gk' + (GS.kinds.code ? ' on' : '') + '" data-kind="code">경로 글자 ' + codeN + '</button>' +
-    '<button type="button" class="pill gk' + (GS.kinds.prop !== false ? ' on' : '') + '" data-kind="prop">related ' + propN + '</button>' +
-    '<button type="button" class="pill' + (GS.hideIso ? ' on' : '') + '" id="giso">연결 없는 문서 숨기기 ' + iso + '</button>' +
-    '<button type="button" class="pill' + (GS.allLabels ? ' on' : '') + '" id="glbl">이름 모두 보기</button></div></div>';
-  let svg = '<svg id="gsvg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="문서 연결 그래프">';
-  svg += '<rect id="gbg" x="-5000" y="-5000" width="10000" height="10000" fill="transparent"></rect><g id="vp"><g id="gl">';
-  svg += links.map((l, i) => '<line data-i="' + i + '" class="' + (l.kinds.has('link') ? 'lk' : l.kinds.has('code') ? 'cd' : 'pr') + '" x1="' + nodes[l.a].x.toFixed(1) + '" y1="' + nodes[l.a].y.toFixed(1) + '" x2="' + nodes[l.b].x.toFixed(1) + '" y2="' + nodes[l.b].y.toFixed(1) + '"></line>').join('');
-  svg += '</g><g id="gn">' + nodes.map((n, k) => {
-    const r = rad(n);
-    return '<g class="nd" data-k="' + k + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')">' +
-      '<circle class="halo" r="' + (r + 5).toFixed(1) + '" fill="' + color(n.d.folder) + '"></circle>' +
-      '<circle class="dot" r="' + r.toFixed(1) + '" fill="' + color(n.d.folder) + '"><title>' + esc(n.d.title + ' (' + n.id + ')') + '</title></circle>' +
-      '<text class="lb" x="' + (r + 5).toFixed(1) + '" y="4">' + esc(short(n.d.title)) + '</text></g>';
-  }).join('') + '</g></g></svg>';
-  h += '<div class="gwrap">' + svg +
-    '<div class="gtools"><button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div>' +
-    '<div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div></div>';
-  $('#view').innerHTML = h;
-
-  const svgEl = $('#gsvg'), vp = $('#vp');
-  const nEls = [...svgEl.querySelectorAll('.nd')], lEls = [...svgEl.querySelectorAll('#gl line')];
-  const visibleNode = k => !GS.hidden.has(nodes[k].d.folder) && !(GS.hideIso && !nodes[k].deg);
-  const visibleLink = l => visibleNode(l.a) && visibleNode(l.b) && [...l.kinds].some(x => GS.kinds[x] !== false);
-  let hoverK = null, drag = null;
-
-  function paint() {
-    const focus = hoverK != null ? hoverK : GS.sel;
-    const near = focus != null ? adj[focus] : null;
-    nEls.forEach((el, k) => {
-      el.style.display = visibleNode(k) ? '' : 'none';
-      el.classList.toggle('dim', focus != null && k !== focus && !near.has(k));
-      el.classList.toggle('sel', k === GS.sel);
-      el.classList.toggle('hov', k === hoverK);
-      const show = GS.allLabels || GS.k >= 1.8 || nodes[k].deg >= 4 || (focus != null && (k === focus || near.has(k)));
-      el.querySelector('.lb').style.display = show ? '' : 'none';
-    });
-    lEls.forEach((el, i) => {
-      const l = links[i], hot = focus != null && (l.a === focus || l.b === focus);
-      el.style.display = visibleLink(l) ? '' : 'none';
-      el.classList.toggle('hot', hot);
-      el.classList.toggle('dim', focus != null && !hot);
-    });
-  }
-  function apply() {
-    vp.setAttribute('transform', 'translate(' + GS.x.toFixed(1) + ',' + GS.y.toFixed(1) + ') scale(' + GS.k.toFixed(3) + ')');
-    $('#gzoom').textContent = Math.round(GS.k * 100) + '%';
-    paint();
-  }
-  const toVB = e => new DOMPoint(e.clientX, e.clientY).matrixTransform(svgEl.getScreenCTM().inverse());
-  function zoomAt(px, py, f) {
-    const nk = Math.max(0.25, Math.min(6, GS.k * f));
-    GS.x = px - (px - GS.x) * (nk / GS.k); GS.y = py - (py - GS.y) * (nk / GS.k); GS.k = nk;
-    apply();
-  }
-  function fit() {
-    const vis = nodes.filter((n, k) => visibleNode(k));
-    if (!vis.length) return;
-    const xs = vis.map(n => n.x), ys = vis.map(n => n.y);
-    const minX = Math.min(...xs) - 40, maxX = Math.max(...xs) + 140, minY = Math.min(...ys) - 40, maxY = Math.max(...ys) + 40;
-    const k = Math.max(0.25, Math.min(3, Math.min(W / (maxX - minX), H / (maxY - minY))));
-    GS.k = k; GS.x = (W - (maxX + minX) * k) / 2; GS.y = (H - (maxY + minY) * k) / 2;
-    apply();
-  }
-  function moveNode(k) {
-    const n = nodes[k];
-    nEls[k].setAttribute('transform', 'translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')');
-    for (const i of inc[k]) {
-      const l = links[i], el = lEls[i];
-      if (l.a === k) { el.setAttribute('x1', n.x.toFixed(1)); el.setAttribute('y1', n.y.toFixed(1)); }
-      else { el.setAttribute('x2', n.x.toFixed(1)); el.setAttribute('y2', n.y.toFixed(1)); }
-    }
-  }
-  function select(k) {
-    GS.sel = k;
-    const box = $('#ginfo');
-    if (k == null) { box.hidden = true; paint(); return; }
-    const n = nodes[k];
-    const ins = new Set((back.get(n.id) || []).filter(e => e.from !== n.id).map(e => e.from)).size;
-    const outs = new Set((fwd.get(n.id) || []).filter(e => e.to !== n.id).map(e => e.to)).size;
-    const nb = [...adj[k]].sort((a, b) => nodes[b].deg - nodes[a].deg);
-    box.innerHTML = '<div class="ghead"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div style="flex:1;min-width:0"><strong>' + esc(n.d.title) + '</strong><div class="path">' + esc(n.id) + '</div></div><button type="button" class="gx" id="gclose" aria-label="닫기">×</button></div>' +
-      '<div class="gstats"><span><b>' + ins + '</b>들어옴</span><span><b>' + outs + '</b>나감</span><span><b>' + ago(n.d.mtime) + '</b>수정</span></div>' +
-      '<a class="gopen" href="' + docHref(n.id) + '">문서 열기</a>' +
-      '<h3>연결된 문서 ' + nb.length + '</h3><ul>' + (nb.map(j => '<li><button type="button" class="lnk gnb" data-k="' + j + '"><span style="color:' + color(nodes[j].d.folder) + '" aria-hidden="true">●</span> ' + esc(nodes[j].d.title) + '</button></li>').join('') || '<li class="empty">없음</li>') + '</ul>';
-    box.hidden = false;
-    $('#gclose').addEventListener('click', () => select(null));
-    box.querySelectorAll('.gnb').forEach(b => b.addEventListener('click', () => select(+b.dataset.k)));
-    paint();
-  }
-
-  svgEl.addEventListener('wheel', e => { e.preventDefault(); const p = toVB(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
-  svgEl.addEventListener('pointerdown', e => {
-    const nd = e.target.closest('.nd'), p = toVB(e);
-    drag = nd ? { k: +nd.dataset.k, sx: p.x, sy: p.y, moved: 0 } : { pan: true, sx: p.x, sy: p.y, ox: GS.x, oy: GS.y, moved: 0 };
-    svgEl.setPointerCapture(e.pointerId);
-    if (drag.pan) svgEl.classList.add('panning');
-  });
-  svgEl.addEventListener('pointermove', e => {
-    if (!drag) {
-      const nd = e.target.closest('.nd'), k = nd ? +nd.dataset.k : null;
-      if (k !== hoverK) { hoverK = k; paint(); }
-      return;
-    }
-    const p = toVB(e), dx = p.x - drag.sx, dy = p.y - drag.sy;
-    if (drag.pan) { drag.moved = Math.max(drag.moved, Math.hypot(dx, dy)); GS.x = drag.ox + dx; GS.y = drag.oy + dy; apply(); }
-    else { drag.moved += Math.hypot(dx, dy); const n = nodes[drag.k]; n.x += dx / GS.k; n.y += dy / GS.k; drag.sx = p.x; drag.sy = p.y; moveNode(drag.k); }
-  });
-  svgEl.addEventListener('pointerup', () => {
-    if (!drag) return;
-    const d = drag; drag = null; svgEl.classList.remove('panning');
-    if (d.moved < 3) select(d.pan ? null : d.k);
-  });
-  svgEl.addEventListener('pointerleave', () => { if (!drag && hoverK != null) { hoverK = null; paint(); } });
-  svgEl.addEventListener('dblclick', e => { const nd = e.target.closest('.nd'); if (nd) location.hash = 'doc/' + encodeURIComponent(nodes[+nd.dataset.k].id); });
-  $('#zin').addEventListener('click', () => zoomAt(W / 2, H / 2, 1.3));
-  $('#zout').addEventListener('click', () => zoomAt(W / 2, H / 2, 1 / 1.3));
-  $('#zfit').addEventListener('click', fit);
-
-  const refresh = () => { if (GS.sel != null && !visibleNode(GS.sel)) select(null); saveGS(); paint(); };
-  document.querySelectorAll('#gf .fchip').forEach(b => b.addEventListener('click', () => {
-    const f = b.dataset.f;
-    if (GS.hidden.has(f)) GS.hidden.delete(f); else GS.hidden.add(f);
-    b.classList.toggle('off', GS.hidden.has(f)); b.setAttribute('aria-pressed', String(!GS.hidden.has(f)));
-    refresh();
-  }));
-  $('#gall').addEventListener('click', () => {
-    GS.hidden.clear();
-    document.querySelectorAll('#gf .fchip').forEach(b => { b.classList.remove('off'); b.setAttribute('aria-pressed', 'true'); });
-    refresh();
-  });
-  document.querySelectorAll('.gk').forEach(b => b.addEventListener('click', () => {
-    const k = b.dataset.kind; GS.kinds[k] = GS.kinds[k] === false; b.classList.toggle('on', GS.kinds[k]); refresh();
-  }));
-  $('#giso').addEventListener('click', e => { GS.hideIso = !GS.hideIso; e.currentTarget.classList.toggle('on', GS.hideIso); refresh(); });
-  $('#glbl').addEventListener('click', e => { GS.allLabels = !GS.allLabels; e.currentTarget.classList.toggle('on', GS.allLabels); refresh(); });
-  apply();
-  if (GS.sel != null) select(GS.sel);
-}
+const isCommon = d => !!(d.fm && COMMON_TYPES.has(d.fm.type));
+const isArch = d => !!(d.fm && ARCHIVED.has(d.fm.status));
 
 // ---------- 피드백, 편집, 규칙 후보 ----------
 // 흐름: 댓글(type: feedback, 대기) → AI가 처리(진행 중 → 완료, 처리 내용을 파일에 적음)
@@ -982,11 +795,11 @@ function viewFeedback(tab) {
 // ---------- 그래프 시안 (v=1~5). 고르면 고른 안만 남기고 이 절은 지운다 ----------
 const MV = new URLSearchParams(location.search).get('v') || '0';
 const VARIANTS = [
-  ['0', '지금', '지금 쓰는 그래프입니다.'],
+  ['0', '지금', '지금 쓰는 그래프입니다. 점을 끌면 이어진 문서가 따라오고, 확대하면 가려졌던 이름이 더 보입니다.'],
   ['1', '1. 폴더 군집', '같은 폴더 문서끼리 모으고 폴더마다 영역을 그립니다. 어느 폴더가 어느 폴더와 이어지는지 봅니다.'],
   ['2', '2. 중심 문서', '문서 하나를 가운데 두고 한 단계, 두 단계 연결을 고리로 펼칩니다. 점을 누르면 그 문서가 가운데로 옵니다.'],
   ['3', '3. 종류별 열', '문서 종류(type)마다 열을 나눕니다. 규칙에서 장부, 카드, 시안으로 이어지는 흐름을 봅니다.'],
-  ['4', '4. 상태와 최근성', '색은 최근에 고친 정도, 크기는 들어오는 연결 수입니다. 주황 고리는 손볼 문서, 흐린 점은 보관 문서입니다.'],
+  ['4', '4. 상태와 최근성', '색은 최근에 고친 정도, 크기는 들어오는 연결 수입니다. 주황 고리는 다시 볼 공부 노트와 아이디어입니다. 보관 문서는 켜면 흐리게 보입니다.'],
   ['5', '5. 이름표와 시안 접기', '점 대신 이름표를 그리고 시안은 카드 안에 접어 숫자로 보입니다. 화살표는 가리키는 방향입니다.'],
 ];
 const TYPE_ORDER = ['guide', 'index', 'ledger', 'log', 'resume', 'idea', 'study', 'decision', 'project', 'note', 'card', 'draft'];
@@ -998,13 +811,13 @@ function variantBar() {
   return '<div class="vbar"><span class="glabel">시안</span>' + VARIANTS.map(([k, l]) => '<a class="pill' + (k === MV ? ' on' : '') + '" href="?v=' + k + '#graph">' + l + '</a>').join('') + '</div><p class="note" style="margin:-4px 0 12px">' + esc(cur[2]) + '</p>';
 }
 function graphData(collapseDrafts) {
-  const keep = D.docs.filter(d => !(collapseDrafts && d.fm && d.fm.type === 'draft'));
+  const keep = D.docs.filter(d => !(collapseDrafts && d.fm && d.fm.type === 'draft') && (GS.showCommon || !isCommon(d)) && (GS.showArch || !isArch(d)));
   const nodes = keep.map(d => ({ id: d.path, d, deg: 0, inc: 0, x: 0, y: 0, vx: 0, vy: 0, drafts: 0 }));
   const idx = new Map(nodes.map((n, k) => [n.id, k]));
   if (collapseDrafts) for (const d of D.docs) if (d.fm && d.fm.type === 'draft') for (const r of (d.related || [])) { const k = idx.get(r); if (k != null) nodes[k].drafts++; }
   const lmap = new Map();
   for (const e of D.edges) {
-    if (e.from === e.to) continue;
+    if (e.from === e.to || GS.kinds[e.kind] === false) continue;
     const a = idx.get(e.from), b = idx.get(e.to);
     if (a == null || b == null) continue;
     nodes[b].inc++;
@@ -1039,6 +852,7 @@ function runForce(G, W, H, o) {
       n.vx *= 0.5; n.vy *= 0.5;
     }
   }
+  if (!nodes.length) return;
   const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y), pad = o.pad || 70;
   const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
   const s = Math.min((W - 2 * pad) / Math.max(1, maxX - minX), (H - 2 * pad) / Math.max(1, maxY - minY));
@@ -1063,7 +877,7 @@ function viewGraphV(mv) {
       const r = Math.max(40, ...ns.map(n => Math.hypot(n.x - cx, n.y - cy))) + 26;
       decor += '<g class="hull" data-f="' + esc(f) + '"><circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle><text x="' + cx.toFixed(1) + '" y="' + (cy - r - 8).toFixed(1) + '" text-anchor="middle">' + esc(f) + ' ' + ns.length + '</text></g>';
     }
-  } else if (mv === '2') {
+  } else if (mv === '2' && nodes.length) {
     let c = GS.center != null && GS.center < nodes.length ? GS.center : nodes.reduce((b, n, k) => (n.deg > nodes[b].deg ? k : b), 0);
     GS.center = c;
     const dist = nodes.map(() => Infinity); dist[c] = 0;
@@ -1078,7 +892,7 @@ function viewGraphV(mv) {
       ks.forEach((k, j) => { const a = j / Math.max(1, ks.length) * Math.PI * 2 - Math.PI / 2 + r * 0.35; nodes[k].x = W / 2 + Math.cos(a) * R[r]; nodes[k].y = H / 2 + Math.sin(a) * R[r]; });
       if (r > 0) decor += '<g class="ringg"><circle cx="' + W / 2 + '" cy="' + H / 2 + '" r="' + R[r] + '"></circle><text x="' + W / 2 + '" y="' + (H / 2 - R[r] - 8) + '" text-anchor="middle">' + names[r] + ' ' + ks.length + '</text></g>';
     }
-  } else if (mv === '3') {
+  } else if (mv === '3' && nodes.length) {
     const typeOf = n => (n.d.fm && TYPE_ORDER.includes(n.d.fm.type) ? n.d.fm.type : 'other');
     const cols = [...TYPE_ORDER, 'other'].filter(t => nodes.some(n => typeOf(n) === t));
     const colW = 138, top = 96;
@@ -1112,11 +926,15 @@ function viewGraphV(mv) {
   } else {
     runForce(G, W, H, { rep: 5200, rest: 130, spring: 0.015, grav: 0.0022 });
   }
+  // 끌기가 끝나면 점들이 돌아갈 자리
+  nodes.forEach(n => { n.hx = n.x; n.hy = n.y; n.vx = 0; n.vy = 0; });
 
   const days = n => (D.builtAt - n.d.mtime) / 86400000;
   const recency = n => { const x = days(n); return x < 1 ? 0 : x < 7 ? 1 : x < 30 ? 2 : 3; };
   const REC = ['#2F4156', '#567C8D', '#C8D9E6', '#DDD4CD'];
   const status = n => (n.d.fm && n.d.fm.status) || '';
+  // 주황 고리는 다시 볼 공부 노트와 아이디어에만 붙인다 (카드의 "검토 전"까지 붙이면 고리가 너무 많아 뜻이 흐려진다)
+  const needsLook = n => ATTN.has(status(n)) && !!n.d.fm && (n.d.fm.type === 'study' || n.d.fm.type === 'idea');
   const rad = n => (mv === '4' ? 5 + Math.min(12, Math.sqrt(n.inc) * 3) : 5 + Math.min(11, Math.sqrt(n.deg) * 2.4));
 
   function edgeD(l) {
@@ -1146,27 +964,43 @@ function viewGraphV(mv) {
     }
     const r = rad(n);
     const fill = mv === '4' ? REC[recency(n)] : f;
-    const extra = mv === '4' && ATTN.has(status(n)) ? '<circle class="attn" r="' + (r + 4).toFixed(1) + '"></circle>' : '';
-    const cls = 'nd' + (mv === '4' && ARCHIVED.has(status(n)) ? ' arch' : '');
+    const extra = mv === '4' && needsLook(n) ? '<circle class="attn" r="' + (r + 4).toFixed(1) + '"></circle>' : '';
+    const cls = 'nd' + (isArch(n.d) ? ' arch' : '');
     return '<g class="' + cls + '" data-k="' + k + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')">' + extra +
       '<circle class="halo" r="' + (r + 5).toFixed(1) + '" fill="' + fill + '"></circle><circle class="dot" r="' + r.toFixed(1) + '" fill="' + fill + '"><title>' + title + '</title></circle>' +
       '<text class="lb" x="' + (r + 5).toFixed(1) + '" y="4">' + esc(mv === '3' ? (n.d.title.length > 14 ? n.d.title.slice(0, 13) + '…' : n.d.title) : short(n.d.title)) + '</text></g>';
   }
 
+  // 필터 줄의 숫자
   const counts = {};
   nodes.forEach(n => { counts[n.d.folder] = (counts[n.d.folder] || 0) + 1; });
   const iso = nodes.filter(n => !n.deg).length;
+  const kindN = { link: 0, code: 0, prop: 0 };
+  for (const e of D.edges) if (e.from !== e.to && kindN[e.kind] != null) kindN[e.kind]++;
+  const commons = D.docs.filter(d => isCommon(d) && !isArch(d)).sort((a, b) => (back.get(b.path) || []).length - (back.get(a.path) || []).length);
+  const archN = D.docs.filter(isArch).length;
+  const pill = (id, on, label) => '<button type="button" class="pill' + (on ? ' on' : '') + '" id="' + id + '" aria-pressed="' + on + '">' + label + '</button>';
+
   let h = '<h1 class="page">연결</h1>' + variantBar();
-  if (mv === '4') h += '<div class="legend"><span><i style="background:' + REC[0] + '"></i>오늘 고침</span><span><i style="background:' + REC[1] + '"></i>7일 안</span><span><i style="background:' + REC[2] + '"></i>30일 안</span><span><i style="background:' + REC[3] + '"></i>그 전</span><span><i class="lg-attn"></i>손볼 문서(검토 전, 검증 전 등)</span><span><i style="background:var(--faint);opacity:.35"></i>보관, 끝남</span></div>';
+  if (mv === '4') h += '<div class="legend"><span><i style="background:' + REC[0] + '"></i>오늘 고침</span><span><i style="background:' + REC[1] + '"></i>7일 안</span><span><i style="background:' + REC[2] + '"></i>30일 안</span><span><i style="background:' + REC[3] + '"></i>그 전</span><span><i class="lg-attn"></i>다시 볼 공부 노트, 아이디어</span>' + (GS.showArch ? '<span><i style="background:var(--faint);opacity:.35"></i>보관, 끝남</span>' : '') + '</div>';
   h += '<div class="gfilters"><div class="pills" id="gf"><span class="glabel">폴더</span>' + foldersHere.map(f =>
-    '<button type="button" class="fchip' + (GS.hidden.has(f) ? ' off' : '') + '" data-f="' + esc(f) + '" aria-pressed="' + !GS.hidden.has(f) + '"><i style="background:' + color(f) + '"></i>' + esc(f) + '<span class="cnt">' + counts[f] + '</span></button>').join('') +
-    '<button type="button" class="pill' + (GS.hideIso ? ' on' : '') + '" id="giso">연결 없는 문서 숨기기 ' + iso + '</button></div></div>';
+    '<button type="button" class="fchip' + (GS.hidden.has(f) ? ' off' : '') + '" data-f="' + esc(f) + '" aria-pressed="' + !GS.hidden.has(f) + '"><i style="background:' + color(f) + '"></i>' + esc(f) + '<span class="cnt">' + counts[f] + '</span></button>').join('') + '</div>' +
+    '<div class="pills"><span class="glabel">보기</span>' +
+    '<button type="button" class="pill gk' + (GS.kinds.link !== false ? ' on' : '') + '" data-kind="link">마크다운 링크 ' + kindN.link + '</button>' +
+    '<button type="button" class="pill gk' + (GS.kinds.prop !== false ? ' on' : '') + '" data-kind="prop">related ' + kindN.prop + '</button>' +
+    '<button type="button" class="pill gk' + (GS.kinds.code !== false ? ' on' : '') + '" data-kind="code">경로 글자 ' + kindN.code + '</button>' +
+    pill('gcom', GS.showCommon, '공통 문서 보이기 ' + commons.length) +
+    pill('garch', GS.showArch, '보관 문서 보이기 ' + archN) +
+    pill('giso', GS.hideIso, '연결 없는 문서 숨기기 ' + iso) + '</div>';
+  if (!GS.showCommon && commons.length) h += '<div class="pills gcommon"><span class="glabel">공통 문서</span>' + commons.map(d => '<a class="gchip" href="' + docHref(d.path) + '" title="' + esc(d.path) + '"><i style="background:' + color(d.folder) + '"></i>' + esc(d.title) + '<span class="cnt">' + new Set((back.get(d.path) || []).filter(e => e.from !== d.path).map(e => e.from)).size + '</span></a>').join('') + '</div>';
+  h += '</div>';
   let svg = '<svg id="gsvg" class="mv' + mv + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="문서 연결 그래프">';
   svg += '<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--faint)"></path></marker></defs>';
   svg += '<rect id="gbg" x="-5000" y="-5000" width="10000" height="10000" fill="transparent"></rect><g id="vp"><g id="gd">' + decor + '</g><g id="gl">';
   svg += links.map((l, i) => '<path data-i="' + i + '" d="' + edgeD(l) + '"' + (mv === '5' && l.fwd !== l.rev ? ' marker-end="url(#arr)"' : '') + '></path>').join('');
   svg += '</g><g id="gn">' + nodes.map(nodeSvg).join('') + '</g></g></svg>';
-  h += '<div class="gwrap">' + svg + '<div class="gtools"><button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div></div>';
+  h += '<div class="gwrap">' + svg + '<div class="gtools"><button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div>' +
+    (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 위 "보기"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
   $('#view').innerHTML = h;
 
   const svgEl = $('#gsvg'), vp = $('#vp');
@@ -1175,20 +1009,37 @@ function viewGraphV(mv) {
   const visibleLink = l => visibleNode(l.a) && visibleNode(l.b);
   let hoverK = null, drag = null;
   GS.k = 1; GS.x = 0; GS.y = 0;
+
+  // 이름표: 중요한 순서(고른 점, 그 이웃, 연결 많은 점)로 놓고, 이미 놓인 이름표나 다른 점과 겹치면 그 이름은 숨긴다.
+  // 이름표 글자는 확대해도 화면에서 같은 크기라서, 확대하면 자리가 생겨 이름이 더 보인다.
+  function labelPlan(focus, near) {
+    const show = new Array(nodes.length).fill(false);
+    if (mv === '3') return show.fill(true);
+    const z = 1 / GS.k, vis = nodes.map((n, k) => k).filter(visibleNode);
+    const pri = k => (k === focus ? 3e6 : near && near.has(k) ? 2e6 : 0) + (mv === '4' && needsLook(nodes[k]) ? 1e6 : 0) + nodes[k].deg * 100 + (nodes[k].inc || 0);
+    const order = vis.slice().sort((a, b) => pri(b) - pri(a));
+    const dots = vis.map(k => { const n = nodes[k], r = rad(n); return { k, x1: n.x - r, y1: n.y - r, x2: n.x + r, y2: n.y + r }; });
+    const hit = (a, b) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
+    const placed = [];
+    for (const k of order) {
+      const n = nodes[k], r = rad(n), w = labelW(short(n.d.title)) * 0.95 * z, hh = 15 * z;
+      const b = { x1: n.x + r + 3, y1: n.y - hh / 2, x2: n.x + r + 5 + w, y2: n.y + hh / 2 };
+      if (k !== focus && (placed.some(p => hit(p, b)) || dots.some(d => d.k !== k && hit(d, b)))) continue;
+      placed.push(b); show[k] = true;
+    }
+    return show;
+  }
   function paint() {
     const focus = hoverK != null ? hoverK : GS.sel;
     const near = focus != null && focus < nodes.length ? adj[focus] : null;
+    const show = labelPlan(focus, near);
     nEls.forEach((el, k) => {
       el.style.display = visibleNode(k) ? '' : 'none';
       el.classList.toggle('dim', near != null && k !== focus && !near.has(k));
       el.classList.toggle('sel', k === GS.sel);
       el.classList.toggle('hov', k === hoverK);
       const lb = el.querySelector('.lb');
-      if (lb) {
-        const show = mv === '3' || GS.k >= 1.7 || (near != null && (k === focus || near.has(k))) ||
-          (mv === '2' ? ring[k] <= 1 : mv === '4' ? nodes[k].deg >= 4 || ATTN.has(status(nodes[k])) : nodes[k].deg >= 4);
-        lb.style.display = show ? '' : 'none';
-      }
+      if (lb) lb.style.display = show[k] ? '' : 'none';
     });
     lEls.forEach((el, i) => {
       const l = links[i], hot = near != null && (l.a === focus || l.b === focus);
@@ -1197,14 +1048,55 @@ function viewGraphV(mv) {
     });
     svgEl.querySelectorAll('.hull').forEach(g => { g.style.display = GS.hidden.has(g.dataset.f) ? 'none' : ''; });
   }
-  function apply() { vp.setAttribute('transform', 'translate(' + GS.x.toFixed(1) + ',' + GS.y.toFixed(1) + ') scale(' + GS.k.toFixed(3) + ')'); $('#gzoom').textContent = Math.round(GS.k * 100) + '%'; paint(); }
+  function apply() {
+    vp.setAttribute('transform', 'translate(' + GS.x.toFixed(1) + ',' + GS.y.toFixed(1) + ') scale(' + GS.k.toFixed(3) + ')');
+    svgEl.style.setProperty('--zk', (1 / GS.k).toFixed(4));
+    $('#gzoom').textContent = Math.round(GS.k * 100) + '%';
+    paint();
+  }
   const toVB = e => new DOMPoint(e.clientX, e.clientY).matrixTransform(svgEl.getScreenCTM().inverse());
   function zoomAt(px, py, f) { const nk = Math.max(0.25, Math.min(6, GS.k * f)); GS.x = px - (px - GS.x) * (nk / GS.k); GS.y = py - (py - GS.y) * (nk / GS.k); GS.k = nk; apply(); }
-  function moveNode(k) {
-    const n = nodes[k];
-    nEls[k].setAttribute('transform', 'translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')');
-    for (const i of inc[k]) lEls[i].setAttribute('d', edgeD(links[i]));
+  function place(k) { const n = nodes[k]; nEls[k].setAttribute('transform', 'translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')'); }
+
+  // 점을 끌면 이어진 점들이 줄에 끌려 따라오고, 둘레의 점은 살짝 비켜 준다. 놓으면 잠깐 흔들리다 멈추고 그 자리에 남는다.
+  // 줄마다 처음 길이를 쉬는 길이로 둔다. 그래야 끄는 점과 상관없는 곳은 움직이지 않는다.
+  links.forEach(l => { l.rest = Math.hypot(nodes[l.a].x - nodes[l.b].x, nodes[l.a].y - nodes[l.b].y); });
+  const HOME = mv === '2' || mv === '3' ? 0.06 : 0.012;
+  let pinned = null;
+  let alpha = 0, raf = null;
+  function simStep() {
+    const vis = nodes.map((n, k) => k).filter(visibleNode);
+    for (const l of links) {
+      if (!visibleLink(l)) continue;
+      const A = nodes[l.a], B = nodes[l.b], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 0.01, f = (d - l.rest) / d * 0.035;
+      A.vx += dx * f; A.vy += dy * f; B.vx -= dx * f; B.vy -= dy * f;
+    }
+    // 점끼리 실제로 겹칠 만큼 가까워질 때만 밀어낸다
+    for (let i = 0; i < vis.length; i++) for (let j = i + 1; j < vis.length; j++) {
+      const A = nodes[vis[i]], B = nodes[vis[j]], dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 0.01;
+      const near = rad(A) + rad(B) + 16;
+      if (d >= near) continue;
+      const f = (near - d) / d * 0.04;
+      A.vx -= dx * f; A.vy -= dy * f; B.vx += dx * f; B.vy += dy * f;
+    }
+    for (const k of vis) {
+      const n = nodes[k];
+      if (k === pinned) { n.vx = 0; n.vy = 0; continue; }
+      n.vx += (n.hx - n.x) * HOME; n.vy += (n.hy - n.y) * HOME;
+      n.vx *= 0.6; n.vy *= 0.6;
+      n.x += Math.max(-25, Math.min(25, n.vx * alpha)); n.y += Math.max(-25, Math.min(25, n.vy * alpha));
+      place(k);
+    }
+    links.forEach((l, i) => { if (visibleLink(l)) lEls[i].setAttribute('d', edgeD(l)); });
   }
+  function loop() {
+    simStep();
+    if (!drag) alpha *= 0.93;
+    if (drag || alpha > 0.03) raf = requestAnimationFrame(loop);
+    else { raf = null; pinned = null; nodes.forEach(n => { n.hx = n.x; n.hy = n.y; n.vx = 0; n.vy = 0; }); links.forEach(l => { l.rest = Math.hypot(nodes[l.a].x - nodes[l.b].x, nodes[l.a].y - nodes[l.b].y); }); paint(); }
+  }
+  const wake = () => { alpha = 1; if (!raf) raf = requestAnimationFrame(loop); };
+
   function select(k) {
     GS.sel = k;
     const box = $('#ginfo');
@@ -1228,25 +1120,41 @@ function viewGraphV(mv) {
   svgEl.addEventListener('pointerdown', e => {
     const nd = e.target.closest('.nd'), p = toVB(e);
     drag = nd ? { k: +nd.dataset.k, sx: p.x, sy: p.y, moved: 0 } : { pan: true, sx: p.x, sy: p.y, ox: GS.x, oy: GS.y, moved: 0 };
-    svgEl.setPointerCapture(e.pointerId); if (drag.pan) svgEl.classList.add('panning');
+    svgEl.setPointerCapture(e.pointerId); svgEl.classList.add('panning');
   });
   svgEl.addEventListener('pointermove', e => {
     if (!drag) { const nd = e.target.closest('.nd'), k = nd ? +nd.dataset.k : null; if (k !== hoverK) { hoverK = k; paint(); } return; }
     const p = toVB(e), dx = p.x - drag.sx, dy = p.y - drag.sy;
-    if (drag.pan) { drag.moved = Math.max(drag.moved, Math.hypot(dx, dy)); GS.x = drag.ox + dx; GS.y = drag.oy + dy; apply(); }
-    else { drag.moved += Math.hypot(dx, dy); const n = nodes[drag.k]; n.x += dx / GS.k; n.y += dy / GS.k; drag.sx = p.x; drag.sy = p.y; moveNode(drag.k); }
+    if (drag.pan) { drag.moved = Math.max(drag.moved, Math.hypot(dx, dy)); GS.x = drag.ox + dx; GS.y = drag.oy + dy; apply(); return; }
+    drag.moved += Math.hypot(dx, dy);
+    if (drag.moved < 3) return;
+    // 끄는 동안은 그 점과 이웃만 또렷하게
+    if (hoverK !== drag.k) { hoverK = drag.k; paint(); }
+    const n = nodes[drag.k]; n.x += dx / GS.k; n.y += dy / GS.k; n.hx = n.x; n.hy = n.y; drag.sx = p.x; drag.sy = p.y; pinned = drag.k;
+    place(drag.k);
+    wake();
   });
-  svgEl.addEventListener('pointerup', () => { if (!drag) return; const d = drag; drag = null; svgEl.classList.remove('panning'); if (d.moved < 3) { if (d.pan) select(null); else pick(d.k); } });
+  svgEl.addEventListener('pointerup', () => {
+    if (!drag) return;
+    const d = drag; drag = null; svgEl.classList.remove('panning');
+    if (d.moved < 3) { if (d.pan) select(null); else pick(d.k); }
+    else if (!d.pan) { hoverK = null; paint(); }
+  });
   svgEl.addEventListener('pointerleave', () => { if (!drag && hoverK != null) { hoverK = null; paint(); } });
   svgEl.addEventListener('dblclick', e => { const nd = e.target.closest('.nd'); if (nd) location.hash = 'doc/' + encodeURIComponent(nodes[+nd.dataset.k].id); });
   $('#zin').addEventListener('click', () => zoomAt(W / 2, H / 2, 1.3));
   $('#zout').addEventListener('click', () => zoomAt(W / 2, H / 2, 1 / 1.3));
   $('#zfit').addEventListener('click', () => { GS.k = 1; GS.x = 0; GS.y = 0; apply(); });
   const refresh = () => { if (GS.sel != null && GS.sel < nodes.length && !visibleNode(GS.sel)) select(null); saveGS(); paint(); };
+  // 줄 종류, 공통 문서, 보관 문서는 배치 자체가 바뀌므로 다시 그린다
+  const relayout = () => { GS.sel = null; GS.center = null; saveGS(); viewGraphV(mv); };
   document.querySelectorAll('#gf .fchip').forEach(b => b.addEventListener('click', () => {
     const f = b.dataset.f; if (GS.hidden.has(f)) GS.hidden.delete(f); else GS.hidden.add(f);
     b.classList.toggle('off', GS.hidden.has(f)); b.setAttribute('aria-pressed', String(!GS.hidden.has(f))); refresh();
   }));
+  document.querySelectorAll('.gk').forEach(b => b.addEventListener('click', () => { const k = b.dataset.kind; GS.kinds[k] = GS.kinds[k] === false; relayout(); }));
+  $('#gcom').addEventListener('click', () => { GS.showCommon = !GS.showCommon; relayout(); });
+  $('#garch').addEventListener('click', () => { GS.showArch = !GS.showArch; relayout(); });
   $('#giso').addEventListener('click', e => { GS.hideIso = !GS.hideIso; e.currentTarget.classList.toggle('on', GS.hideIso); refresh(); });
   apply();
   if (GS.sel != null && GS.sel < nodes.length) select(GS.sel);
@@ -1263,8 +1171,7 @@ function route() {
   if (h === 'feedback' || h.startsWith('feedback/')) { setNav('feedback'); viewFeedback(h.split('/')[1]); return; }
   if (h === 'graph') {
     setNav('graph');
-    if (MV === '0') { viewGraph(); const p = $('#view h1.page'); if (p) p.insertAdjacentHTML('afterend', variantBar()); }
-    else viewGraphV(MV);
+    viewGraphV(MV);
     return;
   }
   setNav('recent'); viewRecent();
