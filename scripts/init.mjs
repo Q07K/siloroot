@@ -25,6 +25,7 @@ const FILES = [
   ['02-study/README.md', '02-study/README.md'],
   ['03-ideas/README.md', '03-ideas/README.md'],
   ['04-feedback/README.md', '04-feedback/README.md'],
+  ['05-profile/profile.md', '05-profile/profile.md'],
   ['gitignore', '.gitignore'],
 ];
 

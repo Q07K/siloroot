@@ -185,12 +185,13 @@ const VOCAB = {
   // 뷰어에서 생기는 객체
   feedback: ['대기', '진행 중', '완료', '안 함'],
   rule: ['제안', '승인', '거절', '반영'],
+  trait: ['제안', '승인', '거절', '반영'],
 };
 // 폴더마다 정해진 type. 여기 없는 폴더도 type 자체는 모두 필수다.
 const REQUIRED = [
   { prefix: DIRS.ideas + '/', type: ['idea', 'decision'], skip: /(^|\/)README\.md$/i },
   { prefix: DIRS.study + '/', type: 'study', skip: /(^|\/)README\.md$/i },
-  { prefix: DIRS.feedback + '/', type: ['feedback', 'rule'], skip: /(^|\/)README\.md$/i },
+  { prefix: DIRS.feedback + '/', type: ['feedback', 'rule', 'trait'], skip: /(^|\/)README\.md$/i },
 ];
 const typeOk = (req, t) => (Array.isArray(req.type) ? req.type.includes(t) : req.type === t);
 const EXEMPT = () => false;

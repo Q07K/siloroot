@@ -75,3 +75,10 @@ test('--seen-path는 그 문서 하나만 비교 기준을 새로 잡는다', ()
   assert.deepEqual(ch.modified.map((m) => m.path), ['02-study/b.md']);
   assert.deepEqual(ch.added, []);
 });
+
+test('feedback 폴더의 trait 문서는 경고 없이 읽는다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '04-feedback/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 제안\ncreated: 2026-11-22\n---\n\n# 사용자 정보 후보: 결론부터\n');
+  assert.match(build(root), /속성 점검: 경고 0개/);
+});

@@ -2,7 +2,7 @@
 // 뷰어에서 생긴 할 일을 Claude Code에 알려 주는 플러그인 훅.
 //   --session : 세션을 시작할 때(SessionStart). 남아 있는 할 일을 모두 알린다.
 //   (인자 없음): 사용자가 메시지를 보낼 때(UserPromptSubmit). 지난번 알린 뒤 새로 생긴 것만 알린다.
-// 할 일: 대기, 진행 중인 피드백 / 승인됐지만 아직 반영 안 한 규칙 후보 / 규칙 후보를 아직 안 본 웹 편집
+// 할 일: 대기, 진행 중인 피드백 / 승인됐지만 아직 반영 안 한 규칙 후보와 사용자 정보 후보 / 규칙 후보를 아직 안 본 웹 편집
 // SiloRoot 폴더가 아니거나 할 일이 없으면 아무것도 출력하지 않는다.
 
 import fs from 'node:fs';
@@ -35,6 +35,7 @@ for (const f of files) {
   const target = (fm.related || '').replace(/^\[|\]$/g, '').split(',')[0].trim();
   if (fm.type === 'feedback' && (fm.status === '대기' || fm.status === '진행 중')) items.push({ key: rel + '|' + fm.status, text: `피드백 ${fm.status}: ${rel}${target ? ' (대상 ' + target + ')' : ''}` });
   if (fm.type === 'rule' && fm.status === '승인') items.push({ key: rel + '|승인', text: `승인된 규칙 후보, writing-guide.md 반영 대기: ${rel}` });
+  if (fm.type === 'trait' && fm.status === '승인') items.push({ key: rel + '|승인', text: `승인된 사용자 정보 후보, ${cfg.dirs.profile}/profile.md 반영 대기: ${rel}` });
 }
 
 let last = '';

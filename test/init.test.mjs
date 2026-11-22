@@ -12,14 +12,14 @@ const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = [
   'CLAUDE.md', 'metadata-guide.md', 'writing-guide.md',
   '01-log/changelog.md', '01-log/open-questions.md',
-  '02-study/README.md', '03-ideas/README.md', '04-feedback/README.md',
+  '02-study/README.md', '03-ideas/README.md', '04-feedback/README.md', '05-profile/profile.md',
   '.gitignore', '.siloroot/config.json',
 ];
 const mtimes = (root) => Object.fromEntries(EXPECTED.map((r) => [r, fs.statSync(path.join(root, r)).mtimeMs]));
 const START = '<!-- siloroot:start -->';
 const count = (s, sub) => s.split(sub).length - 1;
 
-test('빈 폴더에 뼈대 10개를 만들고 뷰어 점검 경고가 0개다', async () => {
+test('빈 폴더에 뼈대 11개를 만들고 뷰어 점검 경고가 0개다', async () => {
   const root = makeProject();
   const res = await initProject(root);
   assert.deepEqual([...res.created].sort(), [...EXPECTED].sort());
@@ -112,4 +112,13 @@ test('CLAUDE.md 블록은 실행할 수 없는 "뷰어 다시 만들기" 대신 
   const block = fs.readFileSync(path.join(REPO, 'templates', 'CLAUDE.block.md'), 'utf8');
   assert.doesNotMatch(block, /뷰어를 다시 만들어/);
   assert.match(block, /속성 점검/);
+});
+
+test('CLAUDE.md 블록이 사용자 정보 파일을 불러오고, 그 파일은 빈 표 세 개로 시작한다', async () => {
+  const root = makeProject();
+  await initProject(root);
+  const md = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
+  assert.match(md, /^@05-profile\/profile\.md$/m);
+  const profile = fs.readFileSync(path.join(root, '05-profile', 'profile.md'), 'utf8');
+  assert.equal(count(profile, '| 항목 | 내용 | 근거 | 승인 |'), 3);
 });
