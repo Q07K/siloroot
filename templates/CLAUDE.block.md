@@ -10,7 +10,8 @@
 | `01-log/` | 작업 기록(`changelog.md`)과 사용자 확인이 필요한 것(`open-questions.md`) |
 | `02-study/` | 문답으로 공부한 노트. 주제 하나에 파일 하나, 목록은 `02-study/README.md` |
 | `03-ideas/` | 아이디어와 만들기 시작한 프로젝트. 아이디어 하나에 파일 하나, 따로 남길 결정은 옆에 `decision` 문서로 |
-| `04-feedback/` | 뷰어에서 남긴 댓글과 글쓰기 규칙 후보 |
+| `04-feedback/` | 뷰어에서 남긴 댓글, 글쓰기 규칙 후보, 사용자 정보 후보 |
+| `05-profile/` | 사용자가 승인한 작업 습관과 선호(`profile.md`) |
 | `.siloroot/` | 설정(`config.json`)과 뷰어 생성물. 직접 고치지 않는다 |
 
 ### 규칙
@@ -20,6 +21,14 @@
 - 기술 질문을 공부할 때는 `/siloroot:note`, "검증해 줘"라고 하면 `/siloroot:verify`를 따른다.
 - 훅이 "[SiloRoot] 처리할 일"을 알리면 지금 요청을 끝낸 뒤 `/siloroot:feedback`을 따른다.
 - 글을 쓰거나 고치기 전에 `writing-guide.md`를 읽는다. 사용자가 표현을 지적하면 규칙 후보로 남긴다.
+
+### 사용자 정보
+
+사용자가 승인한 작업 습관과 선호는 `05-profile/profile.md`에 있고 아래 줄로 불러온다. 이 블록의 다른 규칙과 부딪히면 이 파일을 먼저 따르지 말고 사용자에게 묻는다.
+
+@05-profile/profile.md
+
+- 일하면서 습관이나 선호가 보이면 `/siloroot:feedback`의 D 절차로 후보(`trait`)를 만든다. 승인되기 전에는 쓰지 않는다.
 
 ### 흐름 나누기
 

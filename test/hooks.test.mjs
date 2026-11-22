@@ -62,3 +62,18 @@ test('설정 포트를 다른 폴더의 서버가 쓰고 있으면 켜지 않고
     fake.close();
   }
 });
+
+test('승인된 사용자 정보 후보는 profile.md 반영 대기로 알린다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '04-feedback/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 승인\n---\n\n# 사용자 정보 후보: 결론부터\n');
+  const out = JSON.parse(run('notify.mjs', root, ['--session']));
+  assert.match(out.hookSpecificOutput.additionalContext, /사용자 정보 후보, 05-profile\/profile\.md 반영 대기: 04-feedback\/trait-2026-11-22-001\.md/);
+});
+
+test('제안 상태의 사용자 정보 후보는 알리지 않는다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '04-feedback/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 제안\n---\n\n# 사용자 정보 후보\n');
+  assert.equal(run('notify.mjs', root, ['--session']), '');
+});

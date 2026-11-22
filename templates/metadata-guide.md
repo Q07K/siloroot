@@ -51,6 +51,7 @@ tags: [CSS]
 | `project` | 진행 중인 프로젝트의 설명 문서. 기본으로는 쓰지 않고 `idea`의 `진행 중`으로 대신한다 | 진행 중, 보류, 완료 |
 | `feedback` | 뷰어에서 남긴 댓글 하나 | 대기, 진행 중, 완료, 안 함 |
 | `rule` | 글쓰기 규칙 후보 하나 | 제안, 승인, 거절, 반영 |
+| `trait` | 사용자 정보 후보 하나 | 제안, 승인, 거절, 반영 |
 
 ### 문서 종류
 
@@ -75,7 +76,8 @@ tags: [CSS]
 | --- | --- | --- |
 | `02-study/` | `study` (`README.md`는 `index`) | `status`는 이해도다. `02-study/README.md` 주제 목록의 이해도와 같게 맞춘다 |
 | `03-ideas/` | `idea`, 결정은 `decision` (`README.md`는 `index`) | 아이디어 하나에 파일 하나. 만들기 시작하면 `status`만 `진행 중`으로 바꾸고 옮기지 않는다. 따로 남길 결정은 `<아이디어 이름>-decision-<내용>.md`로 옆에 둔다 |
-| `04-feedback/` | `feedback` 또는 `rule` (`README.md`는 `index`) | 형식은 `04-feedback/README.md`를 따른다 |
+| `04-feedback/` | `feedback`, `rule`, `trait` (`README.md`는 `index`) | 형식은 `04-feedback/README.md`와 `/siloroot:feedback`을 따른다 |
+| `05-profile/` | `profile.md`는 `ledger` | 승인된 사용자 정보만 둔다 |
 | `01-log/` | 기록은 `log`, `open-questions.md`는 `ledger` | |
 | 맨 위 | 규칙은 `guide`, `README.md`는 `index` | |
 
@@ -84,6 +86,7 @@ tags: [CSS]
 | 파일 | 객체 | 지켜야 할 형식 |
 | --- | --- | --- |
 | `01-log/open-questions.md` | 미해결 질문 | `## 구분` 아래 `- [ ] **제목**: 내용`. 끝내면 `[x]`로 바꾸거나 줄을 지운다 |
+| `05-profile/profile.md` | 승인된 사용자 정보 | `## 구분`(작업 방식, 소통, 공부) 아래 표(항목, 내용, 근거, 승인). 근거 칸은 후보 파일 경로 |
 
 ## 5. AI가 할 일
 

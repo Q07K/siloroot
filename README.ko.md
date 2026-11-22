@@ -28,7 +28,7 @@ claude plugin install siloroot@siloroot --scope project
 | `/siloroot:init` | 폴더를 작업 공간으로 만든다. 없는 파일만 만들고 뷰어를 연다 |
 | `/siloroot:note` | 기술 개념을 문답으로 공부한다. 공부 노트가 생기고 이어 적힌다. 질문이 옆 주제로 번지면 노트를 나누고 링크로 묶는다 |
 | `/siloroot:verify` | "검증해 줘". Claude가 질문하고 판정해 검증 기록과 이해도를 갱신한다 |
-| `/siloroot:feedback` | 뷰어에서 남긴 댓글과 웹 편집을 처리한다. 훅이 알려 준다 |
+| `/siloroot:feedback` | 뷰어에서 남긴 댓글과 웹 편집을 처리하고, Claude가 일하면서 본 작업 습관과 선호를 사용자 정보 후보로 남긴다. 훅이 알려 준다 |
 
 한 대화가 공부, 아이디어, 결정, 프로젝트 사이를 오가도 된다. 대화는 흐르게 두고, Claude가 내용의 종류를 보고 알맞은 폴더에 문서를 나눠 서로 잇는다. 규칙은 작업 공간의 `CLAUDE.md` 블록에 들어간다.
 
@@ -41,7 +41,8 @@ claude plugin install siloroot@siloroot --scope project
 | `01-log/` | 작업 기록, 미해결 질문 |
 | `02-study/` | 공부 노트와 주제 목록(이해도) |
 | `03-ideas/` | 아이디어와 만들기 시작한 프로젝트, 그 결정 기록 |
-| `04-feedback/` | 뷰어 댓글, 글쓰기 규칙 후보 |
+| `04-feedback/` | 뷰어 댓글, 글쓰기 규칙 후보, 사용자 정보 후보 |
+| `05-profile/` | 승인한 작업 습관과 선호(`profile.md`). `CLAUDE.md`가 불러와서 모든 대화에 쓰인다 |
 | `.siloroot/` | 설정(`config.json`: 포트, 폴더 이름)과 뷰어 생성물(`state/`) |
 
 템플릿과 스킬 문구는 지금 한국어로만 되어 있다.

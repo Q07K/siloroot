@@ -28,7 +28,7 @@ Then open Claude Code in that folder and run `/siloroot:init`.
 | `/siloroot:init` | Turns the folder into a workspace. Creates only missing files and opens the viewer |
 | `/siloroot:note` | Learn a technical concept through Q&A. Creates and extends study notes. When questions drift to a neighboring topic, splits it into its own note and links the two |
 | `/siloroot:verify` | Say "검증해 줘" (verify me). Claude asks questions, grades your answers, and updates the verification log and understanding level |
-| `/siloroot:feedback` | Processes comments and web edits left in the viewer. The hooks tell you when there is something to process |
+| `/siloroot:feedback` | Processes comments and web edits left in the viewer, and records user-profile candidates (work habits and preferences Claude noticed). The hooks tell you when there is something to process |
 
 One conversation can move freely between study, ideas, decisions, and projects. The conversation stays as it is; Claude looks at what kind of content came up, files it in the right folder, and links the documents to each other. The rules live in the workspace's `CLAUDE.md` block.
 
@@ -41,7 +41,8 @@ One conversation can move freely between study, ideas, decisions, and projects. 
 | `01-log/` | Work log, open questions |
 | `02-study/` | Study notes and the topic list (understanding levels) |
 | `03-ideas/` | Ideas, projects you have started building, and their decision records |
-| `04-feedback/` | Viewer comments, writing-rule candidates |
+| `04-feedback/` | Viewer comments, writing-rule candidates, user-profile candidates |
+| `05-profile/` | Work habits and preferences you approved (`profile.md`). `CLAUDE.md` imports it, so every conversation uses it |
 | `.siloroot/` | Settings (`config.json`: port, folder names) and viewer output (`state/`) |
 
 The templates and skill text are currently in Korean only.
