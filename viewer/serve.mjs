@@ -4,7 +4,8 @@
 // - 화면의 "다 확인했어요"를 누르면 지금 상태를 이전 상태로 저장한다.
 // - 화면에서 댓글(피드백)을 남기고, 문서를 고치고, 규칙 후보를 승인할 수 있다. 쓰는 곳은 아래 safePath가 정한다.
 // 실행: node viewer/serve.mjs <프로젝트 폴더>  →  http://127.0.0.1:<설정의 port>
-// GET /health 는 { siloroot: true, root } 를 돌려준다. 훅이 이 포트가 내 폴더의 서버인지 확인할 때 쓴다.
+// GET /health 는 { siloroot: true, root, viewers } 를 돌려준다. 훅이 이 포트가 내 폴더의 서버인지,
+// 뷰어 화면이 이미 열려 있는지(viewers: /events에 붙은 화면 수) 확인할 때 쓴다.
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -219,7 +220,7 @@ http.createServer(async (req, res) => {
       req.on('close', () => clients.delete(res));
       return;
     }
-    if (req.method === 'GET' && req.url === '/health') return send(res, 200, { siloroot: true, root: ROOT });
+    if (req.method === 'GET' && req.url === '/health') return send(res, 200, { siloroot: true, root: ROOT, viewers: clients.size });
     if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
       build(['--keep-snapshot']);
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
