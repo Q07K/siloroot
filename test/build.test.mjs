@@ -82,3 +82,46 @@ test('feedback 폴더의 trait 문서는 경고 없이 읽는다', () => {
   write(root, '04-feedback/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 제안\ncreated: 2026-11-22\n---\n\n# 사용자 정보 후보: 결론부터\n');
   assert.match(build(root), /속성 점검: 경고 0개/);
 });
+
+test('나 화면 데이터: 승인된 profile 행, 기다리는 후보, 거절한 후보, 쓰지 않는 표현을 모은다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '04-feedback/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 반영\ncreated: 2026-11-22\n---\n\n# 사용자 정보 후보: 결론부터\n\n## 제안하는 항목\n\n| 구분 | 항목 | 내용 |\n| --- | --- | --- |\n| 소통 | 결론부터 | 결론을 먼저 말한다 |\n\n## 근거\n\n- 2026-11-22, 대화: "짧게"\n- 2026-11-23, 대화: "결론만"\n\n## 메모\n');
+  write(root, '04-feedback/trait-2026-11-22-002.md', '---\ntype: trait\nstatus: 제안\ncreated: 2026-11-22\n---\n\n# 사용자 정보 후보: 표로 정리\n\n## 제안하는 항목\n\n| 구분 | 항목 | 내용 |\n| --- | --- | --- |\n| 작업 방식 | 표로 정리 | 비교는 표로 |\n\n## 근거\n\n- 2026-11-22, 대화: "표로"\n');
+  write(root, '04-feedback/trait-2026-11-22-003.md', '---\ntype: trait\nstatus: 거절\ncreated: 2026-11-22\n---\n\n# 사용자 정보 후보: 영어로\n\n## 제안하는 항목\n\n| 구분 | 항목 | 내용 |\n| --- | --- | --- |\n| 소통 | 영어로 | 영어로 답한다 |\n\n## 근거\n\n- 2026-11-22, 대화: "영어"\n\n## 메모\n\n- 2026-11-22 사용자: "아니"\n');
+  write(root, '05-profile/profile.md', '---\ntype: ledger\nstatus: 사용 중\n---\n\n# 사용자 정보\n\n## 작업 방식\n\n| 항목 | 내용 | 근거 | 승인 |\n| --- | --- | --- | --- |\n\n## 소통\n\n| 항목 | 내용 | 근거 | 승인 |\n| --- | --- | --- | --- |\n| 결론부터 | 결론을 먼저 말한다 | `04-feedback/trait-2026-11-22-001.md` | 2026-11-22 |\n');
+  write(root, 'writing-guide.md', '---\ntype: guide\nstatus: 사용 중\n---\n\n# 글쓰기\n\n## 1. 쓰지 않는 표현\n\n| 쓰지 않는 것 | 바꿔 쓰는 법 | 출처 |\n| --- | --- | --- |\n| 대시 | 문장을 나눈다 | 본인 |\n');
+  assert.match(build(root), /속성 점검: 경고 0개/);
+  const me = dataOf(root).objects.me;
+  assert.deepEqual(me.groups, ['작업 방식', '소통']);
+  assert.equal(me.approved.length, 1);
+  assert.equal(me.approved[0].group, '소통');
+  assert.equal(me.approved[0].source, '04-feedback/trait-2026-11-22-001.md');
+  assert.equal(me.approved[0].evidence.length, 2);
+  assert.deepEqual(me.pending.map((t) => t.item), ['표로 정리']);
+  assert.deepEqual(me.rejected.map((r) => r.title), ['영어로']);
+  assert.deepEqual(me.writing.banned.map((w) => w.name), ['대시']);
+  assert.equal(me.writing.principles.length, 0);
+});
+
+test('profile 행의 근거 후보 파일이 없거나 반영 상태가 아니면 경고', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, '04-feedback/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 제안\n---\n\n# 사용자 정보 후보: 가\n');
+  write(root, '05-profile/profile.md', '---\ntype: ledger\nstatus: 사용 중\n---\n\n# 사용자 정보\n\n## 작업 방식\n\n| 항목 | 내용 | 근거 | 승인 |\n| --- | --- | --- | --- |\n| 가 | 가 | `04-feedback/trait-2026-11-22-001.md` | 2026-11-22 |\n| 나 | 나 | `04-feedback/trait-없음.md` | 2026-11-22 |\n');
+  const out = build(root);
+  assert.match(out, /속성 점검: 경고 2개/);
+  assert.match(out, /"가"의 근거 .*status가 "반영"이 아님/);
+  assert.match(out, /"나"의 근거 "04-feedback\/trait-없음\.md" 후보 파일을 찾지 못함/);
+});
+
+test('나 화면은 설정의 profile, feedback 폴더 이름을 따른다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180, dirs: { feedback: 'fb', profile: 'me' } });
+  write(root, 'fb/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 반영\n---\n\n# 사용자 정보 후보: 가\n');
+  write(root, 'me/profile.md', '---\ntype: ledger\nstatus: 사용 중\n---\n\n# 사용자 정보\n\n## 공부\n\n| 항목 | 내용 | 근거 | 승인 |\n| --- | --- | --- | --- |\n| 가 | 가 | `fb/trait-2026-11-22-001.md` | 2026-11-22 |\n');
+  build(root);
+  const me = dataOf(root).objects.me;
+  assert.equal(me.profile, 'me/profile.md');
+  assert.equal(me.approved.length, 1);
+});

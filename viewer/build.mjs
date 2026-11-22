@@ -265,7 +265,84 @@ function parseStudy() {
     });
 }
 
+// 마크다운 표를 읽는다. 각 행은 { section(바로 위 ## 제목), header(그 표의 첫 행), cells }.
+function tableRows(text) {
+  const out = [];
+  let section = '';
+  let header = null;
+  for (const line of text.split('\n')) {
+    const h = line.match(/^##\s+(.+)$/);
+    if (h) { section = h[1].trim(); header = null; continue; }
+    if (!line.trim().startsWith('|')) { header = null; continue; }
+    if (/^\s*\|\s*:?-{2,}/.test(line)) continue;
+    const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+    if (!header) { header = cells; continue; }
+    out.push({ section, header, cells });
+  }
+  return out;
+}
+// "## 근거" 같은 절의 본문(다음 ## 전까지)
+function sectionBody(text, name) {
+  const m = text.match(new RegExp('^##\\s+' + name + '\\s*\\n([\\s\\S]*?)(?=^##\\s|(?![\\s\\S]))', 'm'));
+  return m ? m[1].trim() : '';
+}
+const bullets = (s) => s.split('\n').filter((l) => /^-\s+/.test(l)).map((l) => l.replace(/^-\s+/, '').trim());
+
+// "나" 화면: AI가 쓰는 사용자 정보(승인된 profile, trait 후보, 글쓰기 규칙). 점수나 평가는 만들지 않고 원본 문장과 근거만 모은다.
+function parseMe() {
+  const PROFILE = DIRS.profile + '/profile.md';
+  const fmStatus = (d) => (d.fm && d.fm.status ? String(d.fm.status) : '');
+  const traitOf = (d) => {
+    const row = tableRows(sectionBody(d.text, '제안하는 항목'))[0];
+    return {
+      doc: d.path, title: d.title.replace(/^사용자 정보 후보:\s*/, ''), status: fmStatus(d), created: (d.fm && d.fm.created) || '',
+      group: row ? row.cells[0] : '', item: row ? row.cells[1] : '', content: row ? row.cells[2] || '' : '',
+      evidence: bullets(sectionBody(d.text, '근거')), memo: bullets(sectionBody(d.text, '메모')),
+    };
+  };
+  const traits = docs.filter((d) => d.path.startsWith(DIRS.feedback + '/') && d.fm && d.fm.type === 'trait').map(traitOf);
+  const byPath = Object.fromEntries(traits.map((t) => [t.doc, t]));
+
+  const profileDoc = get(PROFILE);
+  const approved = [];
+  if (profileDoc) {
+    for (const r of tableRows(profileDoc.text)) {
+      if (r.header[0] !== '항목' || !r.cells[0]) continue;
+      const src = (r.cells[2] || '').replace(/`/g, '').trim();
+      const t = byPath[src];
+      if (!t) issues.push({ doc: PROFILE, msg: '"' + r.cells[0] + '"의 근거 "' + src + '" 후보 파일을 찾지 못함' });
+      else if (t.status !== '반영') issues.push({ doc: PROFILE, msg: '"' + r.cells[0] + '"의 근거 ' + src + '의 status가 "반영"이 아님 ("' + t.status + '")' });
+      approved.push({ group: r.section, item: r.cells[0], content: r.cells[1] || '', source: src, approvedAt: r.cells[3] || '', evidence: t ? t.evidence : [] });
+    }
+  }
+  const groups = profileDoc ? [...profileDoc.text.matchAll(/^##\s+(.+)$/gm)].map((m) => m[1].trim()) : [];
+
+  const wg = get('writing-guide.md');
+  const writing = { doc: 'writing-guide.md', principles: [], banned: [] };
+  if (wg) {
+    for (const r of tableRows(wg.text)) {
+      if (r.header[0] === '원칙') writing.principles.push({ name: r.cells[0], content: r.cells[1] || '', source: r.cells[2] || '' });
+      else if (r.header[0] === '쓰지 않는 것') writing.banned.push({ name: r.cells[0], content: r.cells[1] || '', source: r.cells[2] || '' });
+    }
+  }
+
+  const rejected = [
+    ...traits.filter((t) => t.status === '거절').map((t) => ({ kind: '사용자 정보', doc: t.doc, title: t.title, content: t.content, evidence: t.evidence, memo: t.memo })),
+    ...docs.filter((d) => d.path.startsWith(DIRS.feedback + '/') && d.fm && d.fm.type === 'rule' && fmStatus(d) === '거절').map((d) => {
+      const row = tableRows(sectionBody(d.text, '제안하는 규칙'))[0];
+      return { kind: '글쓰기 규칙', doc: d.path, title: d.title.replace(/^규칙 후보:\s*/, ''), content: row ? row.cells[0] + ' → ' + (row.cells[1] || '') : '', evidence: bullets(sectionBody(d.text, '근거가 된 수정')), memo: bullets(sectionBody(d.text, '메모')) };
+    }),
+  ];
+
+  return {
+    profile: PROFILE, groups, approved,
+    pending: traits.filter((t) => t.status === '제안' || t.status === '승인'),
+    rejected, writing,
+  };
+}
+
 const objects = {
+  me: parseMe(),
   questions: parseQuestions(get(DIRS.log + '/open-questions.md')),
   claims: [],
   ideas: docs

@@ -52,6 +52,7 @@ The templates and skill text are currently in Korean only.
 `http://127.0.0.1:<port from config.json>`. It is reachable only from this machine and makes no external network requests.
 
 - When a document changes, the page redraws right away and briefly highlights new documents and new lines in yellow.
+- The "나" (me) page shows what Claude currently uses about you, with the evidence for each item: approved entries from `05-profile/profile.md`, pending and rejected user-profile candidates, and the writing rules. There are no scores or ratings. If an item is wrong, press "이건 아니에요" (that's not right) to leave a comment on it.
 - The connection graph links documents through `related` properties and backticked paths. If a document is created or deleted while you are looking at the graph, its node and edges are added or removed without a reload.
 
 The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server (and open the browser on the first session of the day); when you send a message they tell you if there is feedback to process. If the folder already has a `.gitignore`, add `.siloroot/state/` to it yourself.
