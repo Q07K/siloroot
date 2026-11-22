@@ -29,6 +29,16 @@ const FILES = [
   ['gitignore', '.gitignore'],
 ];
 
+// 이미 있으면 덮어쓰지 않지만, 새 버전의 type이나 폴더 규칙이 빠졌는지 보는 안내 파일
+const STALE_CHECK = ['metadata-guide.md', '04-feedback/README.md'];
+
+// 표 줄(|로 시작)의 백틱 항목 가운데 템플릿에는 있고 지금 파일에는 없는 것
+function missingTableItems(tplText, curText) {
+  const items = (t) => new Set(t.split(/\r?\n/).filter((l) => l.trimStart().startsWith('|')).flatMap((l) => [...l.matchAll(/`([^`]+)`/g)].map((m) => m[1])));
+  const cur = items(curText);
+  return [...items(tplText)].filter((x) => !cur.has(x));
+}
+
 function today() {
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
@@ -69,7 +79,12 @@ export async function initProject(rootArg) {
 
   for (const [tpl, dest] of FILES) {
     const full = path.join(root, dest);
-    if (fs.existsSync(full)) { skipped.push(dest); continue; }
+    if (fs.existsSync(full)) {
+      skipped.push(dest);
+      const missing = STALE_CHECK.includes(dest) ? missingTableItems(readTpl(tpl), fs.readFileSync(full, 'utf8')) : [];
+      if (missing.length) warnings.push(`${dest}는 이미 있어서 그대로 두었는데, 새 템플릿의 표 항목 ${missing.map((m) => '`' + m + '`').join(', ')}이(가) 없습니다. 템플릿(templates/${tpl})과 비교해 빠진 줄을 더할지 사용자에게 물어보세요.`);
+      continue;
+    }
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, readTpl(tpl));
     created.push(dest);
