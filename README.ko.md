@@ -23,15 +23,15 @@ claude plugin install siloroot@siloroot --scope project
 
 ### Claude에게 맡기기
 
-명령을 직접 치지 않고 Claude Code에 말로 맡겨도 된다. 데스크톱 앱처럼 터미널을 따로 열지 않고 쓰는 곳에서 편하다.
+명령을 직접 치지 않고 Claude Code에 말로 맡겨도 된다. 데스크톱 앱처럼 터미널을 따로 열지 않고 쓰는 곳에서 편하다. 작업 공간으로 쓸 폴더를 Claude Code에서 프로젝트로 열고 이렇게 말한다.
 
 ```text
-C:\work\notes 폴더에 SiloRoot 플러그인을 설치해 줘. 마켓플레이스는 Q07K/siloroot야.
+이 프로젝트에 SiloRoot 플러그인을 설치해 줘. 마켓플레이스는 Q07K/siloroot야.
 ```
 
-- Claude가 위의 두 명령을 그 폴더에서 실행한다. 권한 설정에 따라 실행 승인을 한 번 눌러야 할 수 있다.
-- 설치를 부탁한 대화에는 적용되지 않는다. 설치가 끝나면 그 폴더에서 Claude Code를 새로 열고 `/siloroot:init`을 실행한다.
-- 업데이트도 같다. "C:\work\notes의 SiloRoot 플러그인 업데이트해 줘"라고 하면 Claude가 `claude plugin update siloroot@siloroot --scope project`를 실행한다. 적용하려면 그 폴더의 세션을 새로 연다.
+- Claude가 지금 열린 프로젝트 폴더에서 위의 두 명령을 실행한다. 폴더 경로를 말하거나 `cd`할 필요는 없다. 권한 설정에 따라 실행 승인을 한 번 눌러야 할 수 있다.
+- 설치를 부탁한 대화에는 적용되지 않는다. 설치가 끝나면 같은 프로젝트에서 새 세션을 열고 `/siloroot:init`을 실행한다.
+- 업데이트도 같다. "이 프로젝트의 SiloRoot 플러그인 업데이트해 줘"라고 하면 Claude가 `claude plugin update siloroot@siloroot --scope project`를 실행한다. 적용하려면 새 세션을 연다.
 
 ## 스킬
 

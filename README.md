@@ -23,15 +23,15 @@ Then open Claude Code in that folder and run `/siloroot:init`.
 
 ### Let Claude do it
 
-You can also ask Claude Code in plain words instead of typing the commands. This is handy where you don't open a separate terminal, such as the desktop app.
+You can also ask Claude Code in plain words instead of typing the commands. This is handy where you don't open a separate terminal, such as the desktop app. Open the folder you want as your workspace as a project in Claude Code and say:
 
 ```text
-Install the SiloRoot plugin in C:\work\notes. The marketplace is Q07K/siloroot.
+Install the SiloRoot plugin in this project. The marketplace is Q07K/siloroot.
 ```
 
-- Claude runs the two commands above in that folder. Depending on your permission settings, you may need to approve the command once.
-- The conversation where you asked does not get the plugin. When the install finishes, open Claude Code in that folder and run `/siloroot:init`.
-- Updates work the same way. Ask "Update the SiloRoot plugin in C:\work\notes" and Claude runs `claude plugin update siloroot@siloroot --scope project`. Open a new session in that folder to apply it.
+- Claude runs the two commands above in the open project folder. You don't need to give a path or `cd`. Depending on your permission settings, you may need to approve the command once.
+- The conversation where you asked does not get the plugin. When the install finishes, open a new session in the same project and run `/siloroot:init`.
+- Updates work the same way. Ask "Update the SiloRoot plugin in this project" and Claude runs `claude plugin update siloroot@siloroot --scope project`. Open a new session to apply it.
 
 ## Skills
 
