@@ -500,7 +500,11 @@ const ICON = path.join(here, 'brand', 'siloroot-icon-64.png');
 const icon = fs.existsSync(ICON) ? 'data:image/png;base64,' + fs.readFileSync(ICON).toString('base64') : '';
 const BRAND = path.join(here, 'brand');
 const dataUri = (name) => { const f = path.join(BRAND, name); return fs.existsSync(f) ? 'data:image/png;base64,' + fs.readFileSync(f).toString('base64') : ''; };
-if (!DATA_ONLY) fs.writeFileSync(OUT_HTML, template.split('__BRAND_ICON__').join(icon).split('__BRAND_WORDMARK_DARK__').join(dataUri('siloroot-wordmark-dark-56.png')).split('__BRAND_WORDMARK__').join(dataUri('siloroot-wordmark-56.png')).split('__VIEWER_DATA__').join(json));
+// 글꼴: 함께 넣은 Pretendard 가변 전체판을 data URI로 넣는다. 파일이 없으면 PC에 깔린 글꼴을 찾는다
+const FONT = path.join(here, 'fonts', 'PretendardVariable.woff2');
+const fontSrc = fs.existsSync(FONT) ? "url(data:font/woff2;base64," + fs.readFileSync(FONT).toString('base64') + ") format('woff2')" : "local('Pretendard Variable'),local('Pretendard')";
+if (!DATA_ONLY && !fs.existsSync(FONT)) console.log('글꼴 파일이 없어 PC에 깔린 Pretendard를 찾습니다: ' + FONT);
+if (!DATA_ONLY) fs.writeFileSync(OUT_HTML, template.split('__FONT_PRETENDARD_SRC__').join(fontSrc).split('__BRAND_ICON__').join(icon).split('__BRAND_WORDMARK_DARK__').join(dataUri('siloroot-wordmark-dark-56.png')).split('__BRAND_WORDMARK__').join(dataUri('siloroot-wordmark-56.png')).split('__VIEWER_DATA__').join(json));
 if (!KEEP_SNAPSHOT || !prev) {
   const snapFiles = {};
   for (const d of docs) snapFiles[d.path] = { hash: hash(d.text), text: d.text };

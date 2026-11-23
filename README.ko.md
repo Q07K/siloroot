@@ -84,3 +84,5 @@ README는 영어(`README.md`)와 한국어(`README.ko.md`) 두 벌이다. 한쪽
 ## 라이선스
 
 MIT
+
+뷰어에 Pretendard 가변 글꼴(`viewer/fonts/PretendardVariable.woff2`, Pretendard 1.3.9, 길형진)을 함께 넣었다. 이 글꼴은 SIL 오픈 폰트 라이선스 1.1을 따른다. 전문은 `viewer/fonts/LICENSE-Pretendard.txt`에 있다.

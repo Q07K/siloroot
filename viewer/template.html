@@ -6,19 +6,43 @@
 <title>SiloRoot</title>
 <link rel="icon" type="image/png" href="__BRAND_ICON__">
 <style>
-:root{--bg:#ECE5E0;--surface:#F5EFEB;--border:#DDD4CD;--line:#CFC5BD;--code-bg:#E6DED7;--ink:#2F4156;--muted:#4D6878;--faint:#55707E;--accent:#3F6474;--accent-bg:#C8D9E6;--on-accent:#F5EFEB;--add-bg:#DCE8E4;--add-ink:#2F5E55;--del-bg:#EFDCD8;--del-ink:#8A4A44;--flash-bg:#F0DFC4;--flash-bar:#C9A46A;--attn:#B7835A;--shadow:rgba(47,65,86,.10);--shadow-soft:rgba(47,65,86,.06);--frame:#E2D9D2}
-@media (prefers-color-scheme: dark){:root{--bg:#1C2733;--surface:#2F4156;--border:#43586E;--line:#52687D;--code-bg:#26364A;--ink:#F5EFEB;--muted:#C8D9E6;--faint:#A3B8C6;--accent:#C8D9E6;--accent-bg:#40596D;--on-accent:#1C2733;--add-bg:#24443F;--add-ink:#A9D3C6;--del-bg:#4A2F2E;--del-ink:#E8B7AE;--flash-bg:#5A4A33;--flash-bar:#D9B77E;--attn:#D9A47A;--shadow:rgba(0,0,0,.35);--shadow-soft:rgba(0,0,0,.25);--frame:#16202A}}
+:root{--bg:#ECE5E0;--surface:#F5EFEB;--border:#DDD4CD;--line:#CFC5BD;--code-bg:#E6DED7;--ink:#2F4156;--muted:#4D6878;--faint:#55707E;--accent:#3F6474;--accent-bg:#C8D9E6;--on-accent:#F5EFEB;--add-bg:#DCE8E4;--add-ink:#2F5E55;--del-bg:#EFDCD8;--del-ink:#8A4A44;--flash-bg:#F0DFC4;--flash-bar:#C9A46A;--shadow:rgba(47,65,86,.10);--shadow-soft:rgba(47,65,86,.06);--frame:#E2D9D2}
+@media (prefers-color-scheme: dark){:root{--bg:#1C2733;--surface:#2F4156;--border:#43586E;--line:#52687D;--code-bg:#26364A;--ink:#F5EFEB;--muted:#C8D9E6;--faint:#A3B8C6;--accent:#C8D9E6;--accent-bg:#40596D;--on-accent:#1C2733;--add-bg:#24443F;--add-ink:#A9D3C6;--del-bg:#4A2F2E;--del-ink:#E8B7AE;--flash-bg:#5A4A33;--flash-bar:#D9B77E;--shadow:rgba(0,0,0,.35);--shadow-soft:rgba(0,0,0,.25);--frame:#16202A}}
+/* 글꼴은 Pretendard 하나. 함께 넣은 가변 전체판(viewer/fonts/PretendardVariable.woff2, 한글 11,172자, 굵기 45~920이 한 파일)을
+   build.mjs가 이 자리에 넣는다. 인터넷에서 받지 않고, PC에 깔린 글꼴과 상관없이 어디서나 같게 보인다.
+   PC에 깔린 굵기별 Pretendard를 local()로 앞에 두면 굵기 하나로 모든 굵기를 흉내 내므로 쓰지 않는다 */
+@font-face{font-family:'Pretendard';font-weight:45 920;font-style:normal;font-display:swap;src:__FONT_PRETENDARD_SRC__}
+/* 브라우저가 그리는 기본 부품(선택 칸 목록, 체크박스, 스크롤 손잡이)도 밝은 화면과 어두운 화면을 따라가게 한다. 체크박스와 라디오는 강조색 */
+:root{--accent-strong:#2F4156;--warn-bg:#F0DFC4;color-scheme:light;accent-color:var(--accent)}
+@media (prefers-color-scheme: dark){:root{--accent-strong:#F5EFEB;--warn-bg:#5A4A33;color-scheme:dark}}
+/* 모서리는 네 단계: 글자 안 작은 칩 4px, 누르는 것·코드 블록·작은 이름표 8px, 카드·칸·떠 있는 상자 12px, 알약 999px.
+   안에 든 것은 바깥 모서리에서 안쪽 여백을 뺀다(세그먼트 8px, 여백 3px → 안쪽 5px). 6px 스크롤 막대는 3px, 동그라미(점, 도움말)는 50%.
+   높이는 네 단계: 28px(그래프 안 칩), 32px(작은 버튼, 선택 칸), 36px(보통 버튼, 메뉴), 40px(검색칸, 그래프 버튼) */
 *{box-sizing:border-box}
+/* 버튼과 입력칸은 브라우저 기본 글꼴(Arial 등) 대신 본문 글꼴을 받는다 */
+button,input,select,textarea{font-family:inherit}
+option{background:var(--surface);color:var(--ink)}
+::selection{background:var(--accent-bg);color:var(--ink)}
+::placeholder{color:var(--faint);opacity:1}
+/* 키보드 포커스는 모든 부품에 같은 강조색 2px 링 */
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline-offset:0}
 /* 공통 스크롤바: 연결 화면 정보 상자에서 쓰던 모양(바탕 칸과 화살표 없이 6px 막대, 막대는 테두리 색, 올리면 faint)을 페이지와 모든 스크롤 영역에 쓴다.
    막대 색은 --sb-thumb 하나로 정한다. 바탕이 진한 곳(코드 블록, 사이드바 띠)은 테두리 색이 묻혀서 한 단 진한 --line으로 바꾼다 */
 :root{--sb-thumb:var(--border);--sb-thumb-hover:var(--faint)}
-pre,.md pre,pre.diff,header,.etext{--sb-thumb:var(--line)}
+pre,.md pre,pre.diff,header,.etext,.fcol .fbody{--sb-thumb:var(--line)}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
 ::-webkit-scrollbar-button{display:none}
 ::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover)}
-@supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:var(--sb-thumb) transparent}}
+/* 페이지 스크롤바는 --frame 바탕 위에 놓여서 테두리 색이면 거의 안 보인다. 한 단 진한 --line으로 둔다.
+   :root에 --sb-thumb를 바꾸면 모든 스크롤 영역이 따라 바뀌므로 페이지 막대만 따로 칠한다. 크롬은 페이지 막대 모양을 body 규칙에서 가져가서 html, body 둘 다 적는다 */
+html::-webkit-scrollbar-thumb,body::-webkit-scrollbar-thumb{background:var(--line)}
+html::-webkit-scrollbar-thumb:hover,body::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover)}
+/* 입력칸 크기 조절 손잡이: 기본 회색 손잡이 대신 선 색 사선 두 줄 */
+::-webkit-resizer{background:linear-gradient(135deg,transparent 0 52%,var(--line) 52% 60%,transparent 60% 72%,var(--line) 72% 80%,transparent 80%)}
+@supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:var(--sb-thumb) transparent}html{scrollbar-color:var(--line) transparent}}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;font-size:15px;line-height:1.65}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--border)}
@@ -29,7 +53,10 @@ header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1
 #nav a{padding:9px 12px;border-radius:8px;color:var(--muted);font-weight:500}
 #nav a:hover{text-decoration:none;background:var(--code-bg)}
 #nav a.on{background:var(--accent-bg);color:var(--accent)}
-.search{margin-left:auto;flex:0 1 320px;min-width:200px;min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.search{margin-left:auto;flex:0 1 320px;min-width:200px;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+/* 검색칸의 지우기 단추: 브라우저 기본 × 대신 뷰어 아이콘과 같은 선 모양 */
+.search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-left:6px;cursor:pointer;background:var(--faint);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E") center/contain no-repeat}
+.search::-webkit-search-cancel-button:hover{background:var(--ink)}
 main{max-width:1280px;margin:0 auto;padding:24px 20px 64px}
 h1.page{font-size:22px;margin:0 0 4px}
 .sub{color:var(--muted);margin:0 0 18px;font-size:14px}
@@ -44,23 +71,30 @@ h1.page{font-size:22px;margin:0 0 4px}
 .chip.add{background:var(--add-bg);color:var(--add-ink)}.chip.del{background:var(--del-bg);color:var(--del-ink)}.chip.acc{background:var(--accent-bg);color:var(--accent)}
 .pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .pill{display:inline-flex;align-items:center;min-height:36px;font-size:14px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;font-family:inherit}
-.pill:hover{text-decoration:none;border-color:var(--faint)}
+/* 마우스를 올리면 누르는 것은 모두 바탕이 --code-bg로 바뀐다. 켜진 것은 바탕을 두고 테두리만 강조색으로 */
+.pill:hover{text-decoration:none;border-color:var(--faint);background:var(--code-bg)}
 .pill.on{background:var(--accent-bg);color:var(--accent);border-color:transparent;font-weight:600}
+.pill.on:hover{background:var(--accent-bg);border-color:var(--accent)}
 details.chg{border-top:1px solid var(--border);padding:8px 0}
 details.chg:first-of-type{border-top:0}
 details.chg summary{cursor:pointer}
+/* 접는 블록의 펼침 표시는 브라우저 기본 삼각형 대신 문서 트리와 같은 ▸ ▾ */
+summary{list-style:none;cursor:pointer}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'▸';display:inline-block;width:14px;margin-right:4px;color:var(--faint);font-size:12px;font-weight:400;text-align:center}
+details[open]>summary::before{content:'▾'}
 .chgx{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:16px;margin-top:12px}
 .chgl{display:flex;flex-direction:column;gap:2px;max-height:72vh;overflow:auto}
-.chgi{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:10px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--ink)}
+.chgi{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:8px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--ink)}
 .chgi:hover{background:var(--code-bg)}
 .chgi.on{background:var(--accent-bg);border-color:var(--line)}
 .chgi .tt{display:block;font-weight:600;font-size:14px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chgd{min-width:0;border-left:1px solid var(--border);padding-left:16px}
 .chgh{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
 .chgh h3{margin:0;font-size:17px}
-.chgmd{max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px 16px;background:var(--bg)}
+.chgmd{max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:12px;padding:4px 16px;background:var(--bg)}
 @media (max-width:760px){.chgx{grid-template-columns:1fr}.chgl{max-height:none}.chgd{border-left:0;padding-left:0;border-top:1px solid var(--border);padding-top:12px}}
-pre.diff{margin:8px 0 0;padding:8px 0;background:var(--code-bg);border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.55}
+pre.diff{margin:8px 0 0;padding:8px 0;background:var(--code-bg);border-radius:8px;overflow-x:auto;font-family:inherit;font-size:12.5px;line-height:1.55}
 pre.diff div{padding:0 12px;white-space:pre-wrap;word-break:break-word}
 pre.diff .a{background:var(--add-bg);color:var(--add-ink)}pre.diff .d{background:var(--del-bg);color:var(--del-ink)}pre.diff .g{color:var(--faint)}
 .doc{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
@@ -68,24 +102,26 @@ pre.diff .a{background:var(--add-bg);color:var(--add-ink)}pre.diff .d{background
 .doc aside{flex:1 1 280px;min-width:0}
 .md h1{font-size:24px;margin:0 0 12px}.md h2{font-size:19px;margin:28px 0 10px}.md h3{font-size:16px;margin:22px 0 8px}.md h4,.md h5,.md h6{font-size:15px;margin:18px 0 6px}
 .md p{margin:8px 0}
-.md code{background:var(--code-bg);padding:1px 5px;border-radius:4px;font-size:13px;word-break:break-all}
+/* 인라인 코드도 Pretendard. 코드 블록만 폴더 트리(├ └) 줄이 맞도록 영문은 Consolas로 두고, 한글은 다음 글꼴인 Pretendard로 나오게 한다 */
+.md code{background:var(--code-bg);padding:1px 5px;border-radius:4px;font-family:inherit;font-size:13px;word-break:break-all}
 .md a.int code{color:var(--accent)}
-.md pre{background:var(--code-bg);padding:12px 14px;border-radius:8px;overflow-x:auto}.md pre code{background:none;padding:0;word-break:normal}
+.md pre{background:var(--code-bg);padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:13px}.md pre,.md pre code{font-family:Consolas,'Pretendard',monospace}.md pre code{background:none;padding:0;word-break:normal}
 .md blockquote{margin:10px 0;padding:4px 14px;border-left:3px solid var(--line);color:var(--muted)}
 .md table{border-collapse:collapse;display:block;overflow-x:auto;margin:10px 0;font-size:14px}
 .md th,.md td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top}
 .md th{background:var(--code-bg)}
 .md ul.l{list-style:none;padding:0;margin:8px 0}.md ul.l li{position:relative;padding-left:16px;margin:3px 0}.md ul.l li.b::before{content:'•';position:absolute;left:3px;color:var(--faint)}.md ul.l li.c,.md ul.l li.n{padding-left:0}
 .md hr{border:0;border-top:1px solid var(--border);margin:20px 0}
-.md details.tg{border:1px solid var(--border);border-radius:8px;padding:6px 12px;margin:10px 0}.md details.tg summary{font-weight:600;cursor:pointer}
+.md details.tg{border:1px solid var(--border);border-radius:12px;padding:6px 12px;margin:10px 0}.md details.tg summary{font-weight:600;cursor:pointer}
 .md .broken{border-bottom:1px dotted var(--faint)}
 .side .card{padding:12px 14px}
 .side h3{font-size:13px;color:var(--muted);margin:0 0 6px;font-weight:600}
 .side ul{list-style:none;margin:0;padding:0;font-size:14px}
 .side li{padding:3px 0}
 .kind{font-size:11px;color:var(--faint);margin-left:6px}
-.lnk{background:none;border:0;padding:2px 0;color:var(--accent);font:inherit;font-size:14px;cursor:pointer;text-align:left}
-.lnk:hover{text-decoration:underline}
+/* 목록 안의 누르는 줄(목차, 그래프 정보 상자의 연결 문서)은 다른 목록처럼 줄 전체 바탕이 바뀐다. 글자 줄은 그대로 두려고 좌우 여백만큼 바깥으로 넓힌다 */
+.lnk{display:block;width:calc(100% + 16px);margin:0 -8px;background:none;border:0;border-radius:8px;padding:2px 8px;color:var(--accent);font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.lnk:hover{background:var(--code-bg)}
 .graphwrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .graphwrap svg text{font-size:11px;fill:var(--ink);pointer-events:none}
 table.objs{width:100%;border-collapse:collapse;font-size:14px}
@@ -95,12 +131,12 @@ table.objs th{color:var(--muted);font-weight:600;font-size:13px}
 mark.hl{background:var(--accent-bg);color:inherit}
 .note{font-size:13px;color:var(--muted)}
 .glabel{font-size:12px;font-weight:600;color:var(--faint);min-width:34px}
-.fchip{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;transition:opacity .15s,background .15s}
+.fchip{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;transition:opacity .15s,background .15s}
 .fchip:hover{background:var(--code-bg)}
 .fchip i{width:10px;height:10px;border-radius:50%;display:inline-block}
 .fchip .cnt{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
 .fchip.off{opacity:.45}.fchip.off i{background:transparent!important;box-shadow:inset 0 0 0 1.5px var(--faint)}
-.gwrap{position:relative;border:1px solid var(--border);border-radius:14px;overflow:hidden;height:calc(100vh - 280px);min-height:480px;background-color:var(--surface);background-image:radial-gradient(var(--border) 1px,transparent 1.2px);background-size:24px 24px}
+.gwrap{position:relative;border:1px solid var(--border);border-radius:12px;overflow:hidden;height:calc(100vh - 280px);min-height:480px;background-color:var(--surface);background-image:radial-gradient(var(--border) 1px,transparent 1.2px);background-size:24px 24px}
 #gsvg{width:100%;height:100%;display:block;cursor:grab;touch-action:none;user-select:none}
 #gsvg.panning{cursor:grabbing}
 /* 점과 선에는 opacity 전환 효과를 두지 않는다. 마우스를 올릴 때마다 수백 개가 한꺼번에 움직여, 크게 확대한 화면에서 브라우저가 하얗게 깜빡였다 */
@@ -121,46 +157,54 @@ mark.hl{background:var(--accent-bg);color:inherit}
 #gl path.bun{stroke-opacity:.5}
 #gl path.bun.hot{stroke-opacity:1}
 .gtools{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
-.gtools button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;line-height:1;cursor:pointer;box-shadow:0 1px 3px var(--shadow-soft)}
+.gtools button{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;line-height:1;cursor:pointer;box-shadow:0 1px 3px var(--shadow-soft)}
 .gtools button:hover{background:var(--code-bg)}
+.gtools svg{width:18px;height:18px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .gtools button.wide{font-size:12px;font-weight:600}
 .gzoom{position:absolute;bottom:10px;right:14px;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;pointer-events:none}
 /* 연결 그래프 필터: 제목 옆 도움말, 필터 버튼과 패널, 폴더 범례 */
 .ghelp{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);color:var(--faint);font-size:12px;font-weight:600;cursor:help}
+.ghelp:hover{border-color:var(--faint);color:var(--ink);background:var(--code-bg)}
 .gtools button{position:relative}
 .gtools button.on{background:var(--accent-bg);color:var(--accent);border-color:transparent}
-.gbadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--attn);color:var(--on-accent);font-size:11px;font-weight:700;line-height:18px}
+.gtools button.on:hover{border-color:var(--accent)}
+/* 숫자 배지는 메뉴 배지(.nbadge)와 같은 모양: 강조색 바탕, --on-accent 글자, 알약 모서리 */
+.gbadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;line-height:18px}
 .gpanel{position:absolute;top:12px;right:62px;z-index:4;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px 4px;box-shadow:0 6px 20px var(--shadow);width:268px;box-sizing:border-box}
 .gpanel[hidden]{display:none}
 .gpanel .glabel{display:block;margin:0 0 6px}
 .gpanel .pills{margin-bottom:12px}
 .gwrap .fchip{min-height:28px;font-size:12px;padding:0 10px;gap:6px}
 .glegend{position:absolute;left:12px;bottom:12px;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:0;max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 4px}
-.glegend .fchip{border:0;background:transparent;min-height:26px}
+.glegend .fchip{border:0;background:transparent;min-height:28px}
 .glegend .fchip:hover{background:var(--code-bg)}
-@media (max-width:760px){.glegend{max-height:40%}}
+/* 좁은 화면에서는 범례가 그래프를 덮지 않게 아래쪽 한 줄로 눕혀 옆으로 넘긴다. 오른쪽은 확대 배율 글자 자리 */
+@media (max-width:760px){.glegend{right:64px;flex-direction:row;align-items:center;flex-wrap:nowrap;max-height:none;overflow-x:auto;overflow-y:hidden;padding:4px}.glegend .fchip{flex:none}}
 .ginfo{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 76px);max-height:calc(100% - 24px);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;z-index:2;box-shadow:0 6px 20px var(--shadow)}
 .ginfo[hidden]{display:none}
 /* 제목부터 "연결된 문서" 제목까지는 고정하고 문서 목록만 스크롤한다 */
 .ginfo>*{flex:none}
 .ginfo .ghead{display:flex;gap:10px;align-items:flex-start}
 .ginfo .gdot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex:none}
-.ginfo .gx{background:none;border:0;color:var(--faint);font-size:20px;line-height:1;cursor:pointer;width:32px;height:32px;margin:-6px -8px 0 0;border-radius:8px}
-.ginfo .gx:hover{background:var(--code-bg);color:var(--ink)}
+/* 닫기 단추는 한 가지: 28px, 선 아이콘, 8px 모서리, 올리면 바탕색 */
+.gx{display:inline-flex;align-items:center;justify-content:center;flex:none;width:28px;height:28px;padding:0;background:none;border:0;border-radius:8px;color:var(--faint);cursor:pointer}
+.gx:hover{background:var(--code-bg);color:var(--ink)}
+.gx svg{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.ginfo .gx{margin:-4px -6px 0 0}
 .ginfo .gstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
 .ginfo .gstats span{background:var(--code-bg);border-radius:8px;padding:6px 8px;font-size:11px;color:var(--muted)}
 .ginfo .gstats b{display:block;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
-.ginfo .gopen{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:9px;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:14px}
-.ginfo .gopen:hover{text-decoration:none;opacity:.92}
+.ginfo .gopen{display:flex;align-items:center;justify-content:center;min-height:36px;border-radius:8px;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:14px}
+.ginfo .gopen:hover{text-decoration:none;background:var(--accent-strong)}
 .ginfo h3{font-size:12px;color:var(--faint);margin:14px 0 4px;font-weight:600}
 /* 목록은 항목 10개(한 줄 29px)까지 보이고 나머지는 스크롤한다 */
-.ginfo ul{list-style:none;margin:0 -10px 0 0;padding:0 10px 0 0;flex:0 1 auto;min-height:0;max-height:290px;overflow:auto}
+.ginfo ul{list-style:none;margin:0 -10px 0 -8px;padding:0 10px 0 8px;flex:0 1 auto;min-height:0;max-height:290px;overflow:auto}
 .ginfo li{padding:1px 0}
 /* 항목 높이를 한 줄로 맞춘다. 긴 이름은 …로 자르고 마우스를 올리면 전체가 보인다 */
-.ginfo .gnb{display:block;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ginfo .gnb{display:block;width:calc(100% + 16px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .md .mdimg{display:block;margin:12px 0}
-.md .mdimg img{display:block;max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;box-sizing:border-box}
+.md .mdimg img{display:block;max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px;box-sizing:border-box}
 .md .mdimg .cap{display:block;font-size:13px;color:var(--muted);margin-top:6px}
 .md .flash,.row.flash,.chgi.flash{animation:fvflash 6s ease-out;border-radius:4px}
 @keyframes fvflash{0%,40%{background:var(--flash-bg);box-shadow:-4px 0 0 var(--flash-bar)}100%{background:transparent;box-shadow:none}}
@@ -169,17 +213,20 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .doctools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 10px}
 .side textarea,.eform input,.rnote{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
 .side textarea{resize:vertical;min-height:84px}
+.eform input,.rnote{height:36px;padding:0 10px}
 .crow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
 .note.err{color:var(--del-ink)}
 .cquote{position:relative;background:var(--code-bg);border-radius:8px;padding:8px 32px 8px 10px;margin:0 0 8px;font-size:13px}
-.cquote .gx{position:absolute;top:4px;right:4px;background:none;border:0;color:var(--faint);font-size:18px;cursor:pointer;width:28px;height:28px}
-.etext{width:100%;box-sizing:border-box;min-height:60vh;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:13px/1.6 Consolas,'D2Coding',monospace;resize:vertical}
+.cquote .gx{position:absolute;top:4px;right:4px}
+.cquote .gx:hover{background:var(--border)}
+.etext{width:100%;box-sizing:border-box;min-height:60vh;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:13px;line-height:1.6;resize:vertical}
 .elabel{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:10px 0 4px}
 .eform{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
-select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+select:hover{border-color:var(--faint)}
 .fcol{background:var(--code-bg);border-radius:12px;padding:12px}
 .fcol h2{font-size:15px;margin:0 0 10px}
-.fcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.fcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px}
 .fhead{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px}
 .fq{margin:8px 0;padding:2px 10px;border-left:3px solid var(--line);color:var(--muted);font-size:13px}
 .fc{margin:6px 0;font-size:14px}
@@ -188,13 +235,14 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 .fstat{min-height:32px;font-size:13px}
 .sect{font-size:18px;margin:28px 0 4px}
 .rcard .md{margin-top:8px}
-.nbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--surface);font-size:11px;font-weight:700;text-align:center;line-height:18px}
+.nbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:700;text-align:center;line-height:18px}
 #gl path{fill:none;stroke:var(--line);stroke-width:1.2}
 #gl path.hot{stroke:var(--accent);stroke-width:2;stroke-opacity:1}
 #gl path.dim{stroke-opacity:.1}
 #gl path.bun.dim{stroke-opacity:.05}
 .hull circle{fill-opacity:.07;stroke-opacity:.45;stroke-width:1.5;stroke-dasharray:6 5}
-.hlab text{font-size:13px;font-weight:700;fill:var(--ink);stroke:var(--surface);stroke-width:6px;stroke-linejoin:round;paint-order:stroke;cursor:grab}
+/* 폴더 이름표는 확대하면 같이 커지되, 그래프 판이 화면에 맞춰 줄어든 만큼(--fk)은 되돌려 좁은 화면에서도 읽히게 한다 */
+.hlab text{font-size:calc(13px * var(--fk,1));font-weight:700;fill:var(--ink);stroke:var(--surface);stroke-width:calc(6px * var(--fk,1));stroke-linejoin:round;paint-order:stroke;cursor:grab}
 .hull circle{cursor:grab}
 #gsvg.hdrag,#gsvg.hdrag .hull circle,#gsvg.hdrag .hlab text{cursor:grabbing}
 .nd.arch{opacity:.35}
@@ -228,7 +276,7 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .pane-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:36px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:14px}
 .pane-b{flex:1;min-height:0;overflow:auto;padding:6px}
 .pane-b.pad{padding:14px 18px}
-.navi{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;text-align:left;border:0;background:none;border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit;font-size:14px;color:var(--ink);text-decoration:none}
+.navi{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;box-sizing:border-box;text-align:left;border:0;background:none;border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:14px;color:var(--ink);text-decoration:none}
 .navi:hover{background:var(--code-bg);text-decoration:none}
 .navi.on{background:var(--accent-bg);color:var(--accent);font-weight:600}
 .navi .cnt{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;font-weight:400}
@@ -237,34 +285,38 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .oitem .odesc{font-size:12px;color:var(--faint);font-weight:400}
 .caret{width:14px;flex:none;color:var(--faint);font-size:12px;text-align:center}
 .fdot{width:9px;height:9px;border-radius:3px;flex:none}
-.seg{display:inline-flex;flex-wrap:wrap;background:var(--code-bg);border-radius:9px;padding:3px;gap:2px}
-.seg button,.seg a{border:0;background:none;border-radius:7px;padding:5px 11px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer;text-decoration:none}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--code-bg);border-radius:8px;padding:3px;gap:2px}
+.seg button,.seg a{display:inline-flex;align-items:center;min-height:26px;border:0;background:none;border-radius:5px;padding:0 11px;font:inherit;font-size:13px;color:var(--muted);cursor:pointer;text-decoration:none}
+.seg button:not(.on):not(:disabled):hover,.seg a:not(.on):hover{background:var(--border);color:var(--ink);text-decoration:none}
 .seg button:disabled{opacity:.5;cursor:default}
 .seg .on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px var(--shadow-soft)}
-.pill.sm{min-height:30px;font-size:13px;padding:0 12px}
+.pill.sm{min-height:32px;font-size:13px;padding:0 12px}
 .chgh .acts{display:flex;gap:6px;flex:none}
 .pane .chgmd{max-height:none;overflow:visible;border:0;padding:0;background:none}
 .drow{display:flex;gap:12px;align-items:center;justify-content:space-between;width:100%;box-sizing:border-box;padding:9px 6px;border:0;border-bottom:1px solid var(--border);background:none;font:inherit;color:var(--ink);text-align:left}
 .drow .t{min-width:0}
 .drow .r{display:flex;gap:6px;align-items:center;flex:none}
 .drow .when{font-size:12px;color:var(--faint);white-space:nowrap}
-.dfold{cursor:pointer}.dfold:hover{background:var(--code-bg)}
+/* 폴더 줄과 문서 줄 모두 줄 전체가 눌리고, 올리면 둥근 바탕이 깔린다 */
+.dfold,.drow.dlink{cursor:pointer;border-radius:8px}.dfold:hover,.drow.dlink:hover{background:var(--code-bg)}
+.drow.dlink a:hover{text-decoration:none}
 .dfold .t{display:flex;gap:8px;align-items:center}
 .osec{font-size:13px;color:var(--muted);margin:14px 0 8px;font-weight:600}
 .osec:first-child{margin-top:0}
-.ocard{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--bg)}
+.osec.big{font-size:15px;color:var(--ink)}
+.ocard{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--bg)}
 .ocard.done{opacity:.65}
 .ohead{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .ocard .note{margin:6px 0 4px}
 .olist{margin:6px 0 0;padding-left:18px;font-size:14px}
 .ogroup{border-bottom:1px solid var(--border);padding:6px 0}
 .ogroup summary{cursor:pointer;padding:4px 0}
-.chip.warn{background:var(--flash-bg);color:var(--ink)}
+.chip.warn{background:var(--warn-bg);color:var(--ink)}
 .meev{margin:6px 0;padding-left:18px;font-size:13px}.meev li{margin:2px 0}
 .mew .t{flex:1}.nopef{margin-top:8px}.nopef textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 .mecard{margin-left:auto}
 .medash{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
-.mebox{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0}
+.mebox{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0}
 .mebox h3{margin:0 0 8px;font-size:14px}
 .radar{display:block;width:100%;max-width:420px;height:auto;margin:0 auto}
 .radar .ring{fill:none;stroke:var(--line);stroke-width:1}
@@ -285,7 +337,7 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .spark{display:block;width:100%;height:36px}
 .spark polyline{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .spark circle{fill:var(--accent)}
-.mesched{font-size:13px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:0 0 10px;display:grid;gap:3px}
+.mesched{font-size:13px;color:var(--muted);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin:0 0 10px;display:grid;gap:3px}
 .mesched .k{display:inline-block;min-width:44px;font-weight:600;color:var(--ink)}
 .metrend .sx{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
 @media (max-width:760px){.medash{grid-template-columns:1fr}.metrend{grid-template-columns:repeat(2,minmax(0,1fr))}.mepane .pane-b{max-height:none}.mepane .pane-b.pad{padding:10px}.mebox{padding:10px}.radar .ax text{font-size:16px}}
@@ -293,7 +345,11 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .fcol{display:flex;flex-direction:column;min-height:0}
 .fcol .fbody{flex:1;min-height:0;overflow:auto}
 .fcol .empty{text-align:center;margin-top:28px;color:var(--faint)}
-@media (max-width:760px){body.fit{height:auto;overflow:visible;display:block}.split,.board{grid-template-columns:1fr}.pane-b{max-height:65vh}.fcol .fbody{max-height:none}}
+@media (max-width:760px){body.fit{height:auto;overflow:visible;display:block}.split,.board{grid-template-columns:1fr}.pane-b{max-height:65vh}.fcol .fbody{max-height:none}
+  /* 세로로 쌓이는 화면에서는 flex로 늘어나지 않으므로 그래프 판 높이를 화면 높이로 정한다 */
+  body.fit #view>.gwrap{flex:none;height:calc(100svh - 280px);min-height:420px}
+  /* 메뉴는 한 줄로 두고 넘치면 옆으로 넘긴다(한 항목만 둘째 줄로 떨어지지 않게) */
+  #nav{width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}#nav::-webkit-scrollbar{display:none}#nav a{flex:none;padding:8px 10px;white-space:nowrap}}
 /* 넓은 화면은 inset 틀: 위쪽 막대를 왼쪽 사이드바로 세우고, 사이드바와 바탕을 같은 색(--frame)으로 칠한 뒤 본문(main)만 둥근 판으로 띄운다.
    판 안쪽 색은 예전 바탕(--bg) 그대로라 카드와 입력칸의 대비가 바뀌지 않는다. 좁은 화면(760px 이하)은 예전 위쪽 막대를 그대로 쓴다 */
 @media (min-width:761px){
@@ -334,7 +390,8 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
   body.sbc #nav{align-items:center}
   body.sbc #nav a{position:relative;width:36px;height:36px;padding:0;justify-content:center}
   /* 접은 띠의 이름표: 아이콘에 마우스를 올리거나 키보드로 옮겨 오면 오른쪽에 뜬다.
-     모양은 뷰어의 다른 떠 있는 상자(그래프 정보 상자, 필터 패널, 알림)와 같게 surface 바탕, 테두리, 그림자, 8px 모서리로 맞추고 왼쪽에 꼭지를 단다.
+     모양은 뷰어의 다른 떠 있는 상자(그래프 정보 상자, 필터 패널, 알림)와 같게 surface 바탕, 테두리, 그림자로 맞춘다. 모서리는 한 줄짜리 이름표라 8px(큰 상자는 12px)이고,
+     다른 곳의 이름표(.tip)와 같은 모양이다. 왼쪽에 꼭지를 단다.
      글자는 opacity로만 숨겨서 읽기 프로그램은 늘 메뉴 이름을 읽는다. 띠 밖으로 나와야 해서 접은 동안은 사이드바의 스크롤 자르기를 끈다 */
   body.sbc header{overflow:visible}
   body.sbc #nav a .nl,body.sbc .sbt .nl,body.sbc .sbq .nl{position:absolute;left:calc(100% + 12px);top:50%;z-index:10;width:auto;height:auto;overflow:visible;clip:auto;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);box-shadow:0 6px 20px var(--shadow);font-size:13px;font-weight:600;line-height:1.4;white-space:nowrap;pointer-events:none;opacity:0;transform:translate(-4px,-50%);transition:opacity .12s ease,transform .12s ease}
@@ -348,12 +405,19 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .sbq{display:none}
 .sbt svg,.sbq svg{width:18px;height:18px;display:block}
 .sbt .nl,.sbq .nl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media (prefers-reduced-motion: reduce){header,header .nl{transition:none!important}}
+/* 이름표(툴팁): 브라우저 기본 title 툴팁 대신 data-tip을 단 요소에 띄운다. 접은 사이드바 이름표(.nl)와 같은 바탕, 테두리, 그림자, 8px 모서리, 13px 600 글자.
+   요소 위쪽 가운데에 뜨고 자리가 없으면 아래로 내린다. 꼭지 자리(--ax)는 스크립트가 정한다 */
+.tip{position:fixed;left:0;top:0;z-index:30;max-width:min(320px,calc(100vw - 16px));padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);box-shadow:0 6px 20px var(--shadow);font-size:13px;font-weight:600;line-height:1.4;white-space:pre-line;overflow-wrap:anywhere;pointer-events:none;opacity:0;transition:opacity .12s ease}
+.tip[hidden]{display:none}
+.tip.on{opacity:1}
+.tip::before{content:"";position:absolute;left:var(--ax,50%);bottom:-5px;width:8px;height:8px;margin-left:-4px;background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);transform:rotate(45deg)}
+.tip.below::before{bottom:auto;top:-5px;border:0;border-left:1px solid var(--border);border-top:1px solid var(--border)}
+@media (prefers-reduced-motion: reduce){header,header .nl,.tip{transition:none!important}}
 </style>
 </head>
 <body>
 <header><div class="bar">
-<button type="button" class="sbt" id="sbt" aria-expanded="true" aria-label="사이드바 접기" title="사이드바 접기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><span class="nl" aria-hidden="true">사이드바 펼치기</span></button>
+<button type="button" class="sbt" id="sbt" aria-expanded="true" aria-label="사이드바 접기" data-tip="사이드바 접기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><span class="nl" aria-hidden="true">사이드바 펼치기</span></button>
 <button type="button" class="sbq" id="sbq" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span class="nl" aria-hidden="true">검색</span></button>
 <span class="brand"><picture><source srcset="__BRAND_WORDMARK_DARK__" media="(prefers-color-scheme: dark)"><img class="logo" src="__BRAND_WORDMARK__" alt="SiloRoot" height="22"></picture></span>
 <span class="meta" id="meta"></span>
@@ -376,8 +440,8 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
     btn.setAttribute('aria-expanded', String(!closed));
     const label = closed ? '사이드바 펼치기' : '사이드바 접기';
     btn.setAttribute('aria-label', label);
-    // 접은 띠에서는 직접 만든 이름표가 뜨므로 브라우저 기본 툴팁(title)이 겹치지 않게 뺀다
-    if (closed) btn.removeAttribute('title'); else btn.title = label;
+    // 접은 띠에서는 버튼 안의 이름표(.nl)가 뜨므로 공통 이름표(data-tip)가 겹치지 않게 뺀다
+    if (closed) btn.removeAttribute('data-tip'); else btn.setAttribute('data-tip', label);
     if (save) { try { localStorage.setItem(KEY, closed ? '1' : '0'); } catch (e) {} }
   }
   let closed = false;
@@ -385,6 +449,48 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
   set(closed, false);
   btn.addEventListener('click', () => set(!document.body.classList.contains('sbc'), true));
   document.getElementById('sbq').addEventListener('click', () => { set(false, true); document.getElementById('q').focus(); });
+})();
+// 이름표(툴팁). 브라우저 기본 title 툴팁은 모양과 글꼴을 바꿀 수 없어서 쓰지 않고, data-tip을 단 요소에 .tip 상자를 띄운다.
+// 마우스는 잠깐 머물면, 키보드는 포커스가 오면 뜬다. data-tip-if="cut"은 글자가 …로 잘렸을 때만 띄운다
+(function () {
+  const tip = document.createElement('div');
+  tip.className = 'tip'; tip.id = 'fvtip'; tip.setAttribute('role', 'tooltip'); tip.hidden = true;
+  document.body.appendChild(tip);
+  let cur = null, timer = 0, pending = null;
+  const target = e => (e.target && e.target.closest ? e.target.closest('[data-tip]') : null);
+  function hide() {
+    clearTimeout(timer); pending = null;
+    if (cur) cur.removeAttribute('aria-describedby');
+    cur = null; tip.classList.remove('on', 'below'); tip.hidden = true;
+  }
+  function show(el) {
+    const text = el.getAttribute('data-tip');
+    if (!text || !el.isConnected) return;
+    if (el.getAttribute('data-tip-if') === 'cut' && el.scrollWidth <= el.clientWidth) return;
+    cur = el; el.setAttribute('aria-describedby', 'fvtip');
+    tip.textContent = text; tip.hidden = false;
+    const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, m = 8, cx = r.left + r.width / 2;
+    let top = r.top - h - m, below = false;
+    if (top < m) { top = r.bottom + m; below = true; }
+    const left = Math.max(m, Math.min(cx - w / 2, innerWidth - w - m));
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    tip.style.setProperty('--ax', Math.max(12, Math.min(cx - left, w - 12)) + 'px');
+    tip.classList.toggle('below', below);
+    requestAnimationFrame(() => { if (cur === el) tip.classList.add('on'); });
+  }
+  document.addEventListener('pointerover', e => {
+    const el = target(e);
+    if (el && (el === cur || el === pending)) return;
+    hide();
+    if (el) { pending = el; timer = setTimeout(() => { pending = null; show(el); }, 300); }
+  });
+  document.addEventListener('pointerout', e => { const el = target(e); if (el && !el.contains(e.relatedTarget)) hide(); });
+  document.addEventListener('focusin', e => { const el = target(e); hide(); if (el && el.matches(':focus-visible')) show(el); });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('pointerdown', hide);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+  addEventListener('scroll', hide, true);
+  addEventListener('hashchange', hide);
 })();
 </script>
 <main id="view"></main>
@@ -409,6 +515,11 @@ const PAL = DARK
   : ['#2F4156', '#567C8D', '#7FA3BE', '#B08D6A', '#6E8F7E', '#8A7091', '#6B7785', '#A26E5C', '#44627A'];
 const color = f => PAL[folders.indexOf(f) % PAL.length];
 const $ = s => document.querySelector(s);
+const ICON = {
+  x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  minus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>'
+};
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const docHref = p => '#doc/' + encodeURIComponent(p);
 const short = t => (t.length > 18 ? t.slice(0, 17) + '…' : t);
@@ -453,7 +564,7 @@ function inline(s, lm) {
     let h = esc(part);
     h = h.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;[^&]*&quot;)?\)/g, (m, alt, url) => {
       const rel = resolveRel(RENDER_BASE, url.replace(/&amp;/g, '&'));
-      if (!rel) return '<span class="broken" title="밖의 그림은 불러오지 않습니다">[그림] ' + alt + '</span>';
+      if (!rel) return '<span class="broken" data-tip="밖의 그림은 불러오지 않습니다">[그림] ' + alt + '</span>';
       return '<span class="mdimg"><img src="' + esc(imgSrc(rel)) + '" alt="' + alt + '" loading="lazy">' + (alt ? '<span class="cap">' + alt + '</span>' : '') + '</span>';
     });
     h = h.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+&quot;[^&]*&quot;)?\)/g, (m, txt, url) => {
@@ -461,7 +572,7 @@ function inline(s, lm) {
       if (t) return '<a href="' + docHref(t) + '">' + txt + '</a>';
       if (/^https?:\/\//i.test(raw)) return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + txt + '</a>';
       if (raw.startsWith('#')) return txt;
-      return '<span class="broken" title="' + url + '">' + txt + '</span>';
+      return '<span class="broken" data-tip="' + url + '">' + txt + '</span>';
     });
     h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     h = h.replace(/&lt;(\/?)(b|strong|i|em|u)&gt;/g, '<$1$2>').replace(/&lt;br\s*\/?&gt;/g, '<br>');
@@ -582,12 +693,12 @@ function viewRecent() {
   const list = mode === 'changed' ? items : recents;
   const sub = C.first ? '처음 만든 뷰어라 비교 기준이 없습니다. 다음 생성부터 바뀐 문서가 쌓입니다.' : '지난 기준(' + fmtTime(D.prevBuiltAt) + ') 뒤로 바뀐 문서 ' + items.length + '개';
   const mc = meCounts();
-  const meCard = '<a class="pill sm mecard" href="#me" title="AI가 지금 쓰고 있는 나에 대한 정보">AI가 아는 나: 승인 ' + mc.approved + ' · 기다리는 후보 ' + mc.pending + '</a>';
+  const meCard = '<a class="pill sm mecard" href="#me" data-tip="AI가 지금 쓰고 있는 나에 대한 정보">AI가 아는 나: 승인 ' + mc.approved + ' · 기다리는 후보 ' + mc.pending + '</a>';
   let h = '<div class="phead"><h1 class="page">최근 바뀐 것</h1><p class="sub">' + sub + '</p>' + meCard + '</div>';
   h += '<div class="split"><section class="pane"><div class="pane-h"><div class="seg" role="tablist" aria-label="목록 종류">' +
     '<button type="button" role="tab" data-m="changed" class="' + (mode === 'changed' ? 'on' : '') + '" aria-selected="' + (mode === 'changed') + '"' + (C.first ? ' disabled' : '') + '>바뀐 문서 ' + items.length + '</button>' +
     '<button type="button" role="tab" data-m="recent" class="' + (mode === 'recent' ? 'on' : '') + '" aria-selected="' + (mode === 'recent') + '">최근 수정</button></div>' +
-    (SERVED && mode === 'changed' && items.length ? '<button type="button" class="pill sm" id="seen" title="지금 상태를 비교 기준으로">모두 확인</button>' : '') +
+    (SERVED && mode === 'changed' && items.length ? '<button type="button" class="pill sm" id="seen" data-tip="지금 상태를 비교 기준으로">모두 확인</button>' : '') +
     '</div><nav class="pane-b" aria-label="문서 목록">' + (list.length ? list.map(it =>
       '<button type="button" class="chgi" data-p="' + esc(it.path) + '">' + it.chip +
       '<span class="tt">' + esc(byPath.get(it.path) ? byPath.get(it.path).title : it.path.split('/').pop()) + '</span>' +
@@ -699,7 +810,7 @@ function viewDocs(q) {
     if (kids.length && isOpen) h += kids.map(k => branch(k, depth + 1)).join('');
     return h + '</div>';
   };
-  const row = d => '<div class="drow"><div class="t">' + docLink(d.path) + '<div class="path">' + esc(d.path) + '</div>' +
+  const row = d => '<div class="drow dlink"><div class="t">' + docLink(d.path) + '<div class="path">' + esc(d.path) + '</div>' +
     (q && !d.title.toLowerCase().includes(q) && !d.path.toLowerCase().includes(q) ? '<div class="path">' + snippet(d.text, q) + '</div>' : '') + '</div>' +
     '<div class="r">' + (d.fm && d.fm.type ? '<span class="chip">' + esc(d.fm.type) + '</span>' : '') + (d.fm && d.fm.status ? statusChip(String(d.fm.status)) : '') + '<span class="when">' + ago(d.mtime) + '</span></div></div>';
   let right;
@@ -718,6 +829,11 @@ function viewDocs(q) {
   h += '<div class="split"><section class="pane"><div class="pane-h"><strong>폴더</strong></div><nav class="pane-b tree" aria-label="폴더 트리">' + branch(tree, 0) + '</nav></section><section class="pane">' + right + '</section></div>';
   $('#view').innerHTML = h;
   const go = f => { ss.set('fv-docs-folder', f); if (closed.has(f)) { closed.delete(f); ss.set('fv-docs-closed', JSON.stringify([...closed])); } if ($('#q').value) { $('#q').value = ''; } viewDocs(''); };
+  // 문서 줄은 어디를 눌러도 제목 링크로 간다(링크나 단추를 직접 누른 때는 그대로 둔다)
+  document.querySelectorAll('.drow.dlink').forEach(r => r.addEventListener('click', e => {
+    if (e.target.closest('a, button') || String(getSelection() || '')) return;
+    const a = r.querySelector('a[href]'); if (a) a.click();
+  }));
   document.querySelectorAll('.tfold, .dfold').forEach(b => b.addEventListener('click', e => {
     const t = e.target.closest('.caret[data-t]');
     if (t) { e.stopPropagation(); const k = t.dataset.t; if (closed.has(k)) closed.delete(k); else closed.add(k); ss.set('fv-docs-closed', JSON.stringify([...closed])); viewDocs(q); return; }
@@ -852,7 +968,7 @@ const feedbackFor = p => feedbackItems().filter(f => f.target === p);
 
 function wireDocTools(d) {
   const art = $('#art'); let quote = '';
-  const showQuote = () => { const q = $('#cquote'); if (!q) return; q.hidden = !quote; q.innerHTML = quote ? '<span class="note">고른 부분</span><div>' + esc(cut(quote, 200)) + '</div><button type="button" class="gx" id="cqx" aria-label="고른 부분 지우기">×</button>' : ''; const x = $('#cqx'); if (x) x.addEventListener('click', () => { quote = ''; showQuote(); }); };
+  const showQuote = () => { const q = $('#cquote'); if (!q) return; q.hidden = !quote; q.innerHTML = quote ? '<span class="note">고른 부분</span><div>' + esc(cut(quote, 200)) + '</div><button type="button" class="gx" id="cqx" aria-label="고른 부분 지우기">' + ICON.x + '</button>' : ''; const x = $('#cqx'); if (x) x.addEventListener('click', () => { quote = ''; showQuote(); }); };
   art.addEventListener('mouseup', () => {
     const sel = window.getSelection(); const t = sel ? sel.toString().trim() : '';
     if (t && art.contains(sel.anchorNode)) { quote = t.slice(0, 600); showQuote(); }
@@ -900,7 +1016,7 @@ function meRadarSvg(axes) {
   let g = [25, 50, 75, 100].map(p => '<polygon class="ring" points="' + poly(R * p / 100) + '"/>').join('');
   g += axes.map((_, i) => { const [x, y] = at(i, R); return '<line class="spoke" x1="' + cx + '" y1="' + cy + '" x2="' + f1(x) + '" y2="' + f1(y) + '"/>'; }).join('');
   g += '<polygon class="area" points="' + axes.map((a, i) => at(i, R * a.value / 100).map(f1).join(',')).join(' ') + '"/>';
-  g += axes.map((a, i) => { const [x, y] = at(i, R * a.value / 100); return '<circle class="pt" r="4.5" cx="' + f1(x) + '" cy="' + f1(y) + '"><title>' + esc(a.name + ' ' + a.value) + '</title></circle>'; }).join('');
+  g += axes.map((a, i) => { const [x, y] = at(i, R * a.value / 100); return '<circle class="pt" r="4.5" cx="' + f1(x) + '" cy="' + f1(y) + '" data-tip="' + esc(a.name + ' ' + a.value) + '"></circle>'; }).join('');
   g += axes.map((a, i) => {
     const [x, y] = at(i, R + 16), anchor = Math.abs(x - cx) < 4 ? 'middle' : x > cx ? 'start' : 'end';
     const dy = y < cy - R * 0.5 ? -16 : y > cy + R * 0.5 ? 6 : -6;
@@ -917,7 +1033,7 @@ function meSpark(rows, tip) {
   const t = r => new Date(r.date + 'T00:00:00').getTime(), t0 = t(rows[0]), span = t(rows[rows.length - 1]) - t0 || 1;
   const x = r => (pad + (W - 2 * pad) * (t(r) - t0) / span).toFixed(1);
   const pts = rows.map(r => x(r) + ',' + y(r.val)).join(' ');
-  return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(tip) + '"><title>' + esc(tip) + '</title><polyline points="' + pts + '" vector-effect="non-scaling-stroke"/></svg>';
+  return '<svg class="spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" aria-label="' + esc(tip) + '" data-tip="' + esc(tip) + '"><polyline points="' + pts + '" vector-effect="non-scaling-stroke"/></svg>';
 }
 const meYmd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const meAddDays = (ymd, n) => { const d = new Date(ymd + 'T00:00:00'); d.setDate(d.getDate() + n); return meYmd(d); };
@@ -998,7 +1114,7 @@ function viewMe() {
   let h = '<div class="phead"><h1 class="page">나</h1><p class="sub">폴더 기록으로 본 내 사용 방법과, AI가 지금 쓰고 있는 나에 대한 정보입니다. 틀린 항목에는 댓글을 남기세요.</p>' +
     '<div>' + chip(approved, '승인됨', ' add') + chip(pending, '기다리는 후보', pending ? ' acc' : '') + chip(rejected, '거절한 후보', '') + chip(writing, '글쓰기 규칙', '') + '</div></div>';
   if (!SERVED) h += '<p class="note" style="margin:0 0 10px">댓글은 뷰어 서버로 열었을 때만 남길 수 있습니다.</p>';
-  h += '<section class="pane grow mepane"><div class="pane-b pad">' + meDash(M) + '<h2 class="osec" style="font-size:15px;color:var(--ink)">AI가 쓰는 나에 대한 정보</h2>' + b + '</div></section>';
+  h += '<section class="pane grow mepane"><div class="pane-b pad">' + meDash(M) + '<h2 class="osec big">AI가 쓰는 나에 대한 정보</h2>' + b + '</div></section>';
   $('#view').innerHTML = h;
   document.querySelectorAll('.meax, .radar .ax').forEach(el => el.addEventListener('click', () => {
     const pb = $('#view .pane-b'), sc = pb ? pb.scrollTop : 0, wy = window.scrollY;
@@ -1073,11 +1189,11 @@ function viewFeedback(tab) {
     show(edits.length ? 0 : -1);
   }
   document.querySelectorAll('.fstat').forEach(s => s.addEventListener('change', async () => {
-    try { await post('/api/status', { path: s.dataset.p, status: s.value }); location.reload(); } catch (e) { alert(e.message); }
+    try { await post('/api/status', { path: s.dataset.p, status: s.value }); location.reload(); } catch (e) { toast('<span class="note err">저장하지 못했어요: ' + esc(e.message) + '</span>', 6000); }
   }));
   document.querySelectorAll('.rdec').forEach(b => b.addEventListener('click', async () => {
     const note = (document.getElementById('n-' + b.dataset.p) || {}).value || '';
-    try { await post('/api/status', { path: b.dataset.p, status: b.dataset.s, note }); location.reload(); } catch (e) { alert(e.message); }
+    try { await post('/api/status', { path: b.dataset.p, status: b.dataset.s, note }); location.reload(); } catch (e) { toast('<span class="note err">저장하지 못했어요: ' + esc(e.message) + '</span>', 6000); }
   }));
 }
 (function badge() {
@@ -1579,7 +1695,7 @@ function viewGraph(carry) {
     const fill = f; // 점 색은 폴더 색
     const cls = 'nd' + (isArch(n.d) ? ' arch' : '') + (born.has(k) ? ' born' : '');
     return '<g class="' + cls + '" data-k="' + k + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')">' +
-      '<circle class="halo" r="' + (r + 5).toFixed(1) + '" fill="' + fill + '"></circle><circle class="dot" r="' + r.toFixed(1) + '" fill="' + fill + '"><title>' + title + '</title></circle>' +
+      '<circle class="halo" r="' + (r + 5).toFixed(1) + '" fill="' + fill + '"></circle><circle class="dot" r="' + r.toFixed(1) + '" fill="' + fill + '" data-tip="' + title + '"></circle>' +
       '<text class="lb" x="' + r.toFixed(1) + '" y="0">' + esc(short(n.d.title)) + '</text></g>';
   }
 
@@ -1601,7 +1717,7 @@ function viewGraph(carry) {
   const viewOff = ['link', 'prop', 'code'].filter(k => GS.kinds[k] === false).length + !GS.showCommon + !GS.showArch + GS.hideIso;
   const fbtn = '<button type="button" id="gfbtn" class="wide' + (GPANEL ? ' on' : '') + '" aria-label="필터' + (viewOff ? ', ' + viewOff + '개 꺼짐' : '') + '" aria-expanded="' + GPANEL + '">필터' + (viewOff ? '<span class="gbadge">' + viewOff + '</span>' : '') + '</button>';
   const panel = '<div class="gpanel" id="gpanel"' + (GPANEL ? '' : ' hidden') + '><div class="glabel">연결 종류</div><div class="pills">' + kindPills + '</div><div class="glabel">함께 볼 문서</div><div class="pills">' + docPills + '</div></div>';
-  let h = '<div class="phead"><h1 class="page">연결</h1><span class="ghelp" tabindex="0" title="' + esc(HELP) + '" aria-label="' + esc(HELP) + '">?</span></div>';
+  let h = '<div class="phead"><h1 class="page">연결</h1><span class="ghelp" tabindex="0" data-tip="' + esc(HELP) + '" aria-label="' + esc(HELP) + '">?</span></div>';
   let svg = '<svg id="gsvg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="문서 연결 그래프">';
   // 지운 점과 선은 이전 자리에 잠깐 남겼다가 흐리게 지운다
   let ghosts = '';
@@ -1613,7 +1729,7 @@ function viewGraph(carry) {
   const xfCls = l => (nodes[l.a].d.folder !== nodes[l.b].d.folder ? 'bun' : '');
   svg += links.map((l, i) => { const c = [bornL.has(i) ? 'born' : '', xfCls(l)].filter(Boolean).join(' '); return '<path data-i="' + i + '"' + (c ? ' class="' + c + '"' : '') + ' d="' + edgeD(l) + '"></path>'; }).join('');
   svg += '</g><g id="gn">' + nodes.map(nodeSvg).join('') + '</g><g id="ghl">' + hullLabels + '</g></g></svg>';
-  h += '<div class="gwrap">' + svg + '<div class="gtools">' + fbtn + '<button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div><div class="glegend" id="gf">' + folderChips + '</div>' + panel +
+  h += '<div class="gwrap">' + svg + '<div class="gtools">' + fbtn + '<button type="button" id="zin" aria-label="확대">' + ICON.plus + '</button><button type="button" id="zout" aria-label="축소">' + ICON.minus + '</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div><div class="glegend" id="gf">' + folderChips + '</div>' + panel +
     (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 오른쪽 위 "필터"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
   $('#view').innerHTML = h;
 
@@ -1671,6 +1787,7 @@ function viewGraph(carry) {
     const grow = Math.min(1.35, Math.max(1, Math.sqrt(GS.k / LABEL_ZOOM)));
     zk = grow / (GS.k * fitS);
     svgEl.style.setProperty('--zk', zk.toFixed(4));
+    svgEl.style.setProperty('--fk', (1 / fitS).toFixed(4));
     $('#gzoom').textContent = Math.round(GS.k * 100) + '%';
     paint();
   }
@@ -1849,10 +1966,10 @@ function viewGraph(carry) {
     const ins = new Set((back.get(n.id) || []).filter(e => e.from !== n.id).map(e => e.from)).size;
     const outs = new Set((fwd.get(n.id) || []).filter(e => e.to !== n.id).map(e => e.to)).size;
     const nb = [...adj[k]].sort((a, b) => nodes[b].deg - nodes[a].deg);
-    box.innerHTML = '<div class="ghead"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div style="flex:1;min-width:0"><strong>' + esc(n.d.title) + '</strong><div class="path">' + esc(n.id) + (status(n) ? ' · ' + esc(status(n)) : '') + '</div></div><button type="button" class="gx" id="gclose" aria-label="닫기">×</button></div>' +
+    box.innerHTML = '<div class="ghead"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div style="flex:1;min-width:0"><strong>' + esc(n.d.title) + '</strong><div class="path">' + esc(n.id) + (status(n) ? ' · ' + esc(status(n)) : '') + '</div></div><button type="button" class="gx" id="gclose" aria-label="닫기">' + ICON.x + '</button></div>' +
       '<div class="gstats"><span><b>' + ins + '</b>들어옴</span><span><b>' + outs + '</b>나감</span><span><b>' + ago(n.d.mtime) + '</b>수정</span></div>' +
       '<a class="gopen" href="' + docHref(n.id) + '">문서 열기</a><h3>연결된 문서 ' + nb.length + '</h3><ul>' +
-      (nb.map(j => '<li><button type="button" class="lnk gnb" data-k="' + j + '" title="' + esc(nodes[j].d.title) + '"><span style="color:' + color(nodes[j].d.folder) + '" aria-hidden="true">●</span> ' + esc(nodes[j].d.title) + '</button></li>').join('') || '<li class="empty">없음</li>') + '</ul>';
+      (nb.map(j => '<li><button type="button" class="lnk gnb" data-k="' + j + '" data-tip="' + esc(nodes[j].d.title) + '" data-tip-if="cut"><span style="color:' + color(nodes[j].d.folder) + '" aria-hidden="true">●</span> ' + esc(nodes[j].d.title) + '</button></li>').join('') || '<li class="empty">없음</li>') + '</ul>';
     box.hidden = false;
     $('#gclose').addEventListener('click', () => select(null));
     box.querySelectorAll('.gnb').forEach(b => b.addEventListener('click', () => pick(+b.dataset.k)));
