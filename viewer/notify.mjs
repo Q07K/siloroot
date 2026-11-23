@@ -16,7 +16,9 @@ if (!cfg) process.exit(0);
 
 const SESSION = process.argv.includes('--session');
 const FB_REL = cfg.dirs.feedback;
-const FB = path.join(cfg.root, FB_REL);
+const FB = path.join(cfg.docsRoot, FB_REL);
+// 알림 글은 프로젝트 맨 위에서 일하는 Claude가 읽는다. 감싼 배치면 열 수 있게 경로 앞에 .siloroot/를 붙여 보여 준다.
+const SHOW = cfg.layout === 'wrapped' ? '.siloroot/' : '';
 const EDIT_LOG = path.join(cfg.stateDir, 'web-edits.jsonl');
 const REVIEWED = path.join(FB, 'reviewed-edits.json');
 const STATE = path.join(cfg.stateDir, 'notified.json');
@@ -35,9 +37,9 @@ for (const f of files) {
   const fm = fmOf(fs.readFileSync(path.join(FB, f), 'utf8'));
   const rel = FB_REL + '/' + f;
   const target = (fm.related || '').replace(/^\[|\]$/g, '').split(',')[0].trim();
-  if (fm.type === 'feedback' && (fm.status === '대기' || fm.status === '진행 중')) items.push({ key: rel + '|' + fm.status, text: `피드백 ${fm.status}: ${rel}${target ? ' (대상 ' + target + ')' : ''}` });
-  if (fm.type === 'rule' && fm.status === '승인') items.push({ key: rel + '|승인', text: `승인된 규칙 후보, writing-guide.md 반영 대기: ${rel}` });
-  if (fm.type === 'trait' && fm.status === '승인') items.push({ key: rel + '|승인', text: `승인된 사용자 정보 후보, ${cfg.dirs.profile}/profile.md 반영 대기: ${rel}` });
+  if (fm.type === 'feedback' && (fm.status === '대기' || fm.status === '진행 중')) items.push({ key: rel + '|' + fm.status, text: `피드백 ${fm.status}: ${SHOW}${rel}${target ? ' (대상 ' + SHOW + target + ')' : ''}` });
+  if (fm.type === 'rule' && fm.status === '승인') items.push({ key: rel + '|승인', text: `승인된 규칙 후보, ${SHOW}writing-guide.md 반영 대기: ${SHOW}${rel}` });
+  if (fm.type === 'trait' && fm.status === '승인') items.push({ key: rel + '|승인', text: `승인된 사용자 정보 후보, ${SHOW}${cfg.dirs.profile}/profile.md 반영 대기: ${SHOW}${rel}` });
 }
 
 let last = '';
@@ -51,8 +53,8 @@ if (fresh.length) items.push({ key: 'edits|' + fresh[fresh.length - 1].id, text:
 if (SESSION) {
   const rel = cfg.dirs.profile + '/' + AI_COMMENT_FILE;
   let mt = 0;
-  try { mt = fs.statSync(path.join(cfg.root, rel)).mtimeMs; } catch { mt = 0; }
-  if (mt && commentDue(mt)) items.push({ key: 'ai-comment|' + lastSlot().toISOString(), text: `"나" 화면 AI 코멘트 갱신 차례: 매일 ${AI_COMMENT_HOUR}시 이후 첫 세션인데 ${rel}가 그 전에 쓴 것 (F 절차)` });
+  try { mt = fs.statSync(path.join(cfg.docsRoot, rel)).mtimeMs; } catch { mt = 0; }
+  if (mt && commentDue(mt)) items.push({ key: 'ai-comment|' + lastSlot().toISOString(), text: `"나" 화면 AI 코멘트 갱신 차례: 매일 ${AI_COMMENT_HOUR}시 이후 첫 세션인데 ${SHOW}${rel}가 그 전에 쓴 것 (F 절차)` });
 }
 
 let seen = {};

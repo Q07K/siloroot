@@ -7,6 +7,8 @@ description: SiloRoot 작업 공간에서 사용자가 기술 개념을 문답�
 
 사용자가 질문을 이어 가고, Claude는 답하면서 그 내용을 공부 노트로 남긴다. 폴더 이름은 `.siloroot/config.json`의 `dirs.study`(기본 `02-study`)를 따른다.
 
+문서 위치: `.siloroot/config.json`에 `"layout": "wrapped"`가 있으면 문서는 모두 `.siloroot/` 안에 있다. 아래 경로는 문서 위치 기준이다. 파일을 열거나 만들거나 검색할 때만 앞에 `.siloroot/`를 붙이고, 노트 안에 경로를 적을 때는 붙이지 않는다. `layout`이 없으면 프로젝트 맨 위가 문서 위치다.
+
 ## 답하는 법
 
 - 물은 만큼만 답한다. 한 번에 다 풀어 놓지 말고 다음 질문의 여지를 남긴다.

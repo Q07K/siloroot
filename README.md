@@ -46,16 +46,25 @@ One conversation can move freely between study, ideas, decisions, and projects. 
 
 ## Created files
 
+Everything SiloRoot creates goes inside the project's `.siloroot/` folder. You read it through the viewer and Claude manages the files, so it sits one level down instead of mixing with your code. The team's shared `CLAUDE.md` and `.gitignore` are left alone.
+
 | Path | Contents |
 | --- | --- |
-| `CLAUDE.md` | A SiloRoot block (folder map and rules). Everything outside the block is yours |
-| `metadata-guide.md`, `writing-guide.md` | Document property conventions, writing rules |
-| `01-log/` | Work log, open questions |
-| `02-study/` | Study notes and the topic list (understanding levels) |
-| `03-ideas/` | Ideas, projects you have started building, and their decision records |
-| `04-feedback/` | Viewer comments, writing-rule candidates, user-profile candidates |
-| `05-profile/` | Work habits and preferences you approved (`profile.md`). `CLAUDE.md` imports it, so every conversation uses it |
-| `.siloroot/` | Settings (`config.json`: port, folder names) and viewer output (`state/`) |
+| `.siloroot/CLAUDE.md` | A SiloRoot block (folder map and rules). Everything outside the block is yours |
+| `.siloroot/metadata-guide.md`, `writing-guide.md` | Document property conventions, writing rules |
+| `.siloroot/01-log/` | Work log, open questions |
+| `.siloroot/02-study/` | Study notes and the topic list (understanding levels) |
+| `.siloroot/03-ideas/` | Ideas, projects you have started building, and their decision records |
+| `.siloroot/04-feedback/` | Viewer comments, writing-rule candidates, user-profile candidates |
+| `.siloroot/05-profile/` | Work habits and preferences you approved (`profile.md`). The rules block imports it, so every conversation uses it |
+| `.siloroot/config.json`, `state/` | Settings (port, folder names, layout) and viewer output |
+| `CLAUDE.local.md` | Loads the SiloRoot rules with one line, `@.siloroot/CLAUDE.md`. If the file exists, only the marked block is appended |
+| `.ignore` | Lets Claude's search (ripgrep) find `.siloroot/` even though git ignores it (`!.siloroot/`). Viewer output stays out of search |
+| Git exclude list (`.git/info/exclude`) | Keeps `.siloroot/`, `.ignore`, and `CLAUDE.local.md` out of commits in this clone only. Written only in a git repository |
+
+- Paths inside documents (`related`, backtick paths) are relative to `.siloroot/`. Claude adds the `.siloroot/` prefix only when opening or searching files.
+- `.git/info/exclude` is per clone, so run init again after cloning the project on another machine.
+- Folders initialized with 0.1.x, where documents sit at the project root, keep working that way. Running init again does not move them.
 
 The templates and skill text are currently in Korean only.
 
@@ -68,7 +77,7 @@ The templates and skill text are currently in Korean only.
 - The "나" (me) page opens with a usage radar computed from your own folder records: study depth (how many study notes passed verification), study breadth (distinct fields in study-note `tags`), follow-through (closed open questions and finished ideas), consistency (days with a record in the last 14), and AI training (rule and profile candidates you decided plus comments you closed in the last 30 days). Click an axis to see its formula, target and evidence. Next to it is an AI comment (`05-profile/ai-comment.md`, Claude's opinion, not approved information). A hook asks Claude to rewrite it in the first session after 9 a.m. each day, and the panel shows when it was last written and when the next update is due. Below that, each axis is compared with a week ago. Further down are the entries Claude currently uses about you, with their evidence: approved entries from `05-profile/profile.md`, pending and rejected user-profile candidates, and the writing rules. If an item is wrong, press "이건 아니에요" (that's not right) to leave a comment on it.
 - The connection graph links documents through `related` properties and backticked paths. By default it shows every link type, common documents (guides, indexes, ledgers, logs), archived documents and unlinked documents. Folders are listed in a legend at the bottom left of the graph (click one to hide it), and the other switches sit behind the "필터" (filter) button at the top right, which shows how many are turned off. If a document is created or deleted while you are looking at the graph, its node and edges are added or removed without a reload. Documents are grouped by folder: each folder is its own small disk inside a circle (repulsion that weakens with distance, gravity that grows with distance, springs that stay loose around hubs, and collision): documents with more links inside the folder sit nearer the center, circles fit their dots tightly and keep apart, and you can drag a circle (or its name) to move the whole folder or drag a dot out to stretch it. Folder names are drawn above the lines. Titles appear from 150% zoom (or on hover), nodes never overlap, and "맞춤" (fit) frames everything visible. Lines curve around other nodes instead of crossing them (one smooth arc, bending at most 22% of the line length, otherwise straight), and the layout pushes nodes away from lines. Links between folders are drawn as bundles: they gather at the edge of the source circle, travel together along a shortest path that avoids other folder circles (grid search, then smoothed), and fan out to each document in the target folder while avoiding the other documents there. Hovering or selecting a document highlights its links along the same bundles. While you drag, the avoidance is skipped and recomputed when you let go, so dragging stays smooth. New links drawn during a live update no longer look cut off once their drawing animation ends.
 
-The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server and open it in the browser (unless a viewer tab is already open or the session restarted after compaction); when you send a message they tell you if there is feedback to process. If the folder already has a `.gitignore`, add `.siloroot/state/` to it yourself.
+The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server and open it in the browser (unless a viewer tab is already open or the session restarted after compaction); when you send a message they tell you if there is feedback to process. In a 0.1.x-style folder (documents at the project root) that already had a `.gitignore`, add `.siloroot/state/` to it yourself.
 
 ## Development
 

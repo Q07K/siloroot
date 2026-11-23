@@ -23,7 +23,9 @@ const KEEP_SNAPSHOT = !args.includes('--seen');
 const DATA_ONLY = args.includes('--data-only');
 // 폴더는 인자, VIEWER_ROOT 환경 변수, 지금 폴더 순으로 정한다.
 const ROOT = path.resolve(args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--seen-path') || process.env.VIEWER_ROOT || process.cwd());
-const CFG = loadConfig(ROOT) || { dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
+const CFG = loadConfig(ROOT) || { docsRoot: ROOT, dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
+// 문서를 찾고 경로를 셀 기준. 감싼 배치(wrapped)면 프로젝트의 .siloroot/, 예전 배치면 프로젝트 맨 위다.
+const DOCS = CFG.docsRoot;
 const DIRS = CFG.dirs;
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
 const OUT_DIR = CFG.stateDir;
@@ -33,21 +35,22 @@ const TEMPLATE = path.join(here, 'template.html');
 const MAX_FILE = 2 * 1024 * 1024;
 
 // ---------- 1. 문서 찾기 ----------
-// 점(.)이나 밑줄(_)로 시작하는 폴더는 설정이나 임시 작업 폴더라 건너뛴다.
+// 점(.)이나 밑줄(_)로 시작하는 폴더는 설정이나 임시 작업 폴더라 건너뛴다. 뷰어 생성물 폴더(state)도 건너뛴다.
 function walk(dir, out) {
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     if (ent.name.startsWith('.') || ent.name.startsWith('_') || ent.name === 'node_modules') continue;
     if (ent.isSymbolicLink()) continue;
     const full = path.join(dir, ent.name);
+    if (full === CFG.stateDir) continue;
     if (ent.isDirectory()) walk(full, out);
     else if (/\.(md|markdown)$/i.test(ent.name)) out.push(full);
   }
   return out;
 }
 
-const toRel = (full) => path.relative(ROOT, full).split(path.sep).join('/');
+const toRel = (full) => path.relative(DOCS, full).split(path.sep).join('/');
 
-const files = walk(ROOT, []).filter((f) => fs.statSync(f).size <= MAX_FILE);
+const files = (fs.existsSync(DOCS) ? walk(DOCS, []) : []).filter((f) => fs.statSync(f).size <= MAX_FILE);
 const mdSet = new Set(files.map(toRel));
 const dirSet = new Set();
 const byBase = new Map();
