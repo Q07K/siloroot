@@ -84,3 +84,5 @@ The README exists in English (`README.md`) and Korean (`README.ko.md`). When you
 ## License
 
 MIT
+
+The viewer bundles the Pretendard variable font (`viewer/fonts/PretendardVariable.woff2`, Pretendard 1.3.9 by Kil Hyung-jin), licensed under the SIL Open Font License 1.1. See `viewer/fonts/LICENSE-Pretendard.txt`.
