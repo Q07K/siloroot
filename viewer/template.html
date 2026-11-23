@@ -6,9 +6,19 @@
 <title>SiloRoot</title>
 <link rel="icon" type="image/png" href="__BRAND_ICON__">
 <style>
-:root{--bg:#ECE5E0;--surface:#F5EFEB;--border:#DDD4CD;--line:#CFC5BD;--code-bg:#E6DED7;--ink:#2F4156;--muted:#4D6878;--faint:#55707E;--accent:#3F6474;--accent-bg:#C8D9E6;--on-accent:#F5EFEB;--add-bg:#DCE8E4;--add-ink:#2F5E55;--del-bg:#EFDCD8;--del-ink:#8A4A44;--flash-bg:#F0DFC4;--flash-bar:#C9A46A;--attn:#B7835A;--shadow:rgba(47,65,86,.10);--shadow-soft:rgba(47,65,86,.06)}
-@media (prefers-color-scheme: dark){:root{--bg:#1C2733;--surface:#2F4156;--border:#43586E;--line:#52687D;--code-bg:#26364A;--ink:#F5EFEB;--muted:#C8D9E6;--faint:#A3B8C6;--accent:#C8D9E6;--accent-bg:#40596D;--on-accent:#1C2733;--add-bg:#24443F;--add-ink:#A9D3C6;--del-bg:#4A2F2E;--del-ink:#E8B7AE;--flash-bg:#5A4A33;--flash-bar:#D9B77E;--attn:#D9A47A;--shadow:rgba(0,0,0,.35);--shadow-soft:rgba(0,0,0,.25)}}
+:root{--bg:#ECE5E0;--surface:#F5EFEB;--border:#DDD4CD;--line:#CFC5BD;--code-bg:#E6DED7;--ink:#2F4156;--muted:#4D6878;--faint:#55707E;--accent:#3F6474;--accent-bg:#C8D9E6;--on-accent:#F5EFEB;--add-bg:#DCE8E4;--add-ink:#2F5E55;--del-bg:#EFDCD8;--del-ink:#8A4A44;--flash-bg:#F0DFC4;--flash-bar:#C9A46A;--attn:#B7835A;--shadow:rgba(47,65,86,.10);--shadow-soft:rgba(47,65,86,.06);--frame:#E2D9D2}
+@media (prefers-color-scheme: dark){:root{--bg:#1C2733;--surface:#2F4156;--border:#43586E;--line:#52687D;--code-bg:#26364A;--ink:#F5EFEB;--muted:#C8D9E6;--faint:#A3B8C6;--accent:#C8D9E6;--accent-bg:#40596D;--on-accent:#1C2733;--add-bg:#24443F;--add-ink:#A9D3C6;--del-bg:#4A2F2E;--del-ink:#E8B7AE;--flash-bg:#5A4A33;--flash-bar:#D9B77E;--attn:#D9A47A;--shadow:rgba(0,0,0,.35);--shadow-soft:rgba(0,0,0,.25);--frame:#16202A}}
 *{box-sizing:border-box}
+/* 공통 스크롤바: 연결 화면 정보 상자에서 쓰던 모양(바탕 칸과 화살표 없이 6px 막대, 막대는 테두리 색, 올리면 faint)을 페이지와 모든 스크롤 영역에 쓴다.
+   막대 색은 --sb-thumb 하나로 정한다. 바탕이 진한 곳(코드 블록, 사이드바 띠)은 테두리 색이 묻혀서 한 단 진한 --line으로 바꾼다 */
+:root{--sb-thumb:var(--border);--sb-thumb-hover:var(--faint)}
+pre,.md pre,pre.diff,header,.etext{--sb-thumb:var(--line)}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-button{display:none}
+::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover)}
+@supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:var(--sb-thumb) transparent}}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;font-size:15px;line-height:1.65}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--border)}
@@ -128,7 +138,6 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .glegend{position:absolute;left:12px;bottom:12px;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:0;max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 4px}
 .glegend .fchip{border:0;background:transparent;min-height:26px}
 .glegend .fchip:hover{background:var(--code-bg)}
-.glegend::-webkit-scrollbar{width:6px}.glegend::-webkit-scrollbar-track{background:transparent}.glegend::-webkit-scrollbar-button{display:none}.glegend::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media (max-width:760px){.glegend{max-height:40%}}
 .ginfo{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 76px);max-height:calc(100% - 24px);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;z-index:2;box-shadow:0 6px 20px var(--shadow)}
 .ginfo[hidden]{display:none}
@@ -146,13 +155,6 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .ginfo h3{font-size:12px;color:var(--faint);margin:14px 0 4px;font-weight:600}
 /* 목록은 항목 10개(한 줄 29px)까지 보이고 나머지는 스크롤한다 */
 .ginfo ul{list-style:none;margin:0 -10px 0 0;padding:0 10px 0 0;flex:0 1 auto;min-height:0;max-height:290px;overflow:auto}
-/* 스크롤바: 바탕 칸과 화살표 없이 얇은 막대만, 상자 색에 맞춘다 */
-.ginfo ul::-webkit-scrollbar{width:6px}
-.ginfo ul::-webkit-scrollbar-track{background:transparent}
-.ginfo ul::-webkit-scrollbar-button{display:none}
-.ginfo ul::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.ginfo ul::-webkit-scrollbar-thumb:hover{background:var(--faint)}
-@supports not selector(::-webkit-scrollbar){.ginfo ul{scrollbar-width:thin;scrollbar-color:var(--border) transparent}}
 .ginfo li{padding:1px 0}
 /* 항목 높이를 한 줄로 맞춘다. 긴 이름은 …로 자르고 마우스를 올리면 전체가 보인다 */
 .ginfo .gnb{display:block;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -292,15 +294,99 @@ body.fit #view>.gwrap{flex:1;height:auto;min-height:300px}
 .fcol .fbody{flex:1;min-height:0;overflow:auto}
 .fcol .empty{text-align:center;margin-top:28px;color:var(--faint)}
 @media (max-width:760px){body.fit{height:auto;overflow:visible;display:block}.split,.board{grid-template-columns:1fr}.pane-b{max-height:65vh}.fcol .fbody{max-height:none}}
+/* 넓은 화면은 inset 틀: 위쪽 막대를 왼쪽 사이드바로 세우고, 사이드바와 바탕을 같은 색(--frame)으로 칠한 뒤 본문(main)만 둥근 판으로 띄운다.
+   판 안쪽 색은 예전 바탕(--bg) 그대로라 카드와 입력칸의 대비가 바뀌지 않는다. 좁은 화면(760px 이하)은 예전 위쪽 막대를 그대로 쓴다 */
+@media (min-width:761px){
+  body{background:var(--frame);display:flex;align-items:flex-start}
+  header{position:sticky;top:0;flex:none;width:224px;height:100vh;background:var(--frame);border-bottom:0;overflow-y:auto}
+  header .bar{max-width:none;height:100%;margin:0;padding:16px 10px 14px;flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:12px}
+  header .brand{padding:2px 8px 4px}
+  header .search{order:1;margin-left:0;flex:none;min-width:0;width:100%;background:var(--surface)}
+  #nav{order:2;flex-direction:column;flex-wrap:nowrap;gap:2px}
+  #nav a{display:flex;align-items:center;gap:6px;padding:8px 10px}
+  #nav a .nbadge{margin-left:auto}
+  #nav a:hover{background:var(--code-bg)}
+  header .meta{order:3;margin-top:auto;padding:0 8px;font-size:12px;line-height:1.5}
+  main{flex:1;min-width:0;max-width:none;margin:8px 8px 8px 0;min-height:calc(100vh - 16px);padding:24px 28px 64px;background:var(--bg);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px var(--shadow-soft)}
+  body.fit{flex-direction:row;align-items:stretch}
+  body.fit header{height:100%}
+  body.fit main{min-height:0;padding-bottom:16px}
+  /* 칸이 하나뿐인 화면(나, 피드백의 글쓰기 규칙)은 본문 판이 이미 상자라서 칸의 테두리와 바탕을 걷어 내고 스크롤만 남긴다.
+     그 안의 카드는 판과 같은 색이 되지 않게 surface로 한 단 띄운다. 두 칸으로 나뉜 화면(문서, 객체 등)의 칸은 그대로 둔다 */
+  .pane.grow{background:none;border:0;border-radius:0}
+  .pane.grow>.pane-b.pad{padding:0 8px 0 0}
+  .pane.grow .mebox,.pane.grow .ocard{background:var(--surface)}
+  /* 사이드바 접기: 펼치면 로고 줄 오른쪽 끝, 접으면 48px 띠에 버튼 하나만 남는다. 접은 상태는 이 브라우저에 기억한다 */
+  .sbt{display:inline-flex;position:absolute;top:12px;right:8px;width:32px;height:32px;padding:0;align-items:center;justify-content:center;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer}
+  .sbt:hover{background:var(--code-bg);color:var(--ink)}
+  .sbt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  header{transition:width .18s ease}
+  body.sbc header{width:48px}
+  body.sbc header .bar{padding:12px 8px;align-items:center}
+  body.sbc header .bar>:not(.sbt):not(.sbq):not(#nav){display:none}
+  /* 펼친 상태의 자리값(top, right)이 남으면 접은 띠에서 아이콘이 왼쪽 위로 밀리므로 지우고, 크기도 아래 아이콘들(36px)과 맞춘다 */
+  body.sbc .sbt{position:relative;top:auto;right:auto;width:36px;height:36px}
+  /* 접은 띠의 검색 아이콘: 누르면 사이드바를 펼치고 검색칸에 커서를 둔다. 펼친 상태에서는 검색칸이 있으니 숨긴다 */
+  body.sbc .sbq{display:inline-flex;position:relative;order:1;width:36px;height:36px;padding:0;align-items:center;justify-content:center;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer}
+  body.sbc .sbq:hover{background:var(--code-bg);color:var(--ink)}
+  body.sbc .sbq:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  /* 접으면 메뉴는 아이콘만 남긴다 */
+  body.sbc #nav{align-items:center}
+  body.sbc #nav a{position:relative;width:36px;height:36px;padding:0;justify-content:center}
+  /* 접은 띠의 이름표: 아이콘에 마우스를 올리거나 키보드로 옮겨 오면 오른쪽에 뜬다.
+     모양은 뷰어의 다른 떠 있는 상자(그래프 정보 상자, 필터 패널, 알림)와 같게 surface 바탕, 테두리, 그림자, 8px 모서리로 맞추고 왼쪽에 꼭지를 단다.
+     글자는 opacity로만 숨겨서 읽기 프로그램은 늘 메뉴 이름을 읽는다. 띠 밖으로 나와야 해서 접은 동안은 사이드바의 스크롤 자르기를 끈다 */
+  body.sbc header{overflow:visible}
+  body.sbc #nav a .nl,body.sbc .sbt .nl,body.sbc .sbq .nl{position:absolute;left:calc(100% + 12px);top:50%;z-index:10;width:auto;height:auto;overflow:visible;clip:auto;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);box-shadow:0 6px 20px var(--shadow);font-size:13px;font-weight:600;line-height:1.4;white-space:nowrap;pointer-events:none;opacity:0;transform:translate(-4px,-50%);transition:opacity .12s ease,transform .12s ease}
+  body.sbc #nav a .nl::before,body.sbc .sbt .nl::before,body.sbc .sbq .nl::before{content:"";position:absolute;left:-5px;top:50%;width:8px;height:8px;background:var(--surface);border-left:1px solid var(--border);border-bottom:1px solid var(--border);transform:translateY(-50%) rotate(45deg)}
+  body.sbc #nav a:hover .nl,body.sbc #nav a:focus-visible .nl,body.sbc .sbt:hover .nl,body.sbc .sbt:focus-visible .nl,body.sbc .sbq:hover .nl,body.sbc .sbq:focus-visible .nl{opacity:1;transform:translate(0,-50%);transition-delay:.08s}
+  body.sbc #nav a .nbadge{position:absolute;top:-3px;right:-5px;margin:0;min-width:16px;padding:0 4px;font-size:10px;line-height:16px}
+}
+#nav svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:760px){#nav svg{display:none}}
+@media (max-width:760px){.sbt{display:none}}
+.sbq{display:none}
+.sbt svg,.sbq svg{width:18px;height:18px;display:block}
+.sbt .nl,.sbq .nl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion: reduce){header,header .nl{transition:none!important}}
 </style>
 </head>
 <body>
 <header><div class="bar">
+<button type="button" class="sbt" id="sbt" aria-expanded="true" aria-label="사이드바 접기" title="사이드바 접기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><span class="nl" aria-hidden="true">사이드바 펼치기</span></button>
+<button type="button" class="sbq" id="sbq" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span class="nl" aria-hidden="true">검색</span></button>
 <span class="brand"><picture><source srcset="__BRAND_WORDMARK_DARK__" media="(prefers-color-scheme: dark)"><img class="logo" src="__BRAND_WORDMARK__" alt="SiloRoot" height="22"></picture></span>
 <span class="meta" id="meta"></span>
-<nav id="nav" aria-label="화면"><a href="#recent" data-r="recent">최근 바뀐 것</a><a href="#me" data-r="me">나</a><a href="#feedback" data-r="feedback">피드백</a><a href="#objects" data-r="objects">객체</a><a href="#docs" data-r="docs">문서</a><a href="#graph" data-r="graph">연결</a></nav>
+<nav id="nav" aria-label="화면">
+<a href="#recent" data-r="recent"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="nl">최근 바뀐 것</span></a>
+<a href="#me" data-r="me"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span class="nl">나</span></a>
+<a href="#feedback" data-r="feedback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="nl">피드백</span></a>
+<a href="#objects" data-r="objects"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="nl">객체</span></a>
+<a href="#docs" data-r="docs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg><span class="nl">문서</span></a>
+<a href="#graph" data-r="graph"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.9l7.6-3.8M8.2 13.1l7.6 3.8"/></svg><span class="nl">연결</span></a>
+</nav>
 <input class="search" id="q" type="search" placeholder="제목, 경로, 본문 검색" aria-label="문서 검색">
 </div></header>
+<script>
+// 사이드바 접기. 접은 상태는 이 브라우저에만 기억한다(저장소를 못 쓰는 창에서는 매번 펼친 채로 연다)
+(function () {
+  const KEY = 'fv-sidebar', btn = document.getElementById('sbt');
+  function set(closed, save) {
+    document.body.classList.toggle('sbc', closed);
+    btn.setAttribute('aria-expanded', String(!closed));
+    const label = closed ? '사이드바 펼치기' : '사이드바 접기';
+    btn.setAttribute('aria-label', label);
+    // 접은 띠에서는 직접 만든 이름표가 뜨므로 브라우저 기본 툴팁(title)이 겹치지 않게 뺀다
+    if (closed) btn.removeAttribute('title'); else btn.title = label;
+    if (save) { try { localStorage.setItem(KEY, closed ? '1' : '0'); } catch (e) {} }
+  }
+  let closed = false;
+  try { closed = localStorage.getItem(KEY) === '1'; } catch (e) {}
+  set(closed, false);
+  btn.addEventListener('click', () => set(!document.body.classList.contains('sbc'), true));
+  document.getElementById('sbq').addEventListener('click', () => { set(false, true); document.getElementById('q').focus(); });
+})();
+</script>
 <main id="view"></main>
 <script id="data" type="application/json">__VIEWER_DATA__</script>
 <script>
