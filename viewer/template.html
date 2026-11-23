@@ -97,18 +97,19 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .gwrap{position:relative;border:1px solid var(--border);border-radius:14px;overflow:hidden;height:calc(100vh - 280px);min-height:480px;background-color:var(--surface);background-image:radial-gradient(var(--border) 1px,transparent 1.2px);background-size:24px 24px}
 #gsvg{width:100%;height:100%;display:block;cursor:grab;touch-action:none;user-select:none}
 #gsvg.panning{cursor:grabbing}
-#gl line{stroke:var(--line);stroke-width:1.1;transition:opacity .15s}
+/* 점과 선에는 opacity 전환 효과를 두지 않는다. 마우스를 올릴 때마다 수백 개가 한꺼번에 움직여, 크게 확대한 화면에서 브라우저가 하얗게 깜빡였다 */
+#gl line{stroke:var(--line);stroke-width:1.1}
 #gl line.lk{stroke-dasharray:5 4}
 #gl line.pr{stroke-dasharray:2 3;stroke-width:1.6}
 #gl line.hot{stroke:var(--accent);stroke-width:2;opacity:1}
 #gl line.dim{opacity:.12}
-.nd{cursor:pointer;transition:opacity .15s}
+.nd{cursor:pointer}
 .nd .halo{opacity:0;transition:opacity .15s}
 .nd .dot{stroke:var(--surface);stroke-width:2}
 .nd.hov .halo,.nd.sel .halo{opacity:.22}
 .nd.sel .dot{stroke:var(--ink);stroke-width:2.5}
 .nd.dim{opacity:.18}
-.nd .lb{font-size:calc(11.5px * var(--zk,1));fill:var(--ink);stroke:var(--surface);stroke-width:calc(3.5px * var(--zk,1));paint-order:stroke;stroke-linejoin:round;pointer-events:none}
+.nd .lb{font-size:calc(11.5px * var(--zk,1));fill:var(--ink);stroke:var(--surface);stroke-width:calc(3.5px * var(--zk,1));paint-order:stroke;stroke-linejoin:round;pointer-events:none;dominant-baseline:central;transform:translateX(calc(5px * var(--zk,1)))}
 .gcommon{margin-bottom:10px;align-items:center}
 .gchip{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:13px;text-decoration:none}
 .gchip:hover{background:var(--code-bg)}
@@ -168,9 +169,10 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 .sect{font-size:18px;margin:28px 0 4px}
 .rcard .md{margin-top:8px}
 .nbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--surface);font-size:11px;font-weight:700;text-align:center;line-height:18px}
-#gl path{fill:none;stroke:var(--line);stroke-width:1.2;transition:opacity .15s}
-#gl path.hot{stroke:var(--accent);stroke-width:2;opacity:1}
-#gl path.dim{opacity:.1}
+#gl path{fill:none;stroke:var(--line);stroke-width:1.2}
+#gl path.hot{stroke:var(--accent);stroke-width:2;stroke-opacity:1}
+#gl path.dim{stroke-opacity:.1}
+#gl path.bun.dim{stroke-opacity:.05}
 .hull circle{fill-opacity:.07;stroke-opacity:.45;stroke-width:1.5;stroke-dasharray:6 5}
 .hlab text{font-size:13px;font-weight:700;fill:var(--ink);stroke:var(--surface);stroke-width:6px;stroke-linejoin:round;paint-order:stroke;cursor:grab}
 .mv1 .hull circle{cursor:grab}
@@ -184,7 +186,10 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 .nd.arch.dim{opacity:.12}
 /* 실시간 갱신: 새로 생긴 점은 커지며 나타나고 둘레가 퍼진다. 새 선은 그어지듯 나타난다. 지운 점과 선은 흐려지며 사라진다 */
 .nd.born .dot{animation:fvborn .7s cubic-bezier(.2,1.5,.4,1) both;transform-box:fill-box;transform-origin:center}
-.nd.born .halo{animation:fvhalo 1.6s ease-out 2 both;transform-box:fill-box;transform-origin:center}
+.nd.born .halo{animation:fvhalo 1.6s ease-out 4 both;transform-box:fill-box;transform-origin:center}
+/* 새 선은 그어진 뒤에도 강조색으로 한동안 남았다가 천천히 보통 선으로 돌아간다 */
+#gl path.fresh{animation:fvfresh 6s ease-in forwards}
+@keyframes fvfresh{0%,70%{stroke:var(--accent);stroke-width:2;stroke-opacity:1}100%{stroke:var(--line);stroke-width:1.2}}
 .nd.born .lb{font-weight:700}
 #gl path.born{stroke:var(--accent);stroke-width:2;stroke-dasharray:var(--len);stroke-dashoffset:var(--len);animation:fvdraw .9s .3s ease-out forwards}
 #gghost .ghost{pointer-events:none;animation:fvgone 1s ease-in forwards}
@@ -194,7 +199,7 @@ select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border
 @keyframes fvhalo{0%{opacity:.5;transform:scale(1)}100%{opacity:0;transform:scale(2.4)}}
 @keyframes fvdraw{to{stroke-dashoffset:0}}
 @keyframes fvgone{from{opacity:1}to{opacity:0}}
-@media (prefers-reduced-motion: reduce){.nd.born .dot,.nd.born .halo,#gl path.born,#gghost .ghost{animation-duration:.01s}}
+@media (prefers-reduced-motion: reduce){.nd.born .dot,.nd.born .halo,#gl path.born,#gl path.fresh,#gghost .ghost{animation-duration:.01s}}
 .legend .lg-attn{background:transparent;border:2.5px solid var(--attn);border-radius:50%;width:12px;height:12px;box-sizing:border-box}
 body.fit{height:100vh;overflow:hidden;display:flex;flex-direction:column}
 body.fit main{flex:1;min-height:0;width:100%;box-sizing:border-box;display:flex;flex-direction:column;padding-bottom:16px}
@@ -1553,7 +1558,7 @@ function viewGraphV(mv, carry) {
     const cls = 'nd' + (isArch(n.d) ? ' arch' : '') + (born.has(k) ? ' born' : '');
     return '<g class="' + cls + '" data-k="' + k + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')">' + extra +
       '<circle class="halo" r="' + (r + 5).toFixed(1) + '" fill="' + fill + '"></circle><circle class="dot" r="' + r.toFixed(1) + '" fill="' + fill + '"><title>' + title + '</title></circle>' +
-      '<text class="lb" x="' + (r + 5).toFixed(1) + '" y="4">' + esc(mv === '3' ? (n.d.title.length > 14 ? n.d.title.slice(0, 13) + '…' : n.d.title) : short(n.d.title)) + '</text></g>';
+      '<text class="lb" x="' + r.toFixed(1) + '" y="0">' + esc(mv === '3' ? (n.d.title.length > 14 ? n.d.title.slice(0, 13) + '…' : n.d.title) : short(n.d.title)) + '</text></g>';
   }
 
   // 필터 줄의 숫자
@@ -1598,7 +1603,7 @@ function viewGraphV(mv, carry) {
   const nEls = [...svgEl.querySelectorAll('.nd')], lEls = [...svgEl.querySelectorAll('#gl path')];
   const visibleNode = k => !GS.hidden.has(nodes[k].d.folder) && !(GS.hideIso && !nodes[k].deg);
   const visibleLink = l => visibleNode(l.a) && visibleNode(l.b);
-  let hoverK = null, drag = null;
+  let hoverK = null, drag = null, zk = 1;
   if (!carry) { GS.k = 1; GS.x = 0; GS.y = 0; }
 
   // 이름표: 중요한 순서(고른 점, 그 이웃, 연결 많은 점)로 놓고, 이미 놓인 이름표나 다른 점과 겹치면 그 이름은 숨긴다.
@@ -1608,7 +1613,7 @@ function viewGraphV(mv, carry) {
     const show = new Array(nodes.length).fill(false);
     if (mv === '3') return show.fill(true);
     if (GS.k < LABEL_ZOOM - 1e-6) { if (focus != null && focus < nodes.length) show[focus] = true; return show; }
-    const z = 1 / GS.k, vis = nodes.map((n, k) => k).filter(visibleNode);
+    const z = zk, vis = nodes.map((n, k) => k).filter(visibleNode);
     const pri = k => (k === focus ? 3e6 : born.has(k) ? 2.5e6 : near && near.has(k) ? 2e6 : 0) + (mv === '4' && needsLook(nodes[k]) ? 1e6 : 0) + nodes[k].deg * 100 + (nodes[k].inc || 0);
     const order = vis.slice().sort((a, b) => pri(b) - pri(a));
     const dots = vis.map(k => { const n = nodes[k], r = rad(n); return { k, x1: n.x - r, y1: n.y - r, x2: n.x + r, y2: n.y + r }; });
@@ -1616,7 +1621,7 @@ function viewGraphV(mv, carry) {
     const placed = [];
     for (const k of order) {
       const n = nodes[k], r = rad(n), w = labelW(short(n.d.title)) * 0.95 * z, hh = 15 * z;
-      const b = { x1: n.x + r + 3, y1: n.y - hh / 2, x2: n.x + r + 5 + w, y2: n.y + hh / 2 };
+      const b = { x1: n.x + r + 3 * z, y1: n.y - hh / 2, x2: n.x + r + 5 * z + w, y2: n.y + hh / 2 };
       if (k !== focus && !born.has(k) && (placed.some(p => hit(p, b)) || dots.some(d => d.k !== k && hit(d, b)))) continue;
       placed.push(b); show[k] = true;
     }
@@ -1641,9 +1646,15 @@ function viewGraphV(mv, carry) {
     });
     svgEl.querySelectorAll('.hull').forEach(g => { g.style.display = GS.hidden.has(g.dataset.f) ? 'none' : ''; });
   }
+  // 이름표 크기: 그래프 판(viewBox)이 화면에 맞춰 줄어든 만큼도 되돌려야 이름표가 화면에서 늘 11.5px로 보인다.
+  // 1/GS.k만 쓰면 판이 절반으로 줄어든 화면에서 이름표도 5~6px로 작아졌다. 크게 확대하면 점이 커지므로 이름표도 조금(최대 1.35배) 키운다.
+  // 종류별 열(mv 3)은 열 간격을 이름표 길이에 맞춰 짰으므로 판 크기 보정을 하지 않는다.
   function apply() {
     vp.setAttribute('transform', 'translate(' + GS.x.toFixed(1) + ',' + GS.y.toFixed(1) + ') scale(' + GS.k.toFixed(3) + ')');
-    svgEl.style.setProperty('--zk', (1 / GS.k).toFixed(4));
+    const ctm = svgEl.getScreenCTM(), fitS = mv === '3' || !ctm || !ctm.a ? 1 : ctm.a;
+    const grow = mv === '3' ? 1 : Math.min(1.35, Math.max(1, Math.sqrt(GS.k / LABEL_ZOOM)));
+    zk = grow / (GS.k * fitS);
+    svgEl.style.setProperty('--zk', zk.toFixed(4));
     $('#gzoom').textContent = Math.round(GS.k * 100) + '%';
     paint();
   }
@@ -1881,6 +1892,8 @@ function viewGraphV(mv, carry) {
     apply();
   }
   $('#zfit').addEventListener('click', fitView);
+  // 창이나 칸 너비가 바뀌면 판이 화면에 맞춰지는 배율도 바뀌므로 이름표 크기를 다시 잡는다
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!svgEl.isConnected) { ro.disconnect(); return; } apply(); }); ro.observe(svgEl); }
   const refresh = () => { if (GS.sel != null && GS.sel < nodes.length && !visibleNode(GS.sel)) select(null); saveGS(); paint(); };
   // 줄 종류, 공통 문서, 보관 문서는 배치 자체가 바뀌므로 다시 그린다
   const relayout = () => { GS.sel = null; saveGS(); viewGraphV(mv); };
@@ -1928,20 +1941,20 @@ function viewGraphV(mv, carry) {
   if (!carry) return;
   // 새 선은 그어지듯 나타나게 길이를 넘긴다. 몇 초 뒤 강조와 지운 흔적을 걷는다.
   // 새로 생긴 선은 태어날 때 길이로 그어지는 효과를 준다. 그 뒤 점이 움직이거나 선이 휘면 길이가 늘어 효과의 점선 간격 때문에 선이 중간에 끊겨 보이므로,
-  // 효과가 끝나면(또는 1.5초 뒤) born을 떼어 보통 선으로 되돌린다
+  // 효과가 끝나면(또는 1.5초 뒤) born을 떼고, 끊김 없는 선으로 강조색(fresh)을 몇 초 더 남겼다가 보통 선으로 되돌린다
   lEls.forEach((el, i) => {
     if (!bornL.has(i)) return;
     el.style.setProperty('--len', String(Math.ceil(el.getTotalLength()) + 1));
-    const done = () => { el.classList.remove('born'); el.style.removeProperty('--len'); };
+    const done = () => { if (!el.classList.contains('born')) return; el.classList.remove('born'); el.style.removeProperty('--len'); el.classList.add('fresh'); };
     el.addEventListener('animationend', done, { once: true });
     setTimeout(done, 1500);
   });
   if (born.size || bornL.size || carry.ghostNodes.size) setTimeout(() => {
     born.clear(); bornL.clear();
-    svgEl.querySelectorAll('.born').forEach(el => el.classList.remove('born'));
+    svgEl.querySelectorAll('.born, .fresh').forEach(el => el.classList.remove('born', 'fresh'));
     const gh = svgEl.querySelector('#gghost'); if (gh) gh.innerHTML = '';
     paint();
-  }, 3500);
+  }, 8000);
   const added = carry.added || [], removed = carry.removed || [];
   if (added.length || removed.length) {
     const name = p => esc(byPath.get(p) ? byPath.get(p).title : p);
