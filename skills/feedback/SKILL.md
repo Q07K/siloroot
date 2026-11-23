@@ -7,6 +7,8 @@ description: SiloRoot 훅이 "[SiloRoot] 처리할 일이 있습니다"라고 �
 
 사용자의 지금 요청을 먼저 끝낸다. 그다음 같은 턴에서 아래를 처리하고 무엇을 했는지 보고한다. 폴더 이름은 `.siloroot/config.json`의 `dirs.feedback`(기본 `04-feedback`)을 따른다. 파일 형식은 `04-feedback/README.md`에 있다. 문서를 지우거나 크게 바꾸는 일은 고치기 전에 사용자에게 확인한다.
 
+문서 위치: `.siloroot/config.json`에 `"layout": "wrapped"`가 있으면 문서는 모두 `.siloroot/` 안에 있다. 아래 경로(`04-feedback/`, `05-profile/`, `writing-guide.md` 등)는 문서 위치 기준이다. 파일을 열거나 만들 때만 앞에 `.siloroot/`를 붙이고, 문서 안에 경로를 적을 때는 붙이지 않는다. `layout`이 없으면 프로젝트 맨 위가 문서 위치다. `.siloroot/state/`로 시작하는 경로는 배치와 상관없이 프로젝트 맨 위 기준이다.
+
 ## A. 피드백 처리 (status: 대기)
 
 1. 파일의 `status`를 `진행 중`으로 바꾼다.

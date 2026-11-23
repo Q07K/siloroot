@@ -23,11 +23,14 @@ const posArg = process.argv.slice(2).find((a, i, all) => !a.startsWith('--') && 
 if (argOf('--root') || posArg) process.env.VIEWER_ROOT = argOf('--root') || posArg;
 if (argOf('--port')) process.env.PORT = argOf('--port');
 const ROOT = path.resolve(process.env.VIEWER_ROOT || process.cwd());
-const CFG = loadConfig(ROOT) || { port: 4180, dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
+const CFG = loadConfig(ROOT) || { port: 4180, docsRoot: ROOT, dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
+// ROOT는 프로젝트 폴더(빌드 인자, /health). 문서를 읽고 쓰는 기준은 DOCS다. 감싼 배치면 프로젝트의 .siloroot/.
+const DOCS = CFG.docsRoot;
 const HTML = path.join(CFG.stateDir, 'viewer-private.html');
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
 const FB_REL = CFG.dirs.feedback;
-const FEEDBACK_DIR = path.join(ROOT, FB_REL);
+const FEEDBACK_DIR = path.join(DOCS, FB_REL);
+const inDocs = (full) => full.startsWith(DOCS + path.sep) && !(full + path.sep).startsWith(CFG.stateDir + path.sep);
 const PORT = Number(argOf('--port') || (loadConfig(ROOT) ? CFG.port : process.env.PORT) || 4180);
 const STATUS = {
   feedback: ['대기', '진행 중', '완료', '안 함'],
@@ -48,8 +51,8 @@ function safePath(rel) {
   const clean = path.posix.normalize(rel.replace(/\\/g, '/'));
   if (clean.startsWith('..') || clean.startsWith('/') || !/\.md$/i.test(clean)) return null;
   if (clean.split('/').some((seg) => seg.startsWith('.') || seg.startsWith('_'))) return null;
-  const full = path.resolve(ROOT, clean);
-  if (!full.startsWith(ROOT + path.sep)) return null;
+  const full = path.resolve(DOCS, clean);
+  if (!inDocs(full)) return null;
   return { rel: clean, full };
 }
 
@@ -61,8 +64,8 @@ function safeImage(rel) {
   const type = IMAGE_TYPES[path.posix.extname(clean).toLowerCase()];
   if (!type || clean.startsWith('..') || clean.startsWith('/')) return null;
   if (clean.split('/').some((seg) => seg.startsWith('.') || seg.startsWith('_'))) return null;
-  const full = path.resolve(ROOT, clean);
-  if (!full.startsWith(ROOT + path.sep) || !fs.existsSync(full)) return null;
+  const full = path.resolve(DOCS, clean);
+  if (!inDocs(full) || !fs.existsSync(full)) return null;
   return { full, type };
 }
 
@@ -75,6 +78,7 @@ function onChange(rel) {
   const p = rel.split(path.sep).join('/');
   if (p.split('/').some((seg) => seg.startsWith('.') || seg.startsWith('_') || seg === 'node_modules')) return;
   if (!/\.(md|svg|png|jpe?g|gif|webp)$/i.test(p)) return;
+  if (!inDocs(path.join(DOCS, rel))) return; // 뷰어 생성물(state)은 알리지 않는다
   pending.add(p);
   clearTimeout(timer);
   timer = setTimeout(() => {
@@ -83,7 +87,7 @@ function onChange(rel) {
     for (const res of clients) res.write(msg);
   }, 400);
 }
-try { fs.watch(ROOT, { recursive: true }, (_e, f) => onChange(f)); } catch (e) { console.error('파일 감시를 시작하지 못했습니다:', e.message); }
+try { fs.watch(DOCS, { recursive: true }, (_e, f) => onChange(f)); } catch (e) { console.error('파일 감시를 시작하지 못했습니다:', e.message); }
 setInterval(() => { for (const res of clients) res.write(': keep-alive\n\n'); }, 25000);
 
 // 다른 사이트가 이 서버로 요청을 보내지 못하게: 같은 주소에서 온 JSON 요청만 받는다
