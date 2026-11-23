@@ -84,8 +84,6 @@ table.objs th{color:var(--muted);font-weight:600;font-size:13px}
 .empty{color:var(--muted)}
 mark.hl{background:var(--accent-bg);color:inherit}
 .note{font-size:13px;color:var(--muted)}
-.gfilters{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px 2px;margin-bottom:12px}
-.gfilters .pills{margin-bottom:10px;align-items:center}
 .glabel{font-size:12px;font-weight:600;color:var(--faint);min-width:34px}
 .fchip{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;transition:opacity .15s,background .15s}
 .fchip:hover{background:var(--code-bg)}
@@ -108,11 +106,6 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .nd.sel .dot{stroke:var(--ink);stroke-width:2.5}
 .nd.dim{opacity:.18}
 .nd .lb{font-size:calc(11.5px * var(--zk,1));fill:var(--ink);stroke:var(--surface);stroke-width:calc(3.5px * var(--zk,1));paint-order:stroke;stroke-linejoin:round;pointer-events:none;dominant-baseline:central;transform:translateX(calc(5px * var(--zk,1)))}
-.gcommon{margin-bottom:10px;align-items:center}
-.gchip{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:13px;text-decoration:none}
-.gchip:hover{background:var(--code-bg)}
-.gchip i{width:9px;height:9px;border-radius:50%;display:inline-block}
-.gchip .cnt{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
 .gempty{position:absolute;left:0;right:0;top:40%;text-align:center}
 .nd.sel .lb,.nd.hov .lb{font-weight:700}
 #gl path.bun{stroke-opacity:.5}
@@ -122,6 +115,21 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .gtools button:hover{background:var(--code-bg)}
 .gtools button.wide{font-size:12px;font-weight:600}
 .gzoom{position:absolute;bottom:10px;right:14px;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;pointer-events:none}
+/* 연결 그래프 필터: 제목 옆 도움말, 필터 버튼과 패널, 폴더 범례 */
+.ghelp{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);color:var(--faint);font-size:12px;font-weight:600;cursor:help}
+.gtools button{position:relative}
+.gtools button.on{background:var(--accent-bg);color:var(--accent);border-color:transparent}
+.gbadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--attn);color:var(--on-accent);font-size:11px;font-weight:700;line-height:18px}
+.gpanel{position:absolute;top:12px;right:62px;z-index:4;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px 4px;box-shadow:0 6px 20px var(--shadow);width:268px;box-sizing:border-box}
+.gpanel[hidden]{display:none}
+.gpanel .glabel{display:block;margin:0 0 6px}
+.gpanel .pills{margin-bottom:12px}
+.gwrap .fchip{min-height:28px;font-size:12px;padding:0 10px;gap:6px}
+.glegend{position:absolute;left:12px;bottom:12px;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:0;max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 4px}
+.glegend .fchip{border:0;background:transparent;min-height:26px}
+.glegend .fchip:hover{background:var(--code-bg)}
+.glegend::-webkit-scrollbar{width:6px}.glegend::-webkit-scrollbar-track{background:transparent}.glegend::-webkit-scrollbar-button{display:none}.glegend::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+@media (max-width:760px){.glegend{max-height:40%}}
 .ginfo{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 76px);max-height:calc(100% - 24px);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;z-index:2;box-shadow:0 6px 20px var(--shadow)}
 .ginfo[hidden]{display:none}
 /* 제목부터 "연결된 문서" 제목까지는 고정하고 문서 목록만 스크롤한다 */
@@ -697,16 +705,19 @@ function viewObjects(tab) {
 }
 
 // ---------- 연결 그래프 ----------
-// 기본으로는 줄을 적게 보인다: 경로 글자 연결, 공통 문서(규칙, 목차, 장부, 기록), 보관 문서는 꺼 두고 버튼으로 켠다.
-// 공통 문서는 거의 모든 문서가 언급해서 그래프 가운데를 실타래로 만든다. 그래프 위 한 줄에 칩으로 따로 보인다.
+// 기본은 모두 보인다: 연결 종류 셋, 공통 문서(규칙, 목차, 장부, 기록), 보관 문서, 연결 없는 문서. 오른쪽 위 "필터"에서 끈다.
+// 공통 문서는 거의 모든 문서가 언급해서 선이 몰린다. 점에 마우스를 올리면 그 점과 이웃만 또렷해진다.
 const COMMON_TYPES = new Set(['guide', 'index', 'ledger', 'log']);
-const GS = { k: 1, x: 0, y: 0, hidden: new Set(), hideIso: false, showCommon: false, showArch: false, kinds: { link: true, code: false, prop: true }, sel: null, center: null };
+const GS = { k: 1, x: 0, y: 0, hidden: new Set(), hideIso: false, showCommon: true, showArch: true, kinds: { link: true, code: true, prop: true }, sel: null, center: null };
+let GPANEL = false; // 필터 패널이 열려 있는지 (그래프를 다시 그려도 유지)
+// 저장 키 fv-graph3: 기본값을 모두 켬으로 바꾸며 새 키로 옮겼다. 예전 키(fv-graph2)에서는 숨긴 폴더만 가져온다.
 try {
-  const s = JSON.parse(localStorage.getItem('fv-graph2') || 'null');
+  const s = JSON.parse(localStorage.getItem('fv-graph3') || 'null');
   if (s) { GS.hidden = new Set(s.hidden || []); GS.hideIso = !!s.hideIso; GS.showCommon = !!s.showCommon; GS.showArch = !!s.showArch; if (s.kinds) GS.kinds = Object.assign(GS.kinds, s.kinds); }
+  else { const o = JSON.parse(localStorage.getItem('fv-graph2') || 'null'); if (o && o.hidden) GS.hidden = new Set(o.hidden); }
 } catch (e) { /* 저장소를 못 쓰면 기본값으로 동작 */ }
 function saveGS() {
-  try { localStorage.setItem('fv-graph2', JSON.stringify({ hidden: [...GS.hidden], hideIso: GS.hideIso, showCommon: GS.showCommon, showArch: GS.showArch, kinds: GS.kinds })); } catch (e) { /* 무시 */ }
+  try { localStorage.setItem('fv-graph3', JSON.stringify({ hidden: [...GS.hidden], hideIso: GS.hideIso, showCommon: GS.showCommon, showArch: GS.showArch, kinds: GS.kinds })); } catch (e) { /* 무시 */ }
 }
 const isCommon = d => !!(d.fm && COMMON_TYPES.has(d.fm.type));
 const isArch = d => !!(d.fm && ARCHIVED.has(d.fm.status));
@@ -1494,20 +1505,17 @@ function viewGraph(carry) {
   for (const e of D.edges) if (e.from !== e.to && kindN[e.kind] != null) kindN[e.kind]++;
   const commons = D.docs.filter(d => isCommon(d) && !isArch(d)).sort((a, b) => (back.get(b.path) || []).length - (back.get(a.path) || []).length);
   const archN = D.docs.filter(isArch).length;
-  const pill = (id, on, label) => '<button type="button" class="pill' + (on ? ' on' : '') + '" id="' + id + '" aria-pressed="' + on + '">' + label + '</button>';
-
-  let h = '<h1 class="page">연결</h1><p class="note" style="margin:-4px 0 12px">같은 폴더 문서끼리 모으고 폴더마다 원을 그립니다. 원이나 폴더 이름을 끌면 폴더째 옮기고, 점을 원 밖으로 끌면 원이 늘어납니다.</p>';
-  h += '<div class="gfilters"><div class="pills" id="gf"><span class="glabel">폴더</span>' + foldersHere.map(f =>
-    '<button type="button" class="fchip' + (GS.hidden.has(f) ? ' off' : '') + '" data-f="' + esc(f) + '" aria-pressed="' + !GS.hidden.has(f) + '"><i style="background:' + color(f) + '"></i>' + esc(f) + '<span class="cnt">' + counts[f] + '</span></button>').join('') + '</div>' +
-    '<div class="pills"><span class="glabel">보기</span>' +
-    '<button type="button" class="pill gk' + (GS.kinds.link !== false ? ' on' : '') + '" data-kind="link">마크다운 링크 ' + kindN.link + '</button>' +
-    '<button type="button" class="pill gk' + (GS.kinds.prop !== false ? ' on' : '') + '" data-kind="prop">related ' + kindN.prop + '</button>' +
-    '<button type="button" class="pill gk' + (GS.kinds.code !== false ? ' on' : '') + '" data-kind="code">경로 글자 ' + kindN.code + '</button>' +
-    pill('gcom', GS.showCommon, '공통 문서 보이기 ' + commons.length) +
-    pill('garch', GS.showArch, '보관 문서 보이기 ' + archN) +
-    pill('giso', GS.hideIso, '연결 없는 문서 숨기기 ' + iso) + '</div>';
-  if (!GS.showCommon && commons.length) h += '<div class="pills gcommon"><span class="glabel">공통 문서</span>' + commons.map(d => '<a class="gchip" href="' + docHref(d.path) + '" title="' + esc(d.path) + '"><i style="background:' + color(d.folder) + '"></i>' + esc(d.title) + '<span class="cnt">' + new Set((back.get(d.path) || []).filter(e => e.from !== d.path).map(e => e.from)).size + '</span></a>').join('') + '</div>';
-  h += '</div>';
+  const HELP = '같은 폴더 문서끼리 모으고 폴더마다 원을 그립니다. 원이나 폴더 이름을 끌면 폴더째 옮기고, 점을 원 밖으로 끌면 원이 늘어납니다.';
+  // 필터: 폴더는 그래프 왼쪽 아래 범례, 연결 종류와 함께 볼 문서는 오른쪽 위 "필터" 버튼 안. 버튼은 모두 "켜면 보인다".
+  const folderChips = foldersHere.map(f =>
+    '<button type="button" class="fchip' + (GS.hidden.has(f) ? ' off' : '') + '" data-f="' + esc(f) + '" aria-pressed="' + !GS.hidden.has(f) + '"><i style="background:' + color(f) + '"></i>' + esc(f) + '<span class="cnt">' + counts[f] + '</span></button>').join('');
+  const sp = (cls, on, label, attr) => '<button type="button" class="pill sm' + (cls ? ' ' + cls : '') + (on ? ' on' : '') + '" ' + attr + ' aria-pressed="' + on + '">' + label + '</button>';
+  const kindPills = sp('gk', GS.kinds.link !== false, '마크다운 링크 ' + kindN.link, 'data-kind="link"') + sp('gk', GS.kinds.prop !== false, 'related ' + kindN.prop, 'data-kind="prop"') + sp('gk', GS.kinds.code !== false, '경로 글자 ' + kindN.code, 'data-kind="code"');
+  const docPills = sp('', GS.showCommon, '공통 문서 ' + commons.length, 'id="gcom"') + sp('', GS.showArch, '보관 문서 ' + archN, 'id="garch"') + sp('', !GS.hideIso, '연결 없는 문서 ' + iso, 'id="giso"');
+  const viewOff = ['link', 'prop', 'code'].filter(k => GS.kinds[k] === false).length + !GS.showCommon + !GS.showArch + GS.hideIso;
+  const fbtn = '<button type="button" id="gfbtn" class="wide' + (GPANEL ? ' on' : '') + '" aria-label="필터' + (viewOff ? ', ' + viewOff + '개 꺼짐' : '') + '" aria-expanded="' + GPANEL + '">필터' + (viewOff ? '<span class="gbadge">' + viewOff + '</span>' : '') + '</button>';
+  const panel = '<div class="gpanel" id="gpanel"' + (GPANEL ? '' : ' hidden') + '><div class="glabel">연결 종류</div><div class="pills">' + kindPills + '</div><div class="glabel">함께 볼 문서</div><div class="pills">' + docPills + '</div></div>';
+  let h = '<div class="phead"><h1 class="page">연결</h1><span class="ghelp" tabindex="0" title="' + esc(HELP) + '" aria-label="' + esc(HELP) + '">?</span></div>';
   let svg = '<svg id="gsvg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="문서 연결 그래프">';
   // 지운 점과 선은 이전 자리에 잠깐 남겼다가 흐리게 지운다
   let ghosts = '';
@@ -1519,8 +1527,8 @@ function viewGraph(carry) {
   const xfCls = l => (nodes[l.a].d.folder !== nodes[l.b].d.folder ? 'bun' : '');
   svg += links.map((l, i) => { const c = [bornL.has(i) ? 'born' : '', xfCls(l)].filter(Boolean).join(' '); return '<path data-i="' + i + '"' + (c ? ' class="' + c + '"' : '') + ' d="' + edgeD(l) + '"></path>'; }).join('');
   svg += '</g><g id="gn">' + nodes.map(nodeSvg).join('') + '</g><g id="ghl">' + hullLabels + '</g></g></svg>';
-  h += '<div class="gwrap">' + svg + '<div class="gtools"><button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div>' +
-    (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 위 "보기"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
+  h += '<div class="gwrap">' + svg + '<div class="gtools">' + fbtn + '<button type="button" id="zin" aria-label="확대">+</button><button type="button" id="zout" aria-label="축소">−</button><button type="button" id="zfit" class="wide" aria-label="전체 보기">맞춤</button></div><div class="ginfo" id="ginfo" hidden></div><div class="gzoom" id="gzoom"></div><div class="glegend" id="gf">' + folderChips + '</div>' + panel +
+    (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 오른쪽 위 "필터"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
   $('#view').innerHTML = h;
 
   const svgEl = $('#gsvg'), vp = $('#vp');
@@ -1826,7 +1834,10 @@ function viewGraph(carry) {
   document.querySelectorAll('.gk').forEach(b => b.addEventListener('click', () => { const k = b.dataset.kind; GS.kinds[k] = GS.kinds[k] === false; relayout(); }));
   $('#gcom').addEventListener('click', () => { GS.showCommon = !GS.showCommon; relayout(); });
   $('#garch').addEventListener('click', () => { GS.showArch = !GS.showArch; relayout(); });
-  $('#giso').addEventListener('click', e => { GS.hideIso = !GS.hideIso; e.currentTarget.classList.toggle('on', GS.hideIso); refresh(); });
+  $('#giso').addEventListener('click', e => { GS.hideIso = !GS.hideIso; relayout(); });
+  // 필터 패널 열고 닫기
+  const gfb = $('#gfbtn');
+  if (gfb) gfb.addEventListener('click', () => { GPANEL = !GPANEL; $('#gpanel').hidden = !GPANEL; gfb.classList.toggle('on', GPANEL); gfb.setAttribute('aria-expanded', GPANEL); });
   if (hulls) {
     tightHulls(false); spreadHulls();
     nodes.forEach(n => { n.x = n.hx; n.y = n.hy; });
