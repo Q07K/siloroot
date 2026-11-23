@@ -122,7 +122,10 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .gtools button:hover{background:var(--code-bg)}
 .gtools button.wide{font-size:12px;font-weight:600}
 .gzoom{position:absolute;bottom:10px;right:14px;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;pointer-events:none}
-.ginfo{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 76px);max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;z-index:2;box-shadow:0 6px 20px var(--shadow)}
+.ginfo{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 76px);max-height:calc(100% - 24px);display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;z-index:2;box-shadow:0 6px 20px var(--shadow)}
+.ginfo[hidden]{display:none}
+/* 제목부터 "연결된 문서" 제목까지는 고정하고 문서 목록만 스크롤한다 */
+.ginfo>*{flex:none}
 .ginfo .ghead{display:flex;gap:10px;align-items:flex-start}
 .ginfo .gdot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex:none}
 .ginfo .gx{background:none;border:0;color:var(--faint);font-size:20px;line-height:1;cursor:pointer;width:32px;height:32px;margin:-6px -8px 0 0;border-radius:8px}
@@ -133,8 +136,18 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .ginfo .gopen{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:9px;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:14px}
 .ginfo .gopen:hover{text-decoration:none;opacity:.92}
 .ginfo h3{font-size:12px;color:var(--faint);margin:14px 0 4px;font-weight:600}
-.ginfo ul{list-style:none;margin:0;padding:0}
+/* 목록은 항목 10개(한 줄 29px)까지 보이고 나머지는 스크롤한다 */
+.ginfo ul{list-style:none;margin:0 -10px 0 0;padding:0 10px 0 0;flex:0 1 auto;min-height:0;max-height:290px;overflow:auto}
+/* 스크롤바: 바탕 칸과 화살표 없이 얇은 막대만, 상자 색에 맞춘다 */
+.ginfo ul::-webkit-scrollbar{width:6px}
+.ginfo ul::-webkit-scrollbar-track{background:transparent}
+.ginfo ul::-webkit-scrollbar-button{display:none}
+.ginfo ul::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.ginfo ul::-webkit-scrollbar-thumb:hover{background:var(--faint)}
+@supports not selector(::-webkit-scrollbar){.ginfo ul{scrollbar-width:thin;scrollbar-color:var(--border) transparent}}
 .ginfo li{padding:1px 0}
+/* 항목 높이를 한 줄로 맞춘다. 긴 이름은 …로 자르고 마우스를 올리면 전체가 보인다 */
+.ginfo .gnb{display:block;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .md .mdimg{display:block;margin:12px 0}
 .md .mdimg img{display:block;max-width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;box-sizing:border-box}
@@ -1247,6 +1260,7 @@ function viewGraph(carry) {
   nodes.forEach(n => { n.hx = n.x; n.hy = n.y; n.vx = 0; n.vy = 0; });
 
   const rad = n => 5 + Math.min(11, Math.sqrt(n.deg) * 2.4);
+  const status = n => (n.d.fm && n.d.fm.status) || ''; // 점을 눌렀을 때 뜨는 정보 상자가 쓴다
   // 점끼리 겹치지 않게: 두 점 사이가 반지름 합 + NODE_GAP보다 가까우면 반씩 밀어낸다
   const NODE_GAP = 10;
   function separateNodes(ks) {
@@ -1744,7 +1758,7 @@ function viewGraph(carry) {
     box.innerHTML = '<div class="ghead"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div style="flex:1;min-width:0"><strong>' + esc(n.d.title) + '</strong><div class="path">' + esc(n.id) + (status(n) ? ' · ' + esc(status(n)) : '') + '</div></div><button type="button" class="gx" id="gclose" aria-label="닫기">×</button></div>' +
       '<div class="gstats"><span><b>' + ins + '</b>들어옴</span><span><b>' + outs + '</b>나감</span><span><b>' + ago(n.d.mtime) + '</b>수정</span></div>' +
       '<a class="gopen" href="' + docHref(n.id) + '">문서 열기</a><h3>연결된 문서 ' + nb.length + '</h3><ul>' +
-      (nb.map(j => '<li><button type="button" class="lnk gnb" data-k="' + j + '"><span style="color:' + color(nodes[j].d.folder) + '" aria-hidden="true">●</span> ' + esc(nodes[j].d.title) + '</button></li>').join('') || '<li class="empty">없음</li>') + '</ul>';
+      (nb.map(j => '<li><button type="button" class="lnk gnb" data-k="' + j + '" title="' + esc(nodes[j].d.title) + '"><span style="color:' + color(nodes[j].d.folder) + '" aria-hidden="true">●</span> ' + esc(nodes[j].d.title) + '</button></li>').join('') || '<li class="empty">없음</li>') + '</ul>';
     box.hidden = false;
     $('#gclose').addEventListener('click', () => select(null));
     box.querySelectorAll('.gnb').forEach(b => b.addEventListener('click', () => pick(+b.dataset.k)));
