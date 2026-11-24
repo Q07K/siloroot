@@ -46,11 +46,12 @@ tags: [네트워크]
 
 | type | 무엇 | status 값 |
 | --- | --- | --- |
-| `issue` | 겪은 문제 하나와 원인, 해결 | 열림, 원인 찾음, 해결, 안 함 |
+| `requirement` | 기능 하나의 요구사항: 문제, 목표, 거쳐 온 길, 결과 | 시작 전, 진행 중, 완료, 접음 |
+| `issue` | 겪은 문제 하나와 원인, 해결 | 열림, 보류, 해결, 안 고침 |
 | `idea` | 이 프로젝트에서 만들 것. 만들기 시작하면 `진행 중`으로 둔다 | 아이디어, 진행 중, 보류, 접음, 완료 |
-| `decision` | 따로 남길 결정 하나 | 제안, 확정, 바뀜 |
+| `decision` | 결정 하나. 본문에 반영 상태 | 제안, 확정, 바뀜 |
 | `design` | 설계 문서 | 제안, 확정, 바뀜 |
-| `roadmap` | 만드는 순서와 계획 | 제안, 확정, 진행 중, 완료, 접음 |
+| `plan` | 기능 하나의 구현 단계. 진행은 본문 체크 목록 | 제안, 확정, 진행 중, 완료, 접음 |
 | `convention` | 팀이 따르는 약속이나 정책 하나 | 제안, 사용 중, 바뀜, 폐기 |
 | `source` | 다른 문서의 근거가 되는 원자료 | 사용 중, 보관 |
 | `feedback` | 뷰어에서 남긴 댓글 하나 | 대기, 진행 중, 완료, 안 함 |
@@ -62,7 +63,9 @@ tags: [네트워크]
 | `guide` | 작업 규칙 | 사용 중, 보관 |
 | `index` | 폴더 안내와 목차 | 사용 중, 보관 |
 | `ledger` | 객체 여러 개를 모은 장부 | 사용 중, 보관 |
-| `log` | 시간순 기록 | 사용 중, 끝남 |
+| `roadmap` | 로드맵 한 장. 지금, 다음, 나중 칸은 본문 | 사용 중 |
+| `architecture` | 지금 구조 한 장 | 사용 중 |
+| `log` | 시간순 기록. 작업 일지는 그날이 지나면 `끝남` | 사용 중, 끝남 |
 | `note` | 메모 | 사용 중, 보관 |
 
 쓰는 법:
@@ -78,24 +81,28 @@ tags: [네트워크]
 
 | 폴더 | type | 비고 |
 | --- | --- | --- |
+| `shared/roadmap.md` | `roadmap` | 만들기로 정한 것만 올린다. 생각 중인 것은 아이디어에만 |
+| `shared/architecture.md` | `architecture` | |
+| `shared/requirements/` | `requirement` | 기능 하나에 파일 하나. 세부는 각 자리 문서에 두고 경로만 모은다 |
 | `shared/issues/` | `issue` | 이슈 하나에 파일 하나. 개념 설명은 홈 공부 노트에 두고 이슈에는 이 프로젝트에서 겪은 일만 적는다 |
 | `shared/ideas/` | `idea` | 아이디어 하나에 파일 하나. 만들기 시작하면 `status`만 `진행 중`으로 바꾸고 옮기지 않는다 |
-| `shared/decisions/` | `decision` | 결정 하나에 파일 하나 |
+| `shared/decisions/` | `decision` | 결정 하나에 파일 하나. 이 결정의 근거가 된 측정값도 여기에 |
 | `shared/design/` | `design` | |
-| `shared/roadmap/` | `roadmap` | |
-| `shared/conventions/` | `convention` | |
+| `shared/plans/` | `plan` | 기능 하나에 파일 하나 |
+| `shared/conventions/` | `convention` | 용어집은 `glossary.md` 한 장 |
 | `private/sources/` | `source` | |
 | `private/notes/` | `note` | |
 | `private/discussions/` | `note` | 논의 하나에 파일 하나. 결론은 결정이나 아이디어 문서에 두고 서로 `related`로 잇는다 |
 | `private/feedback/` | `feedback` | 형식은 홈의 `feedback/README.md`와 `/siloroot:feedback`을 따른다 |
-| `private/log/` | 기록은 `log`, `open-questions.md`는 `ledger` | |
+| `private/worklog/` | `log` | 하루에 한 문서 `YYYY-MM-DD.md` |
+| `private/open-questions.md` | `ledger` | |
 | 맨 위 | 규칙은 `guide` | |
 
 ## 4. 장부 안의 객체
 
 | 파일 | 객체 | 지켜야 할 형식 |
 | --- | --- | --- |
-| `private/log/open-questions.md` | 미해결 질문 | `## 구분` 아래 `- [ ] **제목**: 내용`. 끝내면 `[x]`로 바꾸거나 줄을 지운다 |
+| `private/open-questions.md` | 미해결 질문 | `## 구분` 아래 `- [ ] **제목**: 내용`. 끝내면 `[x]`로 바꾸거나 줄을 지운다 |
 
 ## 5. AI가 할 일
 

@@ -52,7 +52,7 @@ export async function initHome(homeArg) {
   const configCreated = !cfg;
   if (!cfg) {
     // 4180은 대개 처음 만드는 프로젝트가 쓰므로 홈은 4181부터 찾는다
-    writeConfig(home, { port: await findFreePort(4181, 4299, { avoid: usedPorts() }), schema: 3, mode: 'home', plugin: pluginVersion() });
+    writeConfig(home, { port: await findFreePort(4181, 4299, { avoid: usedPorts() }), schema: SCHEMA, mode: 'home', plugin: pluginVersion() });
     cfg = loadConfig(home);
   }
   const { created, updated, skipped, warnings, notes } = applyRefresh(home, cfg);
@@ -124,7 +124,7 @@ export async function initProject(rootArg, { home, homeAccess } = {}) {
   }
 
   fs.mkdirSync(root, { recursive: true });
-  writeConfig(root, { port: await findFreePort(4180, 4299, { avoid: usedPorts() }), layout: 'wrapped', schema: 3, mode: 'project', plugin: pluginVersion() });
+  writeConfig(root, { port: await findFreePort(4180, 4299, { avoid: usedPorts() }), layout: 'wrapped', schema: SCHEMA, mode: 'project', plugin: pluginVersion() });
   const cfg = loadConfig(root);
   const name = registerProject(root);
   const { created, updated, skipped, warnings, notes } = applyRefresh(root, cfg);

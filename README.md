@@ -47,7 +47,7 @@ One conversation can move freely between study, ideas, decisions, and projects. 
 
 ## Created files
 
-SiloRoot keeps two kinds of workspace (layout 3, from 0.6.0):
+SiloRoot keeps two kinds of workspace (layout 4, from 0.8.0):
 
 - **Project**: inside each project's `.siloroot/` folder. A shared area (`shared/`) holds what the team can see; a private area (`private/`) holds what only you see.
 - **Home**: one per person, by default `<user folder>/siloroot-home`. It holds what spans projects: study notes, personal ideas, your profile and writing rules. The first `/siloroot:init` in a project asks where to put it and creates it.
@@ -60,8 +60,8 @@ The home location and the list of projects are kept in `~/.siloroot/user.json`. 
 | --- | --- |
 | `.siloroot/CLAUDE.md` | A SiloRoot block (a table of places and rules). Everything outside the block is yours |
 | `.siloroot/metadata-guide.md` | Document property conventions for the project |
-| `.siloroot/shared/` | `issues/`, `ideas/` (product ideas), `decisions/`, `design/`, `roadmap/`, `conventions/`. Shows in `git status`; you decide what to commit |
-| `.siloroot/private/` | `log/` (work log, open questions), `sources/`, `notes/`, `discussions/`, `feedback/` (viewer comments) |
+| `.siloroot/shared/` | `roadmap.md` (what you decided to build: now, next, later), `architecture.md` (the current structure on one page), `requirements/` (one per feature), `ideas/` (product ideas), `decisions/` (decisions and where they are applied), `design/`, `plans/` (implementation plans), `issues/`, `conventions/` (including the glossary, `glossary.md`). Shows in `git status`; you decide what to commit |
+| `.siloroot/private/` | `worklog/` (a work log, one document per day), `open-questions.md` (things to confirm), `sources/`, `notes/`, `discussions/`, `feedback/` (viewer comments) |
 | `.siloroot/config.json`, `state/` | Settings (port, layout) and viewer output |
 | `CLAUDE.local.md` | Loads the SiloRoot rules with one line, `@.siloroot/CLAUDE.md`. If the file exists, only the marked block is appended |
 | `.ignore` | Lets Claude's search (ripgrep) find `.siloroot/` even though git ignores it (`!.siloroot/`). Viewer output stays out of search |
@@ -73,16 +73,18 @@ The home location and the list of projects are kept in `~/.siloroot/user.json`. 
 | --- | --- |
 | `CLAUDE.md`, `metadata-guide.md` | The home's rules block and property conventions |
 | `study/` | Study notes and the topic list (understanding levels). Concepts learned in any project go here; what happened in a project goes to that project's `shared/issues/` |
-| `ideas/` | Personal ideas, with their decisions, designs and plans next to them |
+| `ideas/` | Personal ideas (ones you called personal), with their decisions, designs and plans next to them |
 | `feedback/` | Writing-rule and user-profile candidates from every project, and comments on home documents |
-| `log/` | Work log, open questions |
+| `worklog/`, `open-questions.md` | A work log, one document per day; things to confirm |
 | `profile.md`, `ai-comment.md`, `writing-guide.md` | Approved work habits and preferences (every project's rules block imports this), the "나" (me) page comment, writing rules |
 
+- Every place folder has a `README.md`: what goes in, what does not (and where it goes instead), file names, statuses and a template. The viewer graph draws places with no documents as faint circles.
+- Each kind of event in a conversation has a document to go to: a decision goes to a decision record, a problem to an issue, measurements to the decision they support, something you decided to build to the roadmap and a requirement, and a new topic to a new discussion. The rules are in the block's "흐름 나누기" (splitting the flow) section.
 - Paths inside documents (`related`, backtick paths) are relative to the workspace's document root (`.siloroot/` in a project). Home documents are written `home:study/a.md`, another project's documents `<name>:shared/issues/x.md`; names come from `user.json`.
 - Shared documents should not point at private or home documents your teammates cannot see. The viewer's property check warns about it.
 - Home access: the home is outside the project, so Claude Code may ask for permission each time it writes there. init offers to add the home folder to the project's `.claude/settings.local.json` (`permissions.additionalDirectories`); the default is to add it. Other settings in that file are kept.
 - `.git/info/exclude` is per clone, so run init again after cloning the project on another machine. A teammate who clones a repository with `shared/` gets the shared documents and init creates the rest.
-- Workspaces from earlier versions (layout 1 or 2, numbered folders such as the study-notes folder) keep working as they are. From 0.7.0, `/siloroot:update` moves them to layout 3 (see Updating).
+- Workspaces from earlier versions (layout 1 or 2, numbered folders such as the study-notes folder) keep working as they are. `/siloroot:update` moves them one step at a time: to layout 3 from 0.7.0, to layout 4 from 0.8.0 (see Updating).
 
 The templates and skill text are currently in Korean only.
 
@@ -91,10 +93,11 @@ The templates and skill text are currently in Korean only.
 After you upgrade the plugin (`/plugin`), `/siloroot:update` brings the workspace in line with it. If the workspace is behind, a hook says so once at session start. It is not added to every message.
 
 - The workspace records its layout number (`schema`) and the plugin version it was last brought up to (`plugin`) in `.siloroot/config.json`.
-- When a version changes the layout, a migration moves things, one layout step at a time (after one step, the update previews the next). There are two:
+- When a version changes the layout, a migration moves things, one layout step at a time (after one step, the update previews the next). There are three:
   - Layout 1 (the old style, documents at the project root) to layout 2 (documents wrapped in `.siloroot/`).
   - Layout 2 to layout 3 (0.7.0). Project documents are split into `shared/` and `private/`, and study notes, your profile, writing rules and writing-rule and profile candidates move to the home. If you have no home yet, it is created where you choose. The update shows where each document will go and asks you to approve the list once. Ideas cannot be sorted by rule, so they default to `shared/ideas/`; move personal ones to `home:ideas/`, and their decision documents and images follow them. Paths inside the moved documents are rewritten to the new places (`home:…` and `<name>:…` across workspaces). If the home already has `profile.md`, `writing-guide.md` or `study/README.md`, table rows are merged instead of overwritten, and a study note with the same name as one in the home is asked about. Nothing is committed: you choose what in `shared/` to commit. The update then brings the home up to date with the same script.
-- The session-start notice in a layout 3 project also says when the home is behind.
+  - Layout 3 to layout 4 (0.8.0). The work log (`changelog.md`) is split at each date heading into `private/worklog/YYYY-MM-DD.md`, and the open questions move to `private/open-questions.md`. Documents in the old `shared/roadmap/` are per-feature implementation plans, so they move to `shared/plans/`; a one-page roadmap (`shared/roadmap.md`), a system overview (`shared/architecture.md`) and a README in every place folder are created. Decision, design and plan documents inside the ideas folder move to their own places after you approve the list once. Issue statuses `원인 찾음` become `열림` and `안 함` becomes `안 고침`. Paths that pointed at moved documents are rewritten, including in the home and in registered projects. The home turns `log/` into `worklog/` and `open-questions.md`.
+- The session-start notice in a layout 3 or later project also says when the home is behind.
 - The changes are shown first, and anything that needs a person's choice (content outside the block in the team `CLAUDE.md`, the top-level `.gitignore`, documents already committed to git, and so on) is asked one by one. Defaults are never picked without an answer.
 - You can stay on the current layout instead. You then get only the managed-block refresh, and the notice for that layout stops (`hold` in `config.json`).
 - Before changing anything it makes a backup in `.siloroot/state/backups/`. Say "되돌려 줘" (roll it back) to restore, newest backup first. If you edited files after the update, it stops and asks. Backups that changed the layout are never removed automatically; refresh-only backups keep the latest 5.

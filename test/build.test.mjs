@@ -186,7 +186,7 @@ test('모양 3 프로젝트의 폴더 묶음은 앞 두 마디', async () => {
   const d = dataOf(root);
   assert.equal(d.docs.find((x) => x.path === 'shared/ideas/a.md').folder, 'shared/ideas');
   assert.equal(d.docs.find((x) => x.path === 'CLAUDE.md').folder, '(맨 위)');
-  assert.equal(d.mode, 'project'); assert.equal(d.schema, 3);
+  assert.equal(d.mode, 'project'); assert.equal(d.schema, 4);
   assert.deepEqual(d.objects.ideas.map((x) => x.doc), ['shared/ideas/a.md']);
 });
 
