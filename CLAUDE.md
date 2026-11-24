@@ -15,6 +15,8 @@
 - `npm test`와 `claude plugin validate .`를 실행한다. 실패가 있으면 이번 변경 때문인지 원래 있던 것인지 가려 PR에 적는다.
 - 개인 정보 검사: 테스트가 `test/banned-words.local.txt`(git에 올리지 않음)의 금지어로 템플릿, 스킬, README를 검사한다. 커밋 기록과 PR 본문에도 실명, 회사, 고객사 이름을 쓰지 않는다.
 - 기능이나 템플릿이 바뀌면 `.claude-plugin/plugin.json`과 `package.json`의 버전을 함께 올린다.
+- 폴더 배치, 문서 위치, 속성 값, 설정 모양이 바뀌면 `SCHEMA`(`lib/config.mjs`)를 올리고 `lib/migrations/`에 마이그레이션과 테스트를 함께 낸다.
+- 관리 블록이나 안내 문서 템플릿만 바뀌면 `SCHEMA`는 그대로 둔다. `/siloroot:update`의 맞추기가 맡는다.
 - README는 영어(`README.md`)와 한국어(`README.ko.md`) 두 벌이다. 한쪽을 고치면 다른 쪽도 고친다.
 
 ## 저장소 설정

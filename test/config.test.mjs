@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
+import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, writeConfig, findFreePort, DEFAULT_DIRS } from '../lib/config.mjs';
-import { makeProject } from './fixtures.mjs';
+import { loadConfig, writeConfig, updateConfig, pluginVersion, findFreePort, DEFAULT_DIRS } from '../lib/config.mjs';
+import { makeProject, write } from './fixtures.mjs';
 
 test('설정이 없는 폴더는 null', () => {
   assert.equal(loadConfig(makeProject()), null);
@@ -38,4 +39,31 @@ test('쓰는 중인 포트는 건너뛴다', async () => {
   } finally {
     srv.close();
   }
+});
+
+test('schema가 없으면 layout으로 추정한다', () => {
+  const a = makeProject(); writeConfig(a, { port: 4180, layout: 'wrapped' });
+  assert.equal(loadConfig(a).schema, 2);
+  const b = makeProject(); writeConfig(b, { port: 4180 });
+  assert.equal(loadConfig(b).schema, 1);
+  assert.equal(loadConfig(b).plugin, null);
+  assert.equal(loadConfig(b).hold, null);
+});
+
+test('writeConfig에 schema와 plugin을 주면 적는다', () => {
+  const r = makeProject(); writeConfig(r, { port: 4180, layout: 'wrapped', schema: 2, plugin: '9.9.9' });
+  const c = loadConfig(r);
+  assert.equal(c.schema, 2); assert.equal(c.plugin, '9.9.9');
+});
+
+test('updateConfig는 모르는 칸과 BOM 있는 파일을 지키고 null 칸을 지운다', () => {
+  const r = makeProject();
+  write(r, '.siloroot/config.json', '﻿' + JSON.stringify({ version: 1, port: 4181, metrics: false, hold: 2 }));
+  updateConfig(r, { schema: 2, plugin: '0.4.0', hold: null });
+  const raw = JSON.parse(fs.readFileSync(path.join(r, '.siloroot', 'config.json'), 'utf8'));
+  assert.deepEqual(raw, { version: 1, port: 4181, metrics: false, schema: 2, plugin: '0.4.0' });
+});
+
+test('pluginVersion은 plugin.json의 버전', () => {
+  assert.match(pluginVersion(), /^\d+\.\d+\.\d+$/);
 });

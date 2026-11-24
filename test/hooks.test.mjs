@@ -5,7 +5,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { writeConfig, findFreePort } from '../lib/config.mjs';
+import { writeConfig, updateConfig, loadConfig, findFreePort, pluginVersion } from '../lib/config.mjs';
+import { updateNotice } from '../lib/update-check.mjs';
 import { makeProject, write } from './fixtures.mjs';
 
 const V = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'viewer');
@@ -73,7 +74,8 @@ test('승인된 사용자 정보 후보는 profile.md 반영 대기로 알린다
 
 test('제안 상태의 사용자 정보 후보는 알리지 않는다', () => {
   const root = makeProject();
-  writeConfig(root, { port: 4180 });
+  // 업데이트 알림이 붙지 않게 플러그인 버전을 맞추고 예전 배치에 머물기로 한 작업 공간
+  writeConfig(root, { port: 4180, plugin: pluginVersion() }); updateConfig(root, { hold: 2 });
   write(root, '04-feedback/trait-2026-11-22-001.md', '---\ntype: trait\nstatus: 제안\n---\n\n# 사용자 정보 후보\n');
   assert.equal(run('notify.mjs', root, ['--session']), '');
 });
@@ -159,9 +161,40 @@ test('AI 코멘트 파일이 9시보다 오래됐으면 세션 시작 때만 갱
 
 test('AI 코멘트를 방금 고쳤거나 파일이 없으면 알리지 않는다', () => {
   const root = makeProject();
-  writeConfig(root, { port: 4180 });
+  // 업데이트 알림이 붙지 않게 플러그인 버전을 맞추고 예전 배치에 머물기로 한 작업 공간
+  writeConfig(root, { port: 4180, plugin: pluginVersion() }); updateConfig(root, { hold: 2 });
   assert.equal(run('notify.mjs', root, ['--session']), '');
   write(root, '05-profile/ai-comment.md', '---\ntype: note\nstatus: 사용 중\n---\n\n# AI 코멘트\n');
   // 9시 전에 방금 고친 파일은 다음 9시까지 갱신 차례가 아니고, 9시 뒤에 고친 파일도 그날은 아니다
+  assert.equal(run('notify.mjs', root, ['--session']), '');
+});
+
+test('뒤처진 작업 공간은 세션 시작에만 업데이트를 알린다', () => {
+  const root = makeProject(); writeConfig(root, { port: 4180 }); // flat, schema 1
+  const ctx = JSON.parse(run('notify.mjs', root, ['--session'])).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /업데이트할 것이 있습니다/);
+  assert.match(ctx, /작업 공간 모양 1 → 2: 문서를 \.siloroot\/ 안으로 감싼다/);
+  assert.match(ctx, new RegExp('규칙 블록과 안내 문서를 ' + pluginVersion().replace(/\./g, '\.') + '에 맞출 수 있습니다'));
+  assert.doesNotMatch(run('notify.mjs', root), /업데이트할 것/);
+});
+
+test('업데이트 알림은 처리할 일 앞에 따로 붙는다', () => {
+  const root = makeProject(); writeConfig(root, { port: 4180 });
+  write(root, '04-feedback/2026-11-22-001.md', '---\ntype: feedback\nstatus: 대기\n---\n\n# 피드백\n');
+  const ctx = JSON.parse(run('notify.mjs', root, ['--session'])).hookSpecificOutput.additionalContext;
+  assert.ok(ctx.indexOf('업데이트할 것이 있습니다') < ctx.indexOf('처리할 일이 있습니다'));
+});
+
+test('hold가 SCHEMA 이상이면 모양 알림을 끄고 맞추기 알림만 남긴다', () => {
+  const root = makeProject(); writeConfig(root, { port: 4180 });
+  updateConfig(root, { hold: 2, plugin: '0.0.1' });
+  const ctx = JSON.parse(run('notify.mjs', root, ['--session'])).hookSpecificOutput.additionalContext;
+  assert.doesNotMatch(ctx, /작업 공간 모양/);
+  assert.match(ctx, /규칙 블록과 안내 문서를/);
+  assert.deepEqual(updateNotice({ ...loadConfig(root), plugin: pluginVersion() }), []);
+});
+
+test('최신 작업 공간은 업데이트 알림이 없다', () => {
+  const root = makeProject(); writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2, plugin: pluginVersion() });
   assert.equal(run('notify.mjs', root, ['--session']), '');
 });
