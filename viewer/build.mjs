@@ -17,6 +17,7 @@ import { timeScript } from '../lib/metrics.mjs';
 import { VOCAB } from '../lib/vocab.mjs';
 import { placesOf, localPlace, folderRules, groupOf } from '../lib/layout.mjs';
 import { readUser, workspaceRoot, WS_REF } from '../lib/user.mjs';
+import { makeIndex, resolveTarget as resolveLink } from '../lib/links.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -64,16 +65,8 @@ function walk(dir, out) {
 const toRel = (full) => path.relative(DOCS, full).split(path.sep).join('/');
 
 const files = (fs.existsSync(DOCS) ? walk(DOCS, []) : []).filter((f) => fs.statSync(f).size <= MAX_FILE);
-const mdSet = new Set(files.map(toRel));
-const dirSet = new Set();
-const byBase = new Map();
-for (const rel of mdSet) {
-  const parts = rel.split('/');
-  for (let k = 1; k < parts.length; k++) dirSet.add(parts.slice(0, k).join('/'));
-  const base = parts[parts.length - 1].toLowerCase();
-  if (!byBase.has(base)) byBase.set(base, []);
-  byBase.get(base).push(rel);
-}
+const LINK_INDEX = makeIndex(files.map(toRel));
+const { mdSet } = LINK_INDEX;
 
 // ---------- 2. 링크 해석 ----------
 // 다른 작업 공간을 가리키는 경로: home:study/a.md, <프로젝트 이름>:shared/issues/x.md (이름은 user.json)
@@ -95,34 +88,8 @@ function wsRef(raw) {
 
 // mode 'link': 마크다운 링크. 문서 기준 상대 경로를 먼저 본다.
 // mode 'code': 백틱 안의 경로 글자. 폴더 맨 위 기준을 먼저 본다(이 폴더 문서들이 그렇게 쓴다).
-function resolveTarget(raw, fromRel, mode) {
-  let t = String(raw).trim();
-  if (!t || /^[a-z][a-z0-9+.-]*:/i.test(t) || t.startsWith('#')) return null;
-  t = t.replace(/#.*$/, '').replace(/:\d+(-\d+)?$/, '');
-  try { t = decodeURIComponent(t); } catch { /* 그대로 둔다 */ }
-  t = t.replace(/\\/g, '/').replace(/^\.\//, '');
-  if (!t || /\s{2,}/.test(t)) return null;
-  if (mode === 'code' && !t.includes('/') && !/\.(md|markdown)$/i.test(t)) return null;
-  if (t.startsWith('/')) t = t.slice(1);
-  const fromDir = path.posix.dirname(fromRel);
-  const docRel = path.posix.normalize(path.posix.join(fromDir === '.' ? '' : fromDir, t));
-  const rootRel = path.posix.normalize(t);
-  const candidates = mode === 'code' ? [rootRel, docRel] : [docRel, rootRel];
-  for (let c of candidates) {
-    c = c.replace(/\/+$/, '');
-    if (!c || c.startsWith('..')) continue;
-    if (mdSet.has(c)) return c;
-    if (dirSet.has(c)) {
-      for (const name of ['README.md', 'readme.md', 'index.md']) if (mdSet.has(c + '/' + name)) return c + '/' + name;
-      return null;
-    }
-  }
-  if (!t.includes('/') && /\.(md|markdown)$/i.test(t)) {
-    const list = byBase.get(t.toLowerCase());
-    if (list && list.length === 1) return list[0];
-  }
-  return null;
-}
+// 푸는 법은 lib/links.mjs에 있다(마이그레이션의 경로 고치기와 같이 쓴다)
+const resolveTarget = (raw, fromRel, mode) => resolveLink(LINK_INDEX, raw, fromRel, mode);
 
 function extractLinks(text, rel) {
   const body = text
