@@ -82,3 +82,25 @@ test('맞추기 백업은 5개만, 모양 바꾼 백업은 남긴다', () => {
   assert.ok(left.some((b) => b.name === schemaChange));
   assert.ok(left.every((b) => !removed.includes(b.name)));
 });
+
+test('프로젝트 밖 파일(워크트리의 git 제외 목록)은 백업 폴더 안에 따로 담고 백업마다 따로 되돌린다', () => {
+  // .worktrees/<이름> 워크트리처럼 git 제외 목록이 두 단계 위에 있다
+  const top = makeProject();
+  const root = path.join(top, '.worktrees', 'wt');
+  fs.mkdirSync(root, { recursive: true });
+  const outside = path.join(top, 'git-info-exclude');
+  fs.writeFileSync(outside, '처음');
+  const rel = path.relative(root, outside).split(path.sep).join('/');
+  const first = createBackup(root, { from: 2, to: 2, files: [rel], creates: [] });
+  fs.writeFileSync(outside, '첫 업데이트 뒤');
+  sealBackup(root, first.name);
+  const second = createBackup(root, { from: 2, to: 2, files: [rel], creates: [] });
+  fs.writeFileSync(outside, '두 번째 업데이트 뒤');
+  sealBackup(root, second.name);
+  const strays = fs.readdirSync(BK(root)).filter((n) => !n.includes('schema'));
+  assert.deepEqual(strays, [], '백업 폴더 밖에 쓰지 않는다');
+  restoreBackup(root, second.name);
+  assert.equal(fs.readFileSync(outside, 'utf8'), '첫 업데이트 뒤');
+  restoreBackup(root, first.name);
+  assert.equal(fs.readFileSync(outside, 'utf8'), '처음');
+});

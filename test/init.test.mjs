@@ -248,3 +248,15 @@ test('flat 작업 공간에서 init을 다시 돌리면 옮기지 않고 업데�
   assert.ok(res.warnings.some((w) => w.includes('/siloroot:update') && w.includes('모양 1')));
   assert.equal(loadConfig(root).plugin, null);
 });
+
+test('git에 계속 올리기로 한(tracked) 작업 공간은 init을 다시 돌려도 .siloroot/를 제외하지 않는다', async () => {
+  const root = makeProject();
+  git(root, ['init', '-q']);
+  writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2 });
+  const cfgFile = path.join(root, '.siloroot', 'config.json');
+  fs.writeFileSync(cfgFile, JSON.stringify({ ...JSON.parse(fs.readFileSync(cfgFile, 'utf8')), tracked: true }));
+  await initProject(root);
+  const exclude = read(root, '.git/info/exclude').split(/\r?\n/);
+  assert.ok(!exclude.includes('.siloroot/'));
+  assert.ok(exclude.includes('CLAUDE.local.md'));
+});

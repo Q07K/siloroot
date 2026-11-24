@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadConfig, updateConfig, pluginVersion, SCHEMA, SUPPORTED_SCHEMAS } from '../lib/config.mjs';
 import { pendingMigrations } from '../lib/migrations/index.mjs';
-import { planRefresh, applyRefresh, refreshPaths } from '../lib/workspace-sync.mjs';
+import { planRefresh, applyRefresh } from '../lib/workspace-sync.mjs';
 import { createBackup, sealBackup, listBackups, restoreBackup, pruneBackups } from '../lib/backup.mjs';
 import { timeScript } from '../lib/metrics.mjs';
 
@@ -37,6 +37,9 @@ function saveDeclined(cfg, add) {
   return cur;
 }
 
+// 맞추기가 바꿀 파일(관리 블록을 넣거나 바꿀 파일, 새로 만들 파일, 줄을 더할 파일)
+const refreshChanges = (r) => r.blocks.filter((b) => b.state === 'created' || b.state === 'updated').map((b) => b.file)
+  .concat(r.missingFiles, r.missingLines.map((l) => l.file));
 const refreshClean = (r) => r.blocks.every((b) => b.state === 'skipped' || b.state === 'conflict') && !r.missingFiles.length && !r.missingLines.length;
 const heldBy = (cfg, m) => cfg.hold != null && m.to <= cfg.hold;
 
@@ -108,8 +111,10 @@ export function applyUpdate(rootArg, answersArg = {}) {
   if (touchesFiles) {
     const files = ['.siloroot/config.json'], creates = [];
     for (const m of applying) { const t = plans.get(m.id).touches; files.push(...t.files); creates.push(...t.creates); }
-    // 맞추기는 마이그레이션 뒤 배치로 돌기 때문에 지금 배치와 감싼 배치의 대상을 모두 담는다
-    files.push(...refreshPaths(root, cfg), ...refreshPaths(root, { ...cfg, layout: 'wrapped' }));
+    // 맞추기가 실제로 바꿀 파일만 담는다. 작업 기록처럼 계속 쓰는 문서를 담으면 되돌릴 때 그 뒤 쓴 내용까지 돌아간다.
+    // 마이그레이션이 있으면 맞추기는 옮긴 뒤 배치로 돌기 때문에 감싼 배치의 계획도 더한다
+    files.push(...refreshChanges(planRefresh(root, cfg, { declined })));
+    if (applying.length) files.push(...refreshChanges(planRefresh(root, { ...cfg, layout: 'wrapped' }, { declined })));
     const to = applying.length ? applying[applying.length - 1].to : cfg.schema;
     backup = createBackup(root, { from: cfg.schema, to, files, creates }).name;
   }
@@ -131,14 +136,27 @@ export function applyUpdate(rootArg, answersArg = {}) {
   }
 
   let refresh = null;
-  if (!stoppedAt) {
-    if (heldTo != null) updateConfig(root, { hold: heldTo });
-    refresh = applyRefresh(root, loadConfig(root), { declined });
-    updateConfig(root, { plugin: pluginVersion() });
+  let refreshError = null;
+  try {
+    if (!stoppedAt) {
+      if (heldTo != null) updateConfig(root, { hold: heldTo });
+      try {
+        refresh = applyRefresh(root, loadConfig(root), { declined });
+        updateConfig(root, { plugin: pluginVersion() });
+      } catch (e) {
+        // 맞추기에서 실패하면 plugin을 적지 않고 멈춘다. 마이그레이션은 이미 적용됐다
+        refreshError = e.message;
+        stoppedAt = 'refresh';
+      }
+    }
+  } finally {
+    // 실패해도 봉해 둔다. 봉하지 않으면 되돌릴 때 모든 파일이 충돌로 보인다
+    if (backup) { sealBackup(root, backup); pruneBackups(root); }
   }
-  if (backup) { sealBackup(root, backup); pruneBackups(root); }
   const after = loadConfig(root);
-  return { backup, migrations: results, refresh, check: check(root), schema: after.schema, plugin: after.plugin, stoppedAt };
+  const out = { backup, migrations: results, refresh, check: check(root), schema: after.schema, plugin: after.plugin, stoppedAt };
+  if (refreshError) out.refreshError = refreshError;
+  return out;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

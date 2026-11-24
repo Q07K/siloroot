@@ -187,3 +187,56 @@ test('머물기로 한 마이그레이션은 답이 없어도 머문 것으로 �
   assert.equal(loadConfig(root).plugin, pluginVersion());
   assert.equal(loadConfig(root).hold, 2);
 });
+
+test('001이 맞추기 중에 실패해도 팀 CLAUDE.md 내용을 잃지 않고 다시 돌리면 이어진다', () => {
+  const root = flatProject();
+  // 읽기 전용 .siloroot/CLAUDE.md: 미리 보기는 읽을 수 있지만 001 안의 맞추기가 옮긴 뒤에 쓰다가 실패한다
+  const inner = write(root, '.siloroot/CLAUDE.md', '---\ntype: guide\nstatus: 사용 중\n---\n\n# 작업 규칙\n');
+  fs.chmodSync(inner, 0o444);
+  const p = planUpdate(root);
+  const answers = answersFor(p);
+  answers.decisions['root-claude-outside'] = 'move';
+  const res = applyUpdate(root, answers);
+  assert.equal(res.stoppedAt, ID);
+  assert.equal(loadConfig(root).schema, 1, '실패한 마이그레이션은 모양을 올리지 않는다');
+  assert.ok(read(root, 'CLAUDE.md').includes('팀이 쓰는 내용.'), '팀 내용은 아직 맨 위에 있다');
+  fs.chmodSync(inner, 0o644);
+  const answers2 = answersFor(planUpdate(root), 'apply');
+  answers2.decisions['root-claude-outside'] = 'move';
+  const again = applyUpdate(root, answers2);
+  assert.equal(again.stoppedAt, null, JSON.stringify(again.migrations));
+  assert.equal(loadConfig(root).schema, 2);
+  assert.ok(!exists(root, 'CLAUDE.md'));
+  assert.ok(read(root, '.siloroot/CLAUDE.md').includes('팀이 쓰는 내용.'), '팀 내용은 블록 뒤로 옮겨졌다');
+});
+
+test('맞추기가 실패하면 refresh에서 멈췄다고 알리고 백업을 봉해 되돌릴 수 있다', async () => {
+  const root = makeProject();
+  await initProject(root);
+  const before = snapshot(root);
+  fs.rmSync(path.join(root, '.siloroot', '01-log'), { recursive: true });
+  write(root, '.siloroot/01-log', '폴더 자리에 파일');
+  const res = applyUpdate(root, {});
+  assert.equal(res.stoppedAt, 'refresh');
+  assert.ok(res.refreshError);
+  assert.ok(res.backup);
+  const r = cli(root, ['--restore', res.backup]);
+  assert.deepEqual(r.conflicts, []);
+  assert.equal(read(root, '.siloroot/01-log'), '폴더 자리에 파일');
+  assert.ok(before);
+});
+
+test('관리 블록만 맞춘 백업을 되돌려도 그 뒤 쓴 작업 기록과 사용자 정보는 그대로', async () => {
+  const root = makeProject();
+  await initProject(root);
+  const md = path.join(root, '.siloroot', 'CLAUDE.md');
+  fs.writeFileSync(md, fs.readFileSync(md, 'utf8').replace('흐름 나누기', '옛 이름'));
+  const res = applyUpdate(root, {});
+  assert.ok(res.backup);
+  fs.appendFileSync(path.join(root, '.siloroot', '01-log', 'changelog.md'), '- 업데이트 뒤 한 줄\n');
+  fs.appendFileSync(path.join(root, '.siloroot', '05-profile', 'profile.md'), '\n업데이트 뒤\n');
+  const r = cli(root, ['--restore', res.backup]);
+  assert.deepEqual(r.conflicts, []);
+  assert.ok(read(root, '.siloroot/01-log/changelog.md').includes('업데이트 뒤 한 줄'));
+  assert.ok(read(root, '.siloroot/CLAUDE.md').includes('옛 이름'));
+});

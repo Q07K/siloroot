@@ -49,7 +49,8 @@ description: SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘�
    ```
 
    - `error`가 `missing-decisions`면 아무것도 바뀌지 않았다. `ids`의 항목을 마저 묻고 다시 돌린다(`migration:<id>`는 3단계의 올릴지 머물지).
-   - `stoppedAt`이 있으면 그 마이그레이션에서 실패해 멈췄다. 앞의 것은 적용됐고 `schema`는 마지막으로 성공한 모양이다. `migrations`의 `error`를 전하고, 백업(`backup`)으로 되돌릴지 묻는다.
+   - `stoppedAt`이 있으면 그 마이그레이션에서 실패해 멈췄다. 앞의 것은 적용됐고 `schema`는 마지막으로 성공한 모양이다. `migrations`의 `error`를 전하고, 원인을 치운 뒤 다시 올릴지, 백업(`backup`)으로 되돌릴지 묻는다.
+   - `stoppedAt`이 `refresh`면 마이그레이션은 끝났고 관리 블록 맞추기에서 실패했다(`refreshError`). `plugin`은 적지 않았다. 원인을 치운 뒤 다시 돌리면 이어진다.
 
 7. 결과를 알린다: 백업 이름(`backup`, 없으면 파일을 바꾸지 않은 것), 마이그레이션 결과, 만든 파일과 고친 파일(`refresh`), 알릴 것(`refresh.notes`, `refresh.warnings`), 점검 결과(`check.warnings` 속성 경고 수, `check.broken` 끊어진 `related`), 되돌리는 법("되돌려 줘"라고 하면 된다). 감싼 배치로 옮겼으면 규칙은 `CLAUDE.local.md`가 불러오므로 다음 세션부터 적용된다고 알린다.
 
@@ -71,7 +72,7 @@ description: SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘�
    node "${CLAUDE_PLUGIN_ROOT}/scripts/update.mjs" "<프로젝트 폴더>" --restore "<백업 이름>"
    ```
 
-3. `conflicts`가 비어 있지 않으면 아무것도 되돌리지 않은 것이다. 업데이트 뒤 고쳤거나 새로 만든 파일 목록이니 보여 주고 묻는다. 사용자가 "그래도 되돌림"을 고르면 `--force`를 붙여 다시 돌린다. 그 파일들은 `keptAfter` 폴더에 따로 남는다고 알린다.
+3. `conflicts`가 비어 있지 않으면 아무것도 되돌리지 않은 것이다. 업데이트 뒤 고쳤거나 새로 만든 파일 목록이니 보여 주고 묻는다. 모양을 바꾼 업데이트 뒤에는 올리기 8단계에서 쓴 `changelog.md` 한 줄도 여기에 나온다. 사용자가 "그래도 되돌림"을 고르면 `--force`를 붙여 다시 돌린다. 그 파일들은 `keptAfter` 폴더에 따로 남는다고 알린다.
 4. `error`가 `not-latest`면 `latest`가 최신 백업이다. 그것부터 되돌리라고 알린다.
 5. 되돌린 파일(`restored`)과 지운 파일(`removed`)을 알리고, `changelog.md`에 한 줄을 남긴다.
 

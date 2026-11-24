@@ -24,7 +24,7 @@ export async function initProject(rootArg) {
 
   const existing = loadConfig(root);
   const layout = existing ? existing.layout : 'wrapped';
-  const { created, updated, skipped, warnings, notes } = applyRefresh(root, { layout });
+  const { created, updated, skipped, warnings, notes } = applyRefresh(root, existing || { layout }); // 이미 있는 작업 공간은 설정(tracked 등)을 그대로 따른다
 
   let cfg = existing;
   const cfgFile = path.join(root, '.siloroot', 'config.json');
