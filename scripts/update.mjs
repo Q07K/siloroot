@@ -84,7 +84,8 @@ export function applyUpdate(rootArg, answersArg = {}) {
   const run = [];
   let holding = false;
   for (const m of pending) {
-    const a = answers.migrations[m.id];
+    // 전에 머물기로 한(hold) 마이그레이션은 답이 없으면 계속 머문다
+    const a = answers.migrations[m.id] ?? (heldBy(cfg, m) ? 'hold' : undefined);
     if (a !== 'apply' && a !== 'hold') { missing.push('migration:' + m.id); continue; }
     if (a === 'hold') holding = true;
     run.push({ m, hold: holding });

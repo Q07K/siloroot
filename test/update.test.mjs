@@ -176,3 +176,14 @@ test('--restore로 apply 전 모양으로 돌아간다', () => {
   assert.deepEqual(r.conflicts, []);
   assert.deepEqual(snapshot(root), before);
 });
+
+test('머물기로 한 마이그레이션은 답이 없어도 머문 것으로 보고 plugin만 맞춘다', () => {
+  const root = flatProject();
+  applyUpdate(root, answersFor(planUpdate(root), 'hold'));
+  updateConfig(root, { plugin: '0.0.1' });
+  const res = applyUpdate(root, {});
+  assert.equal(res.error, undefined, JSON.stringify(res));
+  assert.deepEqual(res.migrations, [{ id: ID, status: 'held' }]);
+  assert.equal(loadConfig(root).plugin, pluginVersion());
+  assert.equal(loadConfig(root).hold, 2);
+});
