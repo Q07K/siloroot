@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { writeConfig } from '../lib/config.mjs';
+import { writeConfig, pluginVersion } from '../lib/config.mjs';
 import { clean, readMetrics } from '../lib/metrics.mjs';
 import { splitTurns } from '../lib/transcript.mjs';
 import { costOf } from '../lib/pricing.mjs';
@@ -235,7 +235,8 @@ test('Stop 훅: 입력이 깨졌거나 기록 파일이 없거나 쓸 수 없어
 // ---------- 스크립트 시간 ----------
 test('빌드와 알림 훅이 걸린 시간을 남기고, 기록을 못 남겨도 빌드는 성공한다', () => {
   const root = makeProject('스크립트 시간');
-  writeConfig(root, { port: 4180, layout: 'wrapped' });
+  // 업데이트 알림이 붙지 않는 최신 작업 공간(알림 글자 수 0을 본다)
+  writeConfig(root, { port: 4180, layout: 'wrapped', plugin: pluginVersion() });
   write(root, '.siloroot/CLAUDE.md', '# 규칙\n');
   write(root, '.siloroot/02-study/a.md', '---\ntype: study\nstatus: 이해함\n---\n\n# ' + MARK + '\n');
   const env = { ...process.env, CLAUDE_PROJECT_DIR: root, SILOROOT_METRICS: '' };
