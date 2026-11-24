@@ -9,12 +9,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from '../lib/config.mjs';
+import { timeScript, appendMetrics } from '../lib/metrics.mjs';
 import { AI_COMMENT_FILE, AI_COMMENT_HOUR, lastSlot, commentDue } from '../lib/me-schedule.mjs';
 
 const cfg = loadConfig(process.env.CLAUDE_PROJECT_DIR || process.cwd());
 if (!cfg) process.exit(0);
 
 const SESSION = process.argv.includes('--session');
+// 걸린 시간과 Claude에게 덧붙인 알림 글자 수(매 메시지에 붙는 토큰 비용)를 남긴다 (lib/metrics.mjs)
+const timer = timeScript(cfg.root, 'hook', SESSION ? 'hook:notify-session' : 'hook:notify-prompt');
+timer.set({ chars: 0 });
 const FB_REL = cfg.dirs.feedback;
 const FB = path.join(cfg.docsRoot, FB_REL);
 // 알림 글은 프로젝트 맨 위에서 일하는 Claude가 읽는다. 감싼 배치면 열 수 있게 경로 앞에 .siloroot/를 붙여 보여 준다.
@@ -66,4 +70,14 @@ try { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(S
 if (show.length) {
   const text = '[SiloRoot] 처리할 일이 있습니다. /siloroot:feedback 절차를 따릅니다.\n' + show.map((x) => '- ' + x.text).join('\n');
   console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: SESSION ? 'SessionStart' : 'UserPromptSubmit', additionalContext: text } }));
+  timer.set({ chars: text.length });
+}
+
+// 세션을 시작할 때 매 턴 불러오는 SiloRoot 규칙 문서의 크기를 남긴다. 이 글자 수가 모든 턴의 고정 비용이다
+if (SESSION) {
+  let chars = 0;
+  for (const f of [path.join(cfg.docsRoot, 'CLAUDE.md'), path.join(cfg.docsRoot, cfg.dirs.profile, 'profile.md')]) {
+    try { chars += fs.readFileSync(f, 'utf8').length; } catch { /* 없으면 0 */ }
+  }
+  appendMetrics(cfg, { kind: 'context', stage: 'context:always-loaded', start: new Date().toISOString(), chars });
 }

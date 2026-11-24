@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { diffLines, compact } from './diff.mjs';
 import { loadConfig, DEFAULT_DIRS } from '../lib/config.mjs';
 import { AI_COMMENT_FILE, AI_COMMENT_HOUR } from '../lib/me-schedule.mjs';
+import { timeScript } from '../lib/metrics.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -23,6 +24,9 @@ const KEEP_SNAPSHOT = !args.includes('--seen');
 const DATA_ONLY = args.includes('--data-only');
 // 폴더는 인자, VIEWER_ROOT 환경 변수, 지금 폴더 순으로 정한다.
 const ROOT = path.resolve(args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--seen-path') || process.env.VIEWER_ROOT || process.cwd());
+// 실행 시간을 사용 기록에 남긴다. 서버가 자주 부르는 --data-only, --seen, --seen-path는 따로 센다 (lib/metrics.mjs)
+const VARIANT = ['--data-only', '--seen-path', '--seen'].find((f) => args.includes(f));
+const timer = timeScript(ROOT, 'script', 'script:build' + (VARIANT ? ':' + VARIANT.slice(2) : ''));
 const CFG = loadConfig(ROOT) || { docsRoot: ROOT, dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
 // 문서를 찾고 경로를 셀 기준. 감싼 배치(wrapped)면 프로젝트의 .siloroot/, 예전 배치면 프로젝트 맨 위다.
 const DOCS = CFG.docsRoot;
@@ -514,6 +518,7 @@ if (!KEEP_SNAPSHOT || !prev) {
   fs.writeFileSync(SNAP, JSON.stringify({ builtAt, files: snapFiles }));
 }
 
+timer.set({ docs: docs.length });
 const changed = changes.added.length + changes.modified.length + changes.removed.length;
 console.log(`문서 ${docs.length}개, 연결 ${edges.length}개 (경로 글자 ${edges.filter((e) => e.kind === 'code').length}개, related ${edges.filter((e) => e.kind === 'prop').length}개)`);
 console.log(`객체: 질문 ${objects.questions.length}, 주장 ${objects.claims.length}, 아이디어 ${objects.ideas.length}, 공부 노트 ${objects.study.length}, 속성 분류 ${objects.typed.length}`);

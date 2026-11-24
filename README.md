@@ -79,6 +79,37 @@ The templates and skill text are currently in Korean only.
 
 The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server and open it in the browser (unless a viewer tab is already open or the session restarted after compaction); when you send a message they tell you if there is feedback to process. In a 0.1.x-style folder (documents at the project root) that already had a `.gitignore`, add `.siloroot/state/` to it yourself.
 
+## Usage log
+
+To find where SiloRoot is slow or uses many tokens, the plugin writes one JSON line per step to `.siloroot/state/metrics.jsonl`. It is on by default, stays on this machine, and is kept out of git with the rest of `state/`.
+
+| Stage | What is measured |
+| --- | --- |
+| `turn:siloroot:<skill>` | A turn (one message and the whole response) that used a SiloRoot skill, by slash command or by Claude calling it |
+| `turn:siloroot-docs` | A turn that read or wrote files under `.siloroot/` without a SiloRoot skill |
+| `turn:other` | Any other turn in the workspace, as a baseline |
+| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | Hook run time. The notify hooks also record how many characters they added to Claude's context |
+| `script:init`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | Script run time and document count |
+| `context:always-loaded` | At session start, the length in characters of `.siloroot/CLAUDE.md` and `profile.md`, which Claude loads on every turn |
+
+- Turn records come from a `Stop` hook. It reads the conversation transcript (`transcript_path` in the hook input) from where it stopped last time and adds up each response's `usage`: input, output, cache-read, and cache-write tokens. A response split over several lines is counted once by its message id. Subagent tokens (`<session>/subagents/`) go into a separate `sub` field.
+- A record holds only stage names, timestamps, durations, token counts, tool names with counts and time, SiloRoot skill names, and the session id. No document text, prompts, file paths, or other plugins' skill names.
+- If logging fails, the original work goes on. The `Stop` hook always exits 0 with no output.
+- To turn it off, set `"metrics": false` in `.siloroot/config.json` or the environment variable `SILOROOT_METRICS=0`. At 5 MB the file moves to `metrics.1.jsonl` and a new one starts.
+
+To see the summary, run the script in the plugin folder (for a marketplace install, `~/.claude/plugins/cache/<marketplace>/siloroot/<version>/`) from the project folder. `--days 7` limits it to the last week and `--json` prints the totals as JSON.
+
+```powershell
+node "<plugin folder>/scripts/metrics.mjs" . --days 7
+```
+
+It prints the stage that used the most time and the one that used the most tokens, then a table for turns and one for scripts and hooks.
+
+- Work tokens are input + output + cache-write, subagents included. Cache-read is shown in its own column: it grows with conversation length and would hide which stage is expensive.
+- A turn counts as a whole toward its stage. A message that used `/siloroot:note` and also did other work counts entirely as `turn:siloroot:note`, so per-skill numbers are approximate.
+- Turn time includes waiting for you. Answering a question or approving a permission prompt shows up as tool time (`AskUserQuestion`, `Edit`, `Write`, and so on).
+- Tokens a background subagent spends after its turn has ended are not counted.
+
 ## Development
 
 ```powershell

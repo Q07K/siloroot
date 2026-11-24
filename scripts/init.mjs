@@ -10,6 +10,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadConfig, writeConfig, findFreePort } from '../lib/config.mjs';
+import { timeScript } from '../lib/metrics.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const TPL = path.join(here, '..', 'templates');
@@ -171,6 +172,7 @@ export async function initProject(rootArg) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const target = process.argv[2] || process.cwd();
+  timeScript(target, 'script', 'script:init');
   initProject(target).then(
     (res) => console.log(JSON.stringify(res, null, 2)),
     (e) => { console.error('초기화하지 못했습니다: ' + e.message); process.exit(1); },
