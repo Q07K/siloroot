@@ -88,3 +88,36 @@ test('확인할 경로가 폴더 밖이면 400', async () => {
   const r = await post('/api/seen', { path: '../밖.md' });
   assert.equal(r.status, 400);
 });
+
+// --- 읽는 문서 흔적 (/trail, event: trail) ---
+import http from 'node:http';
+import { loadConfig } from '../lib/config.mjs';
+import { appendTrail } from '../lib/trail.mjs';
+
+test('흔적이 없으면 /trail은 빈 흔적을 준다', async () => {
+  const r = await fetch(base + '/trail');
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /application\/json/);
+  assert.deepEqual(await r.json(), { session: null, items: [] });
+});
+
+test('흔적 파일을 쓰면 /trail이 그 흔적을 준다', async () => {
+  appendTrail(loadConfig(root), 's1', [{ kind: 'read', path: '02-study/a.md' }]);
+  const j = await (await fetch(base + '/trail')).json();
+  assert.equal(j.session, 's1');
+  assert.equal(j.items[0].path, '02-study/a.md');
+});
+
+test('흔적이 바뀌면 /events로 trail 알림이 온다', async () => {
+  let text = '';
+  const req = http.get(base + '/events', (res) => { res.setEncoding('utf8'); res.on('data', (c) => { text += c; }); });
+  try {
+    await new Promise((r) => setTimeout(r, 300));
+    appendTrail(loadConfig(root), 's1', [{ kind: 'edit', path: '02-study/a.md' }]);
+    const end = Date.now() + 3000;
+    while (Date.now() < end && !/event: trail\n/.test(text)) await new Promise((r) => setTimeout(r, 50));
+    assert.match(text, /event: trail\ndata: .*"02-study\/a\.md"/);
+  } finally {
+    req.destroy();
+  }
+});
