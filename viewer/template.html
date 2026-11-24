@@ -2444,6 +2444,16 @@ if (SERVED && window.EventSource) {
   es.onmessage = ev => { try { onFilesChanged(JSON.parse(ev.data).paths || []); } catch (e) { /* 알림 형식이 다르면 무시 */ } };
   // 읽는 문서 흔적은 이름 단 알림(event: trail)으로 따로 온다
   es.addEventListener('trail', ev => { try { setTrail(JSON.parse(ev.data)); } catch (e) { /* 무시 */ } });
+  // 세션 시작 훅이 옛 버전 서버를 새 버전으로 바꾸면 이 화면은 새 서버에 다시 붙는다.
+  // 붙을 때마다 서버 버전을 보고, 처음 본 버전과 다르면 새 서버의 화면으로 다시 읽는다.
+  let serverVersion;
+  es.addEventListener('open', () => {
+    fetch('/health', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(h => {
+      const v = (h && h.version) || null;
+      if (serverVersion === undefined) serverVersion = v;
+      else if (v !== serverVersion) location.reload();
+    }).catch(() => { /* 서버가 아직 뜨는 중 */ });
+  });
 }
 if (SERVED) fetch('/trail', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(d => { if (d) setTrail(d, true); }).catch(() => { /* 예전 서버 */ });
 })();
