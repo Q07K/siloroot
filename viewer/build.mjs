@@ -14,6 +14,7 @@ import { diffLines, compact } from './diff.mjs';
 import { loadConfig, DEFAULT_DIRS } from '../lib/config.mjs';
 import { AI_COMMENT_FILE, AI_COMMENT_HOUR } from '../lib/me-schedule.mjs';
 import { timeScript } from '../lib/metrics.mjs';
+import { VOCAB } from '../lib/vocab.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -177,24 +178,7 @@ for (const d of docs) {
 }
 
 // ---------- 3-1. 속성 점검과 related 연결 ----------
-// 약속은 metadata-guide.md에 있다. 값을 바꾸면 두 곳을 같이 고친다.
-const VOCAB = {
-  // 객체 종류
-  idea: ['아이디어', '진행 중', '보류', '접음', '완료'],
-  study: ['검증 전', '부분', '통과'],
-  decision: ['제안', '확정', '바뀜'],
-  project: ['진행 중', '보류', '완료'],
-  // 문서 종류
-  guide: ['사용 중', '보관'],
-  index: ['사용 중', '보관'],
-  ledger: ['사용 중', '보관'],
-  log: ['사용 중', '끝남'],
-  note: ['사용 중', '보관'],
-  // 뷰어에서 생기는 객체
-  feedback: ['대기', '진행 중', '완료', '안 함'],
-  rule: ['제안', '승인', '거절', '반영'],
-  trait: ['제안', '승인', '거절', '반영'],
-};
+// 쓸 수 있는 type과 status(VOCAB)는 lib/vocab.mjs에 있다.
 // 폴더마다 정해진 type. 여기 없는 폴더도 type 자체는 모두 필수다.
 const REQUIRED = [
   { prefix: DIRS.ideas + '/', type: ['idea', 'decision'], skip: /(^|\/)README\.md$/i },
