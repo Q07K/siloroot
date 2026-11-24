@@ -257,3 +257,20 @@ test('모양 2는 002를 알리고, 모양 3이나 머물기로 한 모양 2는 
   assert.deepEqual(updateNotice({ schema: 2, hold: 3, plugin: pluginVersion() }), []);
   assert.deepEqual(updateNotice({ schema: 3, hold: null, plugin: pluginVersion() }), []);
 });
+
+test('모양 3 프로젝트의 알림은 뒤처진 홈도 함께 알린다', async () => {
+  const { userDir } = await import('../lib/user.mjs');
+  fs.rmSync(path.join(userDir(), '.siloroot'), { recursive: true, force: true });
+  const home = path.join(userDir(), 'siloroot-home');
+  fs.rmSync(home, { recursive: true, force: true });
+  const root = makeProject();
+  await initProject(root, { home });
+  assert.deepEqual(updateNotice(loadConfig(root)), []);
+  updateConfig(home, { plugin: '0.0.1' });
+  const lines = updateNotice(loadConfig(root));
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /^홈\(.+\): 규칙 블록과 안내 문서를/);
+  // 홈에서 업데이트를 돌리면 홈도 맞춰진다
+  assert.equal(applyUpdate(home, {}).plugin, pluginVersion());
+  assert.deepEqual(updateNotice(loadConfig(root)), []);
+});
