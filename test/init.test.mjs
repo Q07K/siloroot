@@ -206,7 +206,7 @@ test('모양 2 작업 공간에서 다시 실행하면 맞추기만 하고 업�
 
 test('--mode home은 홈만 만든다', () => {
   resetUser();
-  const home = makeProject('내 홈');
+  const home = makeProject('내-홈'); // 공백 든 홈 이름은 home-path-space로 멈춘다
   const out = JSON.parse(execFileSync(process.execPath, [INIT, home, '--mode', 'home'], { encoding: 'utf8' }));
   assert.equal(out.mode, 'home');
   assert.equal(readUser().home, home.split(path.sep).join('/')); assert.deepEqual(readUser().projects, []);
@@ -366,7 +366,7 @@ test('홈이 지워진 모양 3 프로젝트에서 다시 실행하면 홈을 �
   try {
     fs.rmSync(userFile());
     const res = await initProject(root);
-    assert.ok(res.warnings.some((w) => w.includes('홈을 찾지 못했습니다')));
+    assert.ok(res.warnings.some((w) => w.includes('홈을 찾지 못해') && w.includes('--home')));
   } finally {
     fs.mkdirSync(path.dirname(userFile()), { recursive: true });
     fs.writeFileSync(userFile(), saved);
@@ -381,4 +381,67 @@ test('스킬은 옛 폴더 이름을 박지 않는다', () => {
 test('플러그인 버전은 0.6.0으로 두 파일이 같다', () => {
   const v = (f) => JSON.parse(fs.readFileSync(path.join(REPO, f), 'utf8')).version;
   assert.equal(v('.claude-plugin/plugin.json'), '0.6.0'); assert.equal(v('package.json'), '0.6.0');
+});
+
+// ---- 최종 검토에서 나온 것 ----
+test('user.json이 깨진 뒤 다시 실행하면 규칙 블록의 사용자 정보 불러오기를 지우지 않고 알린다', async () => {
+  const root = makeProject(); await initV3(root);
+  const before = read(root, '.siloroot/CLAUDE.md');
+  const saved = fs.readFileSync(userFile(), 'utf8');
+  try {
+    fs.writeFileSync(userFile(), '{ 깨짐');
+    const res = await initProject(root);
+    assert.equal(read(root, '.siloroot/CLAUDE.md'), before);
+    assert.ok(res.warnings.some((w) => w.includes('user.json')), JSON.stringify(res.warnings));
+    assert.ok(!planUpdate(root).refresh.blocks.some((b) => b.file === '.siloroot/CLAUDE.md' && b.state === 'updated'));
+    assert.equal(fs.readFileSync(userFile(), 'utf8'), '{ 깨짐');
+  } finally { fs.writeFileSync(userFile(), saved); }
+});
+
+test('user.json을 잃은 프로젝트는 --home으로 다시 이으면 홈과 등록이 돌아온다', async () => {
+  const root = makeProject('되살릴 앱'); await initV3(root);
+  const before = read(root, '.siloroot/CLAUDE.md');
+  const saved = fs.readFileSync(userFile(), 'utf8');
+  try {
+    fs.rmSync(userFile());
+    const lost = await initProject(root);
+    assert.equal(read(root, '.siloroot/CLAUDE.md'), before, '홈을 모르는 동안 블록을 그대로 둔다');
+    assert.ok(lost.warnings.some((w) => w.includes('--home')));
+    const res = await initProject(root, { home: HOME(), homeAccess: 'add' });
+    assert.equal(readUser().home, HOME().split(path.sep).join('/'));
+    assert.ok(readUser().projects.some((p) => p.name === '되살릴-앱'));
+    assert.equal(res.homeAccess, 'added');
+    assert.ok(!res.warnings.some((w) => w.includes('홈을 찾지 못했습니다')));
+  } finally { fs.writeFileSync(userFile(), saved); }
+});
+
+test('홈 폴더 이름에 공백이 있으면 만들지 않고 멈춘다', async () => {
+  resetUser();
+  const root = makeProject();
+  const res = await initProject(root, { home: path.join(userDir(), 'My Home') });
+  assert.equal(res.error, 'home-path-space');
+  assert.deepEqual(fs.readdirSync(root), []); assert.ok(!fs.existsSync(path.join(userDir(), 'My Home')));
+});
+
+test('홈이 프로젝트와 같거나 안이나 바깥이면 만들지 않고 멈춘다', async () => {
+  resetUser();
+  const root = makeProject('팀 저장소'); git(root, ['init', '-q']);
+  for (const home of [root, path.join(root, 'home'), path.dirname(root)]) {
+    const res = await initProject(root, { home });
+    assert.equal(res.error, 'home-in-project', home);
+  }
+  assert.deepEqual(fs.readdirSync(root), ['.git']);
+});
+
+test('홈만 만들 때도 등록된 프로젝트 안은 거절한다', async () => {
+  const root = makeProject('등록된-앱'); await initV3(root);
+  const { initHome } = await import('../scripts/init.mjs');
+  assert.equal((await initHome(path.join(root, 'h'))).error, 'home-in-project');
+});
+
+test('git 제외 목록에 예전 .siloroot/ 줄이 있으면 shared/가 숨는다고 알린다', async () => {
+  const root = makeProject(); git(root, ['init', '-q']);
+  write(root, '.git/info/exclude', '.siloroot/\n');
+  const res = await initV3(root);
+  assert.ok(res.warnings.some((w) => w.includes('.siloroot/') && w.includes('shared/')), JSON.stringify(res.warnings));
 });

@@ -45,6 +45,9 @@ description: 지금 프로젝트 폴더를 SiloRoot 작업 공간으로 초기�
      - 답을 받으면 다시 실행한다: `node "${CLAUDE_PLUGIN_ROOT}/scripts/init.mjs" "<프로젝트>" --home "<홈>" --home-access add` (더하지 않기로 했으면 `skip`).
    - `"error": "user-json-invalid"`면 `~/.siloroot/user.json`이 깨진 것이다. 아무것도 만들지 않았다. 파일 경로를 알리고 고치거나 지울지 사용자에게 묻는다.
    - `"error": "not-home"`이면 고른 홈 자리에 프로젝트 작업 공간이 있다. 다른 위치를 묻는다.
+   - `"error": "home-in-project"`면 고른 홈이 이 프로젝트(또는 등록된 프로젝트, 출력의 `project`)와 같거나 그 안이나 바깥이다. 그대로 두면 개인 문서가 팀 저장소에 들어간다. 프로젝트 밖의 다른 위치를 묻는다.
+   - `"error": "home-path-space"`면 홈 경로(사용자 폴더 아래면 그 뒤)에 공백이 있다. 규칙 블록의 `@` 불러오기가 공백에서 끊기므로 공백 없는 위치를 묻는다.
+   - 이미 초기화된 프로젝트에서 `warnings`에 "홈을 찾지 못해"가 나오면 `~/.siloroot/user.json`을 잃은 것이다. 규칙 블록은 그대로 두었다. 홈 위치를 묻고 `--home "<홈>"`을 붙여 다시 실행하면 홈을 다시 잇고 이 프로젝트를 다시 등록한다. "user.json이 깨져서"가 나오면 그 파일을 고치거나 지울지 묻는다.
 
    성공하면 출력은 JSON이다: `mode`, `layout`, `name`(이 프로젝트를 다른 문서에서 `<이름>:경로`로 가리킬 때 쓰는 이름), `home`, `homeCreated`, `homeAccess`(`added`, `present`, `invalid`, `skipped`, `not-asked`), `created`, `updated`, `skipped`, `warnings`, `notes`, `port`, `url`. 경로는 프로젝트 맨 위 기준이고, 빈 폴더는 끝에 `/`가 붙는다. `warnings`가 있으면 3단계에서 그대로 전한다. `homeAccess`가 `invalid`면 `.claude/settings.local.json`이 JSON이 아니라 건드리지 않았다고 알린다.
 

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { makeProject, write } from './fixtures.mjs';
-import { userDir, userFile, readUser, setHome, registerProject, workspaceRoot, importPath, usedPorts } from '../lib/user.mjs';
+import { userDir, userFile, readUser, setHome, registerProject, workspaceRoot, importPath, usedPorts, WS_REF } from '../lib/user.mjs';
 import { addAdditionalDirectory } from '../lib/claude-settings.mjs';
 import { writeConfig } from '../lib/config.mjs';
 
@@ -80,4 +80,11 @@ test('settings.local.json이 JSON이 아니면 건드리지 않는다', () => {
   const r = makeProject(); const f = write(r, '.claude/settings.local.json', '// 주석\n{');
   assert.equal(addAdditionalDirectory(r, 'C:/h'), 'invalid');
   assert.equal(fs.readFileSync(f, 'utf8'), '// 주석\n{');
+});
+
+test('등록한 이름은 모두 다른 문서에서 <이름>: 꼴로 가리킬 수 있다', () => {
+  const names = ['a', '_work', 'C++', 'app(old)', '테스트 폴더 A', '.hidden', 'x y', '앱'].map((n) => registerProject(makeProject(n)));
+  for (const n of names) assert.match(n + ':shared/a.md', WS_REF, n);
+  assert.deepEqual(names, ['a-project', 'work', 'C-project', 'app-old', '테스트-폴더-A', 'hidden', 'x-y', '앱']);
+  assert.doesNotMatch('C:/x.md', WS_REF);
 });

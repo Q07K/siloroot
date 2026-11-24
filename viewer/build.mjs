@@ -16,7 +16,7 @@ import { AI_COMMENT_FILE, AI_COMMENT_HOUR } from '../lib/me-schedule.mjs';
 import { timeScript } from '../lib/metrics.mjs';
 import { VOCAB } from '../lib/vocab.mjs';
 import { placesOf, localPlace, folderRules, groupOf } from '../lib/layout.mjs';
-import { readUser, workspaceRoot } from '../lib/user.mjs';
+import { readUser, workspaceRoot, WS_REF } from '../lib/user.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -77,8 +77,7 @@ for (const rel of mdSet) {
 
 // ---------- 2. 링크 해석 ----------
 // 다른 작업 공간을 가리키는 경로: home:study/a.md, <프로젝트 이름>:shared/issues/x.md (이름은 user.json)
-// 이름은 두 글자 이상이라 C:/x.md는 걸리지 않고, https://...는 이름 https가 등록되지 않아 버려진다
-const WS_REF = /^([\p{L}\p{N}][\p{L}\p{N}._-]+):([^\s:]+\.(md|markdown))$/u;
+// 이름 규칙은 lib/user.mjs의 WS_REF. C:/x.md는 걸리지 않고, https://...는 이름 https가 등록되지 않아 버려진다
 const USER = readUser();
 const SAME = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
 const ROOT_SLASH = ROOT.split(path.sep).join('/');
