@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { initProject } from '../scripts/init.mjs';
-import { loadConfig, writeConfig } from '../lib/config.mjs';
+import { loadConfig, writeConfig, SCHEMA, pluginVersion } from '../lib/config.mjs';
 import { makeProject, write } from './fixtures.mjs';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -232,4 +232,19 @@ test('세 스킬이 감싼 배치의 문서 위치를 알린다', () => {
     const t = fs.readFileSync(path.join(REPO, 'skills', s, 'SKILL.md'), 'utf8');
     assert.match(t, /"layout": "wrapped"/, s);
   }
+});
+
+test('새 init은 schema와 plugin을 적는다', async () => {
+  const root = makeProject(); await initProject(root);
+  const c = loadConfig(root);
+  assert.equal(c.schema, SCHEMA); assert.equal(c.plugin, pluginVersion());
+});
+
+test('flat 작업 공간에서 init을 다시 돌리면 옮기지 않고 업데이트를 안내하며 plugin은 그대로', async () => {
+  const root = makeProject(); writeConfig(root, { port: 4180 });
+  write(root, '02-study/a.md', '---\ntype: study\nstatus: 검증 전\ntags: [x]\n---\n\n# a\n');
+  const res = await initProject(root);
+  assert.ok(fs.existsSync(path.join(root, '02-study', 'a.md')));
+  assert.ok(res.warnings.some((w) => w.includes('/siloroot:update') && w.includes('모양 1')));
+  assert.equal(loadConfig(root).plugin, null);
 });
