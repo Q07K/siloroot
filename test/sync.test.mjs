@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { initProject } from '../scripts/init.mjs';
-import { loadConfig } from '../lib/config.mjs';
+import { loadConfig, pluginVersion } from '../lib/config.mjs';
 import { planRefresh, applyRefresh } from '../lib/workspace-sync.mjs';
 import { makeProject } from './fixtures.mjs';
+// 모양 2(감싼 배치) 작업 공간: 모양 3 전의 init이 만들던 것. 업데이트와 맞추기는 모양 2에서도 돈다
+const initV2 = async (root) => { writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2, plugin: pluginVersion() }); return initProject(root); };
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { writeConfig } from '../lib/config.mjs';
@@ -20,7 +22,7 @@ const listAll = (root) => fs.readdirSync(root, { recursive: true }).map(String).
 
 test('planRefresh는 파일을 바꾸지 않고 바뀔 블록과 빠진 파일을 알린다', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   fs.rmSync(path.join(root, '.siloroot', '03-ideas', 'README.md'));
   const cfgFile = path.join(root, '.siloroot', 'CLAUDE.md');
   fs.writeFileSync(cfgFile, fs.readFileSync(cfgFile, 'utf8').replace('흐름 나누기', '옛 이름'));
@@ -33,7 +35,7 @@ test('planRefresh는 파일을 바꾸지 않고 바뀔 블록과 빠진 파일�
 
 test('새로 init한 작업 공간은 planRefresh에 맞출 것이 없다', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   const p = planRefresh(root, loadConfig(root));
   assert.ok(p.blocks.every((b) => b.state === 'skipped'));
   assert.deepEqual(p.missingFiles, []);
@@ -43,7 +45,7 @@ test('새로 init한 작업 공간은 planRefresh에 맞출 것이 없다', asyn
 
 test('applyRefresh는 빠진 파일을 만들고 블록을 맞추며 거절한 안내 줄은 빼고 알린다', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   fs.rmSync(path.join(root, '.siloroot', '03-ideas', 'README.md'));
   const guide = path.join(root, '.siloroot', 'metadata-guide.md');
   const original = fs.readFileSync(guide, 'utf8');

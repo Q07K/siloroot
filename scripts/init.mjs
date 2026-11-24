@@ -2,9 +2,13 @@
 // SiloRoot 작업 공간 초기화. /siloroot:init 스킬이 실행한다.
 // - 없는 파일만 만든다. 이미 있는 파일은 건드리지 않는다 (CLAUDE.md, CLAUDE.local.md는 표시 블록만, .ignore와 git 제외 목록은 빠진 줄만 더한다).
 // - 두 번 실행해도 결과가 같다.
-// - 새 폴더는 문서를 모두 .siloroot/ 안에 감싼다(wrapped). 이미 예전 배치(flat)로 초기화된 폴더는 그 배치를 그대로 따르고, 옮기는 것은 /siloroot:update에 맡긴다.
-// - 새 작업 공간의 설정에 모양 번호(schema)와 플러그인 버전(plugin)을 적는다. 이미 있는 작업 공간의 plugin은 업데이트가 적는다.
-// 실행: node scripts/init.mjs <프로젝트 폴더>  →  표준 출력에 { layout, created, updated, skipped, warnings, notes, port, url } JSON
+// - 작업 공간은 두 가지다(lib/layout.mjs). 프로젝트는 문서를 .siloroot/ 안에 두고 shared/와 private/로 나눈다.
+//   홈은 사람마다 하나이고, 공부 노트와 사용자 정보를 둔다. 홈 없는 프로젝트는 없어서, 새 프로젝트는 홈이 없으면 홈도 만든다.
+// - 이미 초기화된 폴더는 그 모양(schema)과 배치를 그대로 따르고 맞추기만 한다. 옮기는 것은 /siloroot:update에 맡긴다.
+// - 홈 위치와 프로젝트 목록은 사용자 단위 설정(~/.siloroot/user.json, lib/user.mjs)에 적는다.
+// 실행: node scripts/init.mjs <폴더> [--mode project|home] [--home <홈 경로>] [--home-access add|skip]
+//   표준 출력에 결과 JSON. 사람 답이 필요하거나 멈추면 { error, ... }를 쓰고 종료 코드 2
+//   error: need-home(홈 위치를 물어야 함, defaultHome), user-json-invalid(user.json이 깨짐, file), not-home(홈 자리에 프로젝트가 있음)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,41 +17,118 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadConfig, writeConfig, findFreePort, SCHEMA, pluginVersion } from '../lib/config.mjs';
 import { pendingMigrations } from '../lib/migrations/index.mjs';
 import { timeScript } from '../lib/metrics.mjs';
-import { applyRefresh } from '../lib/workspace-sync.mjs';
+import { applyRefresh, ensureLines, gitExcludeFile, EXCLUDE_HEAD } from '../lib/workspace-sync.mjs';
+import { readUser, setHome, registerProject, usedPorts, userDir, userFile } from '../lib/user.mjs';
+import { addAdditionalDirectory } from '../lib/claude-settings.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUILD = path.join(here, '..', 'viewer', 'build.mjs');
+const slash = (p) => path.resolve(p).split(path.sep).join('/');
+const build = (root) => execFileSync(process.execPath, [BUILD, root], { stdio: 'ignore', windowsHide: true });
+const urlOf = (cfg) => 'http://127.0.0.1:' + cfg.port;
 
-export async function initProject(rootArg) {
-  const root = path.resolve(rootArg);
-  fs.mkdirSync(root, { recursive: true });
-  const rel = (full) => path.relative(root, full).split(path.sep).join('/');
-
-  const existing = loadConfig(root);
-  const layout = existing ? existing.layout : 'wrapped';
-  const { created, updated, skipped, warnings, notes } = applyRefresh(root, existing || { layout }); // 이미 있는 작업 공간은 설정(tracked 등)을 그대로 따른다
-
+// 홈을 만들거나 맞춘다. 홈은 폴더 자체가 문서 뿌리(flat)이고 설정만 <홈>/.siloroot/에 둔다
+export async function initHome(homeArg) {
+  const home = path.resolve(homeArg);
+  if (readUser().invalid) return { error: 'user-json-invalid', file: userFile() };
+  const existing = loadConfig(home);
+  if (existing && existing.mode !== 'home') return { error: 'not-home', home: slash(home) };
+  fs.mkdirSync(home, { recursive: true });
+  const rel = (full) => path.relative(home, full).split(path.sep).join('/');
   let cfg = existing;
-  const cfgFile = path.join(root, '.siloroot', 'config.json');
+  const configCreated = !cfg;
   if (!cfg) {
-    writeConfig(root, { port: await findFreePort(), layout, schema: 2, plugin: pluginVersion() }); // Task 4에서 모양 3으로
-    cfg = loadConfig(root);
-    created.push(rel(cfgFile));
-  } else {
+    // 4180은 대개 처음 만드는 프로젝트가 쓰므로 홈은 4181부터 찾는다
+    writeConfig(home, { port: await findFreePort(4181, 4299, { avoid: usedPorts() }), schema: 3, mode: 'home', plugin: pluginVersion() });
+    cfg = loadConfig(home);
+  }
+  const { created, updated, skipped, warnings, notes } = applyRefresh(home, cfg);
+  (configCreated ? created : skipped).push(rel(path.join(home, '.siloroot', 'config.json')));
+  setHome(home);
+  build(home);
+  return { mode: 'home', root: slash(home), created, updated, skipped, warnings, notes, port: cfg.port, url: urlOf(cfg) };
+}
+
+// 홈 쓰기 허락: 프로젝트의 .claude/settings.local.json에 홈을 더한다. git 저장소면 그 파일을 이 PC의 제외 목록에도 넣는다
+function grantHomeAccess(root, home, answer) {
+  if (answer === 'skip') return 'skipped';
+  if (answer !== 'add') return 'not-asked';
+  const state = addAdditionalDirectory(root, home);
+  const exclude = gitExcludeFile(root);
+  if (state !== 'invalid' && exclude) ensureLines(exclude, EXCLUDE_HEAD, ['.claude/settings.local.json']);
+  return state;
+}
+
+export async function initProject(rootArg, { home, homeAccess } = {}) {
+  const root = path.resolve(rootArg);
+  const rel = (full) => path.relative(root, full).split(path.sep).join('/');
+  const cfgFile = path.join(root, '.siloroot', 'config.json');
+
+  // 이미 있는 작업 공간: 설정(모양, 배치, tracked 등)을 그대로 따르고 맞추기만 한다
+  const existing = loadConfig(root);
+  if (existing) {
+    const { created, updated, skipped, warnings, notes } = applyRefresh(root, existing);
     skipped.push(rel(cfgFile));
     // init은 옮기지 않는다. 옮기는 것은 /siloroot:update가 한다(scripts/update.mjs).
-    if (pendingMigrations(cfg.schema, SCHEMA).length) warnings.push(`작업 공간 모양이 예전 버전입니다(모양 ${cfg.schema}). /siloroot:update로 올리세요.`);
+    if (pendingMigrations(existing.schema, SCHEMA).length) warnings.push(`작업 공간 모양이 예전 버전입니다(모양 ${existing.schema}). /siloroot:update로 올리세요.`);
+    const u = readUser();
+    const v3project = existing.schema >= 3 && existing.mode === 'project';
+    if (v3project && !u.home && !u.invalid) warnings.push('홈을 찾지 못했습니다. /siloroot:init --home <경로>로 홈을 다시 만드세요.');
+    const res = { mode: existing.mode, layout: existing.layout, created, updated, skipped, warnings, notes, port: existing.port, url: urlOf(existing) };
+    if (v3project && u.home) res.homeAccess = grantHomeAccess(root, u.home, homeAccess);
+    build(root);
+    return res;
   }
 
-  execFileSync(process.execPath, [BUILD, root], { stdio: 'ignore', windowsHide: true });
-  return { layout, created, updated, skipped, warnings, notes, port: cfg.port, url: 'http://127.0.0.1:' + cfg.port };
+  // 새 프로젝트: 홈부터 정한다. 아무것도 만들기 전에 멈출 것을 본다
+  const u = readUser();
+  if (u.invalid) return { error: 'user-json-invalid', file: userFile() };
+  const homeDir = u.home ?? (home ? slash(home) : null);
+  if (!homeDir) return { error: 'need-home', defaultHome: slash(path.join(userDir(), 'siloroot-home')) };
+  const homeCfg = loadConfig(homeDir);
+  if (homeCfg && homeCfg.mode !== 'home') return { error: 'not-home', home: homeDir };
+  let homeCreated = false;
+  if (!homeCfg) {
+    const h = await initHome(homeDir);
+    if (h.error) return h;
+    homeCreated = true;
+  } else if (!u.home) {
+    setHome(homeDir);
+  }
+
+  fs.mkdirSync(root, { recursive: true });
+  writeConfig(root, { port: await findFreePort(4180, 4299, { avoid: usedPorts() }), layout: 'wrapped', schema: 3, mode: 'project', plugin: pluginVersion() });
+  const cfg = loadConfig(root);
+  const name = registerProject(root);
+  const { created, updated, skipped, warnings, notes } = applyRefresh(root, cfg);
+  created.push(rel(cfgFile));
+  const homeAccessState = grantHomeAccess(root, homeDir, homeAccess);
+  build(root);
+  return {
+    mode: 'project', layout: 'wrapped', name, home: homeDir, homeCreated, homeAccess: homeAccessState,
+    created, updated, skipped, warnings, notes, port: cfg.port, url: urlOf(cfg),
+  };
+}
+
+function parseArgs(argv) {
+  const out = { target: process.cwd(), mode: 'project' };
+  const rest = [...argv];
+  if (rest.length && !rest[0].startsWith('--')) out.target = rest.shift();
+  while (rest.length) {
+    const k = rest.shift();
+    if (k === '--mode') out.mode = rest.shift();
+    else if (k === '--home') out.home = rest.shift();
+    else if (k === '--home-access') out.homeAccess = rest.shift();
+  }
+  return out;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  const target = process.argv[2] || process.cwd();
-  timeScript(target, 'script', 'script:init');
-  initProject(target).then(
-    (res) => console.log(JSON.stringify(res, null, 2)),
+  const a = parseArgs(process.argv.slice(2));
+  timeScript(a.target, 'script', 'script:init');
+  const run = a.mode === 'home' ? initHome(a.target) : initProject(a.target, { home: a.home, homeAccess: a.homeAccess });
+  run.then(
+    (res) => { console.log(JSON.stringify(res, null, 2)); if (res.error) process.exitCode = 2; },
     (e) => { console.error('초기화하지 못했습니다: ' + e.message); process.exit(1); },
   );
 }
