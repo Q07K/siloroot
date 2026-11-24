@@ -82,7 +82,7 @@ The home location and the list of projects are kept in `~/.siloroot/user.json`. 
 - Shared documents should not point at private or home documents your teammates cannot see. The viewer's property check warns about it.
 - Home access: the home is outside the project, so Claude Code may ask for permission each time it writes there. init offers to add the home folder to the project's `.claude/settings.local.json` (`permissions.additionalDirectories`); the default is to add it. Other settings in that file are kept.
 - `.git/info/exclude` is per clone, so run init again after cloning the project on another machine. A teammate who clones a repository with `shared/` gets the shared documents and init creates the rest.
-- Workspaces from earlier versions (layout 1 or 2, numbered folders such as the study-notes folder) keep working as they are. Moving them to layout 3 comes with `/siloroot:update` in the next version.
+- Workspaces from earlier versions (layout 1 or 2, numbered folders such as the study-notes folder) keep working as they are. From 0.7.0, `/siloroot:update` moves them to layout 3 (see Updating).
 
 The templates and skill text are currently in Korean only.
 
@@ -91,7 +91,10 @@ The templates and skill text are currently in Korean only.
 After you upgrade the plugin (`/plugin`), `/siloroot:update` brings the workspace in line with it. If the workspace is behind, a hook says so once at session start. It is not added to every message.
 
 - The workspace records its layout number (`schema`) and the plugin version it was last brought up to (`plugin`) in `.siloroot/config.json`.
-- When a version changes the layout, a migration moves things. Today there is one: layout 1 (the old style, documents at the project root) to layout 2 (documents wrapped in `.siloroot/`). 0.6.0 introduces layout 3 (shared and private areas plus a home) for new workspaces only; the migration from layout 2 to 3 comes in the next version, so until then layout 2 workspaces get no layout notice.
+- When a version changes the layout, a migration moves things, one layout step at a time (after one step, the update previews the next). There are two:
+  - Layout 1 (the old style, documents at the project root) to layout 2 (documents wrapped in `.siloroot/`).
+  - Layout 2 to layout 3 (0.7.0). Project documents are split into `shared/` and `private/`, and study notes, your profile, writing rules and writing-rule and profile candidates move to the home. If you have no home yet, it is created where you choose. The update shows where each document will go and asks you to approve the list once. Ideas cannot be sorted by rule, so they default to `shared/ideas/`; move personal ones to `home:ideas/`, and their decision documents and images follow them. Paths inside the moved documents are rewritten to the new places (`home:…` and `<name>:…` across workspaces). If the home already has `profile.md`, `writing-guide.md` or `study/README.md`, table rows are merged instead of overwritten, and a study note with the same name as one in the home is asked about. Nothing is committed: you choose what in `shared/` to commit. The update then brings the home up to date with the same script.
+- The session-start notice in a layout 3 project also says when the home is behind.
 - The changes are shown first, and anything that needs a person's choice (content outside the block in the team `CLAUDE.md`, the top-level `.gitignore`, documents already committed to git, and so on) is asked one by one. Defaults are never picked without an answer.
 - You can stay on the current layout instead. You then get only the managed-block refresh, and the notice for that layout stops (`hold` in `config.json`).
 - Before changing anything it makes a backup in `.siloroot/state/backups/`. Say "되돌려 줘" (roll it back) to restore, newest backup first. If you edited files after the update, it stops and asks. Backups that changed the layout are never removed automatically; refresh-only backups keep the latest 5.

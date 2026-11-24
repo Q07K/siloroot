@@ -9,7 +9,9 @@
 //   node scripts/update.mjs <프로젝트 폴더> --restore <백업 이름> [--force]  최신 백업을 되돌린다
 //   node scripts/update.mjs <프로젝트 폴더> --backups                      백업 목록
 // 출력은 모두 표준 출력의 JSON이다.
-// answers: { migrations: { <id>: 'apply'|'hold' }, decisions: { <id>: 값 }, declined: { <파일>: [표 항목] } }
+// answers: { migrations: { <id>: 'apply'|'hold' }, decisions: { <id>: 값 }, placements: { <옛 경로>: <갈 곳> }, declined: { <파일>: [표 항목] } }
+// 모양은 한 번에 한 칸씩 오른다. 다음 마이그레이션 하나만 미리 보고 적용한다. 더 남았으면 more가 true이고, 적용한 뒤 다시 미리 본다.
+// 뒤 마이그레이션은 앞 것이 옮긴 뒤의 모양을 보고 계획해야 해서다.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -41,7 +43,15 @@ function saveDeclined(cfg, add) {
 const refreshChanges = (r) => r.blocks.filter((b) => b.state === 'created' || b.state === 'updated').map((b) => b.file)
   .concat(r.missingFiles, r.missingLines.map((l) => l.file));
 const refreshClean = (r) => r.blocks.every((b) => b.state === 'skipped' || b.state === 'conflict') && !r.missingFiles.length && !r.missingLines.length;
-const heldBy = (cfg, m) => cfg.hold != null && m.to <= cfg.hold;
+// 머물기: hold는 사용자가 올리지 않기로 한 모양까지다. 남은 마이그레이션이 모두 그 안이면 머무는 중이다.
+// 그보다 새 모양이 나오면 머물기가 풀려 다시 묻는다(세션 알림 lib/update-check.mjs와 같은 규칙). 하나만 보므로 m은 받지 않는다
+const heldBy = (cfg) => cfg.hold != null && nextOf(cfg).every((x) => x.to <= cfg.hold);
+// 답이 고를 값에 맞는가. free인 질문(홈 위치 같은 경로)은 빈 글자가 아니면 된다
+export const validAnswer = (d, a) => (d.free ? typeof a === 'string' && a.trim() !== '' : d.options.includes(a));
+// 이번에 볼 마이그레이션은 다음 하나뿐이다
+const nextOf = (cfg) => pendingMigrations(cfg.schema, SCHEMA);
+// 마이그레이션 뒤 맞추기가 볼 설정(백업 범위를 정할 때)
+const afterCfg = (cfg, m) => ({ ...cfg, layout: 'wrapped', schema: m.to });
 
 function open(rootArg) {
   const root = path.resolve(rootArg);
@@ -56,14 +66,15 @@ export function planUpdate(rootArg) {
   if (o.error) return o;
   const { root, cfg } = o;
   const declined = readDeclined(cfg);
-  const migrations = pendingMigrations(cfg.schema, SCHEMA).map((m) => ({
-    id: m.id, title: m.title, from: m.from, to: m.to, held: heldBy(cfg, m), plan: m.plan({ root, cfg }),
+  const pending = nextOf(cfg);
+  const migrations = pending.slice(0, 1).map((m) => ({
+    id: m.id, title: m.title, from: m.from, to: m.to, held: heldBy(cfg), plan: m.plan({ root, cfg }),
   }));
   const refresh = planRefresh(root, cfg, { declined });
   const upToDate = migrations.every((m) => m.held) && refreshClean(refresh) && !refresh.guideGaps.length;
   // to: 마이그레이션으로 갈 수 있는 모양. 새 모양의 마이그레이션이 아직 없으면 지금 모양 그대로다
   const to = migrations.length ? migrations[migrations.length - 1].to : cfg.schema;
-  return { from: cfg.schema, to, pluginFrom: cfg.plugin, pluginTo: pluginVersion(), hold: cfg.hold, migrations, refresh, upToDate };
+  return { from: cfg.schema, to, pluginFrom: cfg.plugin, pluginTo: pluginVersion(), hold: cfg.hold, migrations, more: pending.length > 1, refresh, upToDate };
 }
 
 // viewer/build.mjs를 다시 돌려 속성 경고 수와 끊어진 related를 모은다
@@ -81,16 +92,16 @@ export function applyUpdate(rootArg, answersArg = {}) {
   const o = open(rootArg);
   if (o.error) return o;
   const { root, cfg } = o;
-  const answers = { migrations: {}, decisions: {}, declined: {}, ...answersArg };
+  const answers = { migrations: {}, decisions: {}, placements: {}, declined: {}, ...answersArg };
 
   // 돌릴 마이그레이션. 하나를 머물기로 하면 그 뒤도 모두 머문다(모양은 한 칸씩만 오른다)
-  const pending = pendingMigrations(cfg.schema, SCHEMA);
+  const pending = nextOf(cfg).slice(0, 1);
   const missing = [];
   const run = [];
   let holding = false;
   for (const m of pending) {
     // 전에 머물기로 한(hold) 마이그레이션은 답이 없으면 계속 머문다
-    const a = answers.migrations[m.id] ?? (heldBy(cfg, m) ? 'hold' : undefined);
+    const a = answers.migrations[m.id] ?? (heldBy(cfg) ? 'hold' : undefined);
     if (a !== 'apply' && a !== 'hold') { missing.push('migration:' + m.id); continue; }
     if (a === 'hold') holding = true;
     run.push({ m, hold: holding });
@@ -99,9 +110,11 @@ export function applyUpdate(rootArg, answersArg = {}) {
   const plans = new Map();
   for (const { m, hold } of run) {
     if (hold) continue;
-    const p = m.plan({ root, cfg });
+    // 답(홈 위치, 갈 곳)에 따라 묻는 것이 늘 수 있어 답을 넣어 다시 계획한다
+    const p = m.plan({ root, cfg }, answers);
     plans.set(m.id, p);
-    for (const d of p.decisions) if (!d.options.includes(answers.decisions[d.id])) missing.push(d.id);
+    if (p.error) return { error: p.error, migration: m.id, detail: p.detail ?? null };
+    for (const d of p.decisions) if (!validAnswer(d, answers.decisions[d.id])) missing.push(d.id);
   }
   if (missing.length) return { error: 'missing-decisions', ids: missing };
 
@@ -116,7 +129,7 @@ export function applyUpdate(rootArg, answersArg = {}) {
     // 맞추기가 실제로 바꿀 파일만 담는다. 작업 기록처럼 계속 쓰는 문서를 담으면 되돌릴 때 그 뒤 쓴 내용까지 돌아간다.
     // 마이그레이션이 있으면 맞추기는 옮긴 뒤 배치로 돌기 때문에 감싼 배치의 계획도 더한다
     files.push(...refreshChanges(planRefresh(root, cfg, { declined })));
-    if (applying.length) files.push(...refreshChanges(planRefresh(root, { ...cfg, layout: 'wrapped' }, { declined })));
+    for (const m of applying) files.push(...refreshChanges(planRefresh(root, afterCfg(cfg, m), { declined })));
     const to = applying.length ? applying[applying.length - 1].to : cfg.schema;
     backup = createBackup(root, { from: cfg.schema, to, files, creates }).name;
   }
@@ -125,9 +138,10 @@ export function applyUpdate(rootArg, answersArg = {}) {
   let stoppedAt = null;
   let heldTo = null;
   for (const { m, hold } of run) {
-    if (hold) { results.push({ id: m.id, status: 'held' }); heldTo = Math.max(heldTo ?? 0, m.to); continue; }
+    // 머물면 지금 플러그인이 아는 모양 전부를 거절한 것으로 적는다. 다음에 새 모양이 나오면 다시 묻는다
+    if (hold) { results.push({ id: m.id, status: 'held' }); heldTo = Math.max(heldTo ?? 0, SCHEMA); continue; }
     try {
-      m.apply({ root, cfg: loadConfig(root) }, answers.decisions);
+      m.apply({ root, cfg: loadConfig(root) }, answers.decisions, answers);
       updateConfig(root, { schema: m.to, hold: null });
       results.push({ id: m.id, status: 'applied' });
     } catch (e) {

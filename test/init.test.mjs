@@ -195,10 +195,10 @@ test('user.json이 깨졌으면 init은 멈추고 파일을 그대로 둔다', a
   }
 });
 
-test('모양 2 작업 공간에서 다시 실행하면 맞추기만 하고 업데이트 안내를 하지 않는다', async () => {
+test('모양 2 작업 공간에서 다시 실행하면 옮기지 않고 맞추기만 하며 업데이트를 안내한다', async () => {
   const root = makeProject(); writeConfig(root, { port: 4197, layout: 'wrapped' });
   const res = await initV3(root);
-  assert.ok(!res.warnings.some((w) => w.includes('/siloroot:update')));
+  assert.ok(res.warnings.some((w) => w.includes('/siloroot:update')));
   assert.ok(!fs.existsSync(path.join(root, '.siloroot', 'shared')));
   assert.ok(fs.existsSync(path.join(root, '.siloroot', '02-study', 'README.md')));
   assert.equal(loadConfig(root).schema, 2);
@@ -378,9 +378,9 @@ test('스킬은 옛 폴더 이름을 박지 않는다', () => {
     assert.doesNotMatch(fs.readFileSync(path.join(REPO, 'skills', f), 'utf8'), /0[1-5]-(log|study|ideas|feedback|profile)/, f);
 });
 
-test('플러그인 버전은 0.6.0으로 두 파일이 같다', () => {
+test('플러그인 버전은 0.7.0으로 두 파일이 같다', () => {
   const v = (f) => JSON.parse(fs.readFileSync(path.join(REPO, f), 'utf8')).version;
-  assert.equal(v('.claude-plugin/plugin.json'), '0.6.0'); assert.equal(v('package.json'), '0.6.0');
+  assert.equal(v('.claude-plugin/plugin.json'), '0.7.0'); assert.equal(v('package.json'), '0.7.0');
 });
 
 // ---- 최종 검토에서 나온 것 ----
