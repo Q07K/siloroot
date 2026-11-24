@@ -11,8 +11,14 @@ import { updateNotice } from '../lib/update-check.mjs';
 import { initProject } from '../scripts/init.mjs';
 import { planUpdate, applyUpdate } from '../scripts/update.mjs';
 import { makeProject, write } from './fixtures.mjs';
-// 모양 2(감싼 배치) 작업 공간: 모양 3 전의 init이 만들던 것. 업데이트와 맞추기는 모양 2에서도 돈다
-const initV2 = async (root) => { writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2, plugin: pluginVersion() }); return initProject(root); };
+// 모양 2(감싼 배치)에 머물기로 한 작업 공간: 모양 3 전의 init이 만들던 것. 업데이트의 맞추기는 모양 2에서도 돈다.
+// 머물기(hold: 3)를 적어 002를 묻지 않게 하고 맞추기만 본다. 002는 test/migrate-002.test.mjs가 본다
+const initV2 = async (root) => {
+  writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2, plugin: pluginVersion() });
+  const res = await initProject(root);
+  updateConfig(root, { hold: 3 });
+  return res;
+};
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UPDATE = path.join(REPO, 'scripts', 'update.mjs');
@@ -27,6 +33,7 @@ const snapshot = (root) => Object.fromEntries(fs.readdirSync(root, { recursive: 
   .filter((r) => !r.startsWith('.siloroot/state') && fs.statSync(path.join(root, r)).isFile())
   .sort().map((r) => [r, read(root, r)]));
 const cli = (root, args) => JSON.parse(execFileSync(process.execPath, [UPDATE, root, ...args], { encoding: 'utf8' }));
+const refreshCleanOf = (r) => r.blocks.every((b) => b.state === 'skipped') && !r.missingFiles.length && !r.missingLines.length;
 
 function flatProject() {
   const root = makeProject();
@@ -43,10 +50,10 @@ const answersFor = (plan, pick = 'apply') => ({
   declined: {},
 });
 
-test('flat 작업 공간: plan → apply → 두 번째 plan은 upToDate', () => {
+test('flat 작업 공간: 한 칸씩 오른다. 001을 적용한 뒤 다시 미리 보면 002가 나온다', () => {
   const root = flatProject();
   const p = planUpdate(root);
-  assert.equal(p.from, 1); assert.equal(p.to, 2);
+  assert.equal(p.from, 1); assert.equal(p.to, 2); assert.equal(p.more, true);
   assert.equal(p.pluginFrom, null); assert.equal(p.pluginTo, pluginVersion());
   assert.deepEqual(p.migrations.map((m) => m.id), [ID]);
   assert.equal(p.upToDate, false);
@@ -59,8 +66,9 @@ test('flat 작업 공간: plan → apply → 두 번째 plan은 upToDate', () =>
   assert.equal(read(root, '.siloroot/02-study/a.md'), A_MD);
   assert.equal(loadConfig(root).layout, 'wrapped');
   const again = planUpdate(root);
-  assert.equal(again.upToDate, true, JSON.stringify(again.refresh));
-  assert.deepEqual(again.migrations, []);
+  assert.deepEqual(again.migrations.map((m) => m.id), ['002-project-areas']);
+  assert.equal(again.from, 2); assert.equal(again.to, 3); assert.equal(again.more, false);
+  assert.ok(refreshCleanOf(again.refresh), JSON.stringify(again.refresh));
 });
 
 test('decisions 답이 없으면 아무것도 바꾸지 않는다', () => {
@@ -244,6 +252,8 @@ test('관리 블록만 맞춘 백업을 되돌려도 그 뒤 쓴 작업 기록�
   assert.ok(read(root, '.siloroot/CLAUDE.md').includes('옛 이름'));
 });
 
-test('갈 마이그레이션이 없는 모양 차이는 알리지 않는다', () => {
-  assert.deepEqual(updateNotice({ schema: 2, hold: null, plugin: pluginVersion() }), []);
+test('모양 2는 002를 알리고, 모양 3이나 머물기로 한 모양 2는 알리지 않는다', () => {
+  assert.match(updateNotice({ schema: 2, hold: null, plugin: pluginVersion() })[0], /모양 2 → 3/);
+  assert.deepEqual(updateNotice({ schema: 2, hold: 3, plugin: pluginVersion() }), []);
+  assert.deepEqual(updateNotice({ schema: 3, hold: null, plugin: pluginVersion() }), []);
 });

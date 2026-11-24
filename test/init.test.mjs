@@ -195,10 +195,10 @@ test('user.json이 깨졌으면 init은 멈추고 파일을 그대로 둔다', a
   }
 });
 
-test('모양 2 작업 공간에서 다시 실행하면 맞추기만 하고 업데이트 안내를 하지 않는다', async () => {
+test('모양 2 작업 공간에서 다시 실행하면 옮기지 않고 맞추기만 하며 업데이트를 안내한다', async () => {
   const root = makeProject(); writeConfig(root, { port: 4197, layout: 'wrapped' });
   const res = await initV3(root);
-  assert.ok(!res.warnings.some((w) => w.includes('/siloroot:update')));
+  assert.ok(res.warnings.some((w) => w.includes('/siloroot:update')));
   assert.ok(!fs.existsSync(path.join(root, '.siloroot', 'shared')));
   assert.ok(fs.existsSync(path.join(root, '.siloroot', '02-study', 'README.md')));
   assert.equal(loadConfig(root).schema, 2);
