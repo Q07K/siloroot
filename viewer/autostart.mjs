@@ -127,9 +127,12 @@ if (health.state === 'other') {
   process.exit(0);
 }
 const mine = (() => { try { return pluginVersion(); } catch { return null; } })();
+// 0.5.2부터 뷰어 화면은 다시 붙은 서버의 버전이 바뀌면 스스로 새로 읽는다. 그보다 옛 서버가 준 화면은 못 한다.
+const SELF_RELOAD = '0.5.2';
+let staleTabs = false;
 if (health.state === 'mine' && mine && isOlder(health.version, mine)) {
   const was = health.version || '버전 모름';
-  if (await stopServer(health)) health = { state: 'down' };
+  if (await stopServer(health)) { staleTabs = isOlder(health.version, SELF_RELOAD); health = { state: 'down' }; }
   else say(`[SiloRoot] 포트 ${cfg.port}의 뷰어 서버가 옛 버전(${was})인데 끄지 못했습니다. 그 서버를 끄고 세션을 다시 시작하면 ${mine} 서버가 뜹니다.`);
 }
 if (health.state === 'down') {
@@ -148,5 +151,9 @@ if (health.state === 'down') {
 
 if (health.state !== 'mine') decide(false, 'server-down');
 else if (source === 'compact') decide(false, 'compact');
-else if (health.viewers > 0) decide(false, 'already-open');
+else if (health.viewers > 0) {
+  // 옛 서버가 준 화면이 새 서버에 다시 붙었다. 그 화면은 새 기능을 모르므로 새로고침해야 한다.
+  if (staleTabs) say(`[SiloRoot] 뷰어 서버를 ${mine}(으)로 바꿨습니다. 열려 있던 뷰어 화면은 옛 버전이라 새로고침해야 새 기능이 보입니다. 사용자에게 한 줄로 알리세요.`);
+  decide(false, 'already-open');
+}
 else decide(true, health.viewers === null ? 'unknown-viewers' : 'no-viewer');

@@ -201,6 +201,40 @@ for (const [name, health] of [
   });
 }
 
+test('옛 서버를 바꿨는데 화면이 다시 붙으면 새로고침하라고 알린다', async () => {
+  const root = makeProject();
+  const port = await findFreePort(4290);
+  writeConfig(root, { port });
+  const base = 'http://127.0.0.1:' + port;
+  const old = await fakeServer(root, port, { version: '0.5.1', pid: 'self' });
+  const ac = new AbortController();
+  try {
+    const p = spawn(process.execPath, [path.join(V, 'autostart.mjs')], {
+      env: { ...process.env, CLAUDE_PROJECT_DIR: root, VIEWER_AUTOSTART_DRY: '1' },
+    });
+    let out = '', err = '';
+    p.stdout.on('data', (c) => { out += c; });
+    p.stderr.on('data', (c) => { err += c; });
+    p.stdin.end(JSON.stringify({ hook_event_name: 'SessionStart', source: 'startup' }));
+    const closed = new Promise((r) => p.on('close', r));
+    // 새 서버가 뜨면 열려 있던 화면처럼 /events에 붙는다
+    const end = Date.now() + 8000;
+    for (;;) {
+      try { if ((await (await fetch(base + '/health')).json()).version === pluginVersion()) break; } catch { /* 아직 */ }
+      if (Date.now() > end) throw new Error('새 서버가 뜨지 않음');
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await (await fetch(base + '/events', { signal: ac.signal })).body.getReader().read();
+    await closed;
+    assert.equal(err.trim(), 'skip:already-open');
+    assert.match(out, /새로고침/);
+  } finally {
+    ac.abort();
+    old.kill();
+    await killServerOn(port);
+  }
+});
+
 test('지금 버전보다 새 서버가 떠 있으면 그대로 둔다', async () => {
   const root = makeProject();
   const port = await findFreePort(4280);
