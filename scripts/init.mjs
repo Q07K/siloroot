@@ -11,6 +11,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadConfig, writeConfig, findFreePort, SCHEMA, pluginVersion } from '../lib/config.mjs';
+import { pendingMigrations } from '../lib/migrations/index.mjs';
 import { timeScript } from '../lib/metrics.mjs';
 import { applyRefresh } from '../lib/workspace-sync.mjs';
 
@@ -29,13 +30,13 @@ export async function initProject(rootArg) {
   let cfg = existing;
   const cfgFile = path.join(root, '.siloroot', 'config.json');
   if (!cfg) {
-    writeConfig(root, { port: await findFreePort(), layout, schema: SCHEMA, plugin: pluginVersion() });
+    writeConfig(root, { port: await findFreePort(), layout, schema: 2, plugin: pluginVersion() }); // Task 4에서 모양 3으로
     cfg = loadConfig(root);
     created.push(rel(cfgFile));
   } else {
     skipped.push(rel(cfgFile));
     // init은 옮기지 않는다. 옮기는 것은 /siloroot:update가 한다(scripts/update.mjs).
-    if (cfg.schema < SCHEMA) warnings.push(`작업 공간 모양이 예전 버전입니다(모양 ${cfg.schema}). /siloroot:update로 올리세요.`);
+    if (pendingMigrations(cfg.schema, SCHEMA).length) warnings.push(`작업 공간 모양이 예전 버전입니다(모양 ${cfg.schema}). /siloroot:update로 올리세요.`);
   }
 
   execFileSync(process.execPath, [BUILD, root], { stdio: 'ignore', windowsHide: true });

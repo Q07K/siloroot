@@ -237,7 +237,7 @@ test('세 스킬이 감싼 배치의 문서 위치를 알린다', () => {
 test('새 init은 schema와 plugin을 적는다', async () => {
   const root = makeProject(); await initProject(root);
   const c = loadConfig(root);
-  assert.equal(c.schema, SCHEMA); assert.equal(c.plugin, pluginVersion());
+  assert.equal(c.schema, 2, 'Task 4 전까지 init은 모양 2를 적는다'); assert.equal(c.plugin, pluginVersion());
 });
 
 test('flat 작업 공간에서 init을 다시 돌리면 옮기지 않고 업데이트를 안내하며 plugin은 그대로', async () => {

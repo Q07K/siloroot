@@ -61,7 +61,9 @@ export function planUpdate(rootArg) {
   }));
   const refresh = planRefresh(root, cfg, { declined });
   const upToDate = migrations.every((m) => m.held) && refreshClean(refresh) && !refresh.guideGaps.length;
-  return { from: cfg.schema, to: SCHEMA, pluginFrom: cfg.plugin, pluginTo: pluginVersion(), hold: cfg.hold, migrations, refresh, upToDate };
+  // to: 마이그레이션으로 갈 수 있는 모양. 새 모양의 마이그레이션이 아직 없으면 지금 모양 그대로다
+  const to = migrations.length ? migrations[migrations.length - 1].to : cfg.schema;
+  return { from: cfg.schema, to, pluginFrom: cfg.plugin, pluginTo: pluginVersion(), hold: cfg.hold, migrations, refresh, upToDate };
 }
 
 // viewer/build.mjs를 다시 돌려 속성 경고 수와 끊어진 related를 모은다

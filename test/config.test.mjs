@@ -67,3 +67,15 @@ test('updateConfig는 모르는 칸과 BOM 있는 파일을 지키고 null 칸�
 test('pluginVersion은 plugin.json의 버전', () => {
   assert.match(pluginVersion(), /^\d+\.\d+\.\d+$/);
 });
+
+test('mode가 없으면 project, home이면 home', () => {
+  const a = makeProject(); writeConfig(a, { port: 4180, layout: 'wrapped', schema: 3 });
+  assert.equal(loadConfig(a).mode, 'project');
+  const b = makeProject(); writeConfig(b, { port: 4180, schema: 3, mode: 'home' });
+  assert.equal(loadConfig(b).mode, 'home');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(b, '.siloroot', 'config.json'), 'utf8')).mode, 'home');
+});
+
+test('findFreePort는 avoid의 포트를 건너뛴다', async () => {
+  assert.notEqual(await findFreePort(4290, 4299, { avoid: new Set([4290]) }), 4290);
+});

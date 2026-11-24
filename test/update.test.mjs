@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig, writeConfig, updateConfig, pluginVersion } from '../lib/config.mjs';
 import { claudeBlock } from '../lib/workspace-sync.mjs';
 import { MIGRATIONS } from '../lib/migrations/index.mjs';
+import { updateNotice } from '../lib/update-check.mjs';
 import { initProject } from '../scripts/init.mjs';
 import { planUpdate, applyUpdate } from '../scripts/update.mjs';
 import { makeProject, write } from './fixtures.mjs';
@@ -239,4 +240,8 @@ test('관리 블록만 맞춘 백업을 되돌려도 그 뒤 쓴 작업 기록�
   assert.deepEqual(r.conflicts, []);
   assert.ok(read(root, '.siloroot/01-log/changelog.md').includes('업데이트 뒤 한 줄'));
   assert.ok(read(root, '.siloroot/CLAUDE.md').includes('옛 이름'));
+});
+
+test('갈 마이그레이션이 없는 모양 차이는 알리지 않는다', () => {
+  assert.deepEqual(updateNotice({ schema: 2, hold: null, plugin: pluginVersion() }), []);
 });
