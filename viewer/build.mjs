@@ -499,6 +499,9 @@ if (DATA_ONLY) fs.writeFileSync(path.join(OUT_DIR, 'data-private.json'), json);
 const template = DATA_ONLY ? '' : fs.readFileSync(TEMPLATE, 'utf8');
 if (!DATA_ONLY && !template.includes('__VIEWER_DATA__')) throw new Error('template.html에 __VIEWER_DATA__ 자리가 없습니다');
 
+// 탭 제목: 프로젝트 폴더 이름을 앞에 둔다. 프로젝트마다 뷰어가 열려도 탭으로 가려낼 수 있고, 탭이 좁아지면 뒤쪽이 잘리기 때문이다
+const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const pageTitle = data.root ? escHtml(data.root) + ' · SiloRoot' : 'SiloRoot';
 const ICON = path.join(here, 'brand', 'siloroot-icon-64.png');
 const icon = fs.existsSync(ICON) ? 'data:image/png;base64,' + fs.readFileSync(ICON).toString('base64') : '';
 const BRAND = path.join(here, 'brand');
@@ -507,7 +510,7 @@ const dataUri = (name) => { const f = path.join(BRAND, name); return fs.existsSy
 const FONT = path.join(here, 'fonts', 'PretendardVariable.woff2');
 const fontSrc = fs.existsSync(FONT) ? "url(data:font/woff2;base64," + fs.readFileSync(FONT).toString('base64') + ") format('woff2')" : "local('Pretendard Variable'),local('Pretendard')";
 if (!DATA_ONLY && !fs.existsSync(FONT)) console.log('글꼴 파일이 없어 PC에 깔린 Pretendard를 찾습니다: ' + FONT);
-if (!DATA_ONLY) fs.writeFileSync(OUT_HTML, template.split('__FONT_PRETENDARD_SRC__').join(fontSrc).split('__BRAND_ICON__').join(icon).split('__BRAND_WORDMARK_DARK__').join(dataUri('siloroot-wordmark-dark-56.png')).split('__BRAND_WORDMARK__').join(dataUri('siloroot-wordmark-56.png')).split('__VIEWER_DATA__').join(json));
+if (!DATA_ONLY) fs.writeFileSync(OUT_HTML, template.split('__PAGE_TITLE__').join(pageTitle).split('__FONT_PRETENDARD_SRC__').join(fontSrc).split('__BRAND_ICON__').join(icon).split('__BRAND_WORDMARK_DARK__').join(dataUri('siloroot-wordmark-dark-56.png')).split('__BRAND_WORDMARK__').join(dataUri('siloroot-wordmark-56.png')).split('__VIEWER_DATA__').join(json));
 if (!KEEP_SNAPSHOT || !prev) {
   const snapFiles = {};
   for (const d of docs) snapFiles[d.path] = { hash: hash(d.text), text: d.text };

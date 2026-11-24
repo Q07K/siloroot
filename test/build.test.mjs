@@ -155,3 +155,13 @@ test('나 화면 레이더: 다섯 축, 계산식, 하루 한 줄 추이, 코멘
   assert.equal(lines.length, 1);
   assert.equal(JSON.parse(lines[0]).v.depth, 75);
 });
+
+test('뷰어 탭 제목 앞에 프로젝트 폴더 이름을 둔다', () => {
+  const root = makeProject();
+  writeConfig(root, { port: 4180 });
+  write(root, 'a.md', '---\ntype: note\nstatus: 사용 중\n---\n\n# a\n');
+  build(root);
+  const html = fs.readFileSync(path.join(root, '.siloroot', 'state', 'viewer-private.html'), 'utf8');
+  assert.ok(html.includes('<title>' + path.basename(root) + ' · SiloRoot</title>'));
+  assert.ok(!html.includes('__PAGE_TITLE__'));
+});
