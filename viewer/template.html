@@ -266,14 +266,16 @@ select:hover{border-color:var(--faint)}
 @keyframes fvgone{from{opacity:1}to{opacity:0}}
 @media (prefers-reduced-motion: reduce){.nd.born .dot,.nd.born .halo,#gl path.born,#gl path.fresh,#gghost .ghost{animation-duration:.01s}}
 /* 읽는 문서 흔적: Claude가 한 번 답하며 거쳐 간 문서. 읽음은 고른 점의 선 색(--accent), 고침은 바뀐 줄 띠 색(--flash-bar).
-   화살표 없이 새 선(path.born)처럼 출발 쪽에서 도착 쪽으로 그어지고, 다 그어지면 도착 점의 둘레와 번호가 켜진다. 가장 최근 점은 새 점처럼 둘레가 퍼진다 */
+   새 선을 긋지 않는다. 이어서 거친 두 문서 사이에 기존 연결 선이 있으면 그 선을 같은 모양, 같은 굵기(path.hot, path.born)로 덮어
+   출발 쪽에서 도착 쪽으로 색이 차오르게 하고, 다 차면 도착 점의 둘레와 번호가 켜진다. 연결이 없으면 번호와 목록으로만 순서를 보인다.
+   가장 최근 점은 새 점처럼 둘레가 퍼진다 */
 #gtrail{pointer-events:none}
-#gtrail path{fill:none;stroke-width:calc(2.2px * var(--zk,1));stroke-linecap:round}
+#gtrail path{fill:none;stroke-width:2;stroke-linecap:round}
 #gtrail .sread{stroke:var(--accent)}
 #gtrail .sedit{stroke:var(--flash-bar)}
 #gtrail .fread{fill:var(--accent)}
 #gtrail .fedit{fill:var(--flash-bar)}
-#gtrail path.tdraw{stroke-dasharray:var(--len);stroke-dashoffset:var(--len);animation:fvdraw .9s .3s ease-out forwards}
+#gtrail path.tdraw{stroke-dasharray:var(--len);stroke-dashoffset:var(--from);animation:fvdraw .9s .3s ease-out forwards}
 #gtrail .tring{fill:none;stroke-width:calc(2.2px * var(--zk,1))}
 #gtrail .tpulse{animation:fvhalo 1.6s ease-out infinite both;transform-box:fill-box;transform-origin:center}
 #gtrail .tbadge text{fill:var(--on-accent);font-weight:700;text-anchor:middle;dominant-baseline:central}
@@ -1815,6 +1817,7 @@ function viewGraph(carry) {
   const visibleLink = l => visibleNode(l.a) && visibleNode(l.b);
   let hoverK = null, drag = null, zk = 1;
   let tSegs = [], tMarks = [], trailNodes = new Set(); // 흔적 선, 흔적 점 표시, 흔적에 든 점 (trailBuild)
+  const linkAt = new Map(links.map((l, i) => [Math.min(l.a, l.b) + '|' + Math.max(l.a, l.b), i])); // 두 점 사이 연결 선 찾기 (trailBuild)
   if (!carry) { GS.k = 1; GS.x = 0; GS.y = 0; }
 
   // 이름표: 중요한 순서(고른 점, 그 이웃, 연결 많은 점)로 놓고, 이미 놓인 이름표나 다른 점과 겹치면 그 이름은 숨긴다.
@@ -2084,7 +2087,7 @@ function viewGraph(carry) {
   svgEl.addEventListener('pointerup', () => {
     if (!drag) return;
     const d = drag; drag = null; svgEl.classList.remove('panning'); svgEl.classList.remove('hdrag');
-    if (coarseTrunk) { coarseTrunk = false; links.forEach((l, i) => { if (visibleLink(l)) lEls[i].setAttribute('d', edgeD(l)); }); }
+    if (coarseTrunk) { coarseTrunk = false; links.forEach((l, i) => { if (visibleLink(l)) lEls[i].setAttribute('d', edgeD(l)); }); trailPlace(); }
     if (d.hull) { if (d.moved < 3) select(null); }
     else if (d.moved < 3) { if (d.pan) select(null); else pick(d.k); }
     else if (!d.pan) { hoverK = null; if (grown.size) releaseHulls(d.k); paint(); }
@@ -2124,8 +2127,9 @@ function viewGraph(carry) {
   const gfb = $('#gfbtn');
   if (gfb) gfb.addEventListener('click', () => { GPANEL = !GPANEL; $('#gpanel').hidden = !GPANEL; gfb.classList.toggle('on', GPANEL); gfb.setAttribute('aria-expanded', GPANEL); });
   // ---- 읽는 문서 흔적 ----
-  // 거쳐 간 차례대로 보이는 점끼리 휜 선으로 잇고, 점에 둘레와 번호를 단다. 숨긴 점이나 그래프에 없는 문서는 선이 건너뛰고 목록에만 남는다.
-  // 새로 온 마지막 선만 그어지는 움직임을 주고(0.3초 뒤 0.9초), 그 도착 점의 둘레와 번호는 선이 다 그어진 뒤(1.2초)에 켜진다.
+  // 거쳐 간 차례대로 보이는 점에 둘레와 번호를 달고, 이어서 거친 두 점 사이에 기존 연결 선이 있으면 그 선에 색을 채운다.
+  // 연결이 없는 두 점은 잇지 않는다(그래프의 선은 실제 연결만 뜻한다). 숨긴 점이나 그래프에 없는 문서는 목록에만 남는다.
+  // 새로 온 마지막 선만 차오르는 움직임을 주고(0.3초 뒤 0.9초), 그 도착 점의 둘레와 번호는 색이 다 찬 뒤(1.2초)에 켜진다.
   // 구조는 흔적이 바뀔 때만 다시 만들고(trailBuild), 점을 끌거나 확대할 때는 자리만 옮긴다(trailPlace).
   const trailLayer = $('#gtrail'), trailBox = $('#gtrailbox'), trailBtn = $('#gtrail-btn');
   nEls.forEach(el => { const d = el.querySelector('.dot'); d.dataset.tip0 = d.getAttribute('data-tip'); });
@@ -2143,17 +2147,22 @@ function viewGraph(carry) {
     const vis = steps.filter(s => s.k != null && visibleNode(s.k));
     const newest = grew ? steps[steps.length - 1] : null;
     let html = '';
+    const segIn = new Set(); // 연결 선을 타고 들어온 차례(vis 안 자리)
     vis.forEach((s, i) => {
       if (i === 0 || vis[i - 1].k === s.k) return;
+      const a = vis[i - 1].k, li = linkAt.get(Math.min(a, s.k) + '|' + Math.max(a, s.k));
+      if (li == null || !visibleLink(links[li])) return;
       const age = vis.length - 1 - i;
-      tSegs.push({ a: vis[i - 1].k, b: s.k, isNew: s === newest });
+      // 연결 선은 l.a에서 l.b로 그려져 있다. 거꾸로 거쳤으면 끝 쪽에서부터 채운다
+      tSegs.push({ i: li, rev: links[li].a !== a, isNew: s === newest });
+      segIn.add(i);
       html += '<path class="s' + s.kind + '" style="opacity:' + Math.max(0.3, 1 - 0.15 * age).toFixed(2) + '"></path>';
     });
     const byK = new Map();
     vis.forEach((s, i) => { if (!byK.has(s.k)) byK.set(s.k, []); byK.get(s.k).push({ s, i }); });
     for (const [k, v] of byK) {
       const last = v[v.length - 1], age = vis.length - 1 - last.i;
-      const isNew = last.s === newest, hadLine = last.i > 0 && vis[last.i - 1].k !== k;
+      const isNew = last.s === newest, hadLine = segIn.has(last.i);
       const label = v.map(x => x.s.n).join('·'), fill = v.some(x => x.s.kind === 'edit') ? 'fedit' : 'fread';
       tMarks.push({ k, label });
       html += '<g style="opacity:' + Math.max(0.4, 1 - 0.13 * age).toFixed(2) + '"><g' + (isNew ? ' class="tpop" style="animation-delay:' + (hadLine ? 1.2 : 0) + 's"' : '') + '>' +
@@ -2168,13 +2177,15 @@ function viewGraph(carry) {
     tSegs.forEach((s, i) => { s.el = pEls[i]; });
     tMarks.forEach((m, i) => { const g = gEls[i]; m.ring = g.querySelector('.tring'); m.pulse = g.querySelector('.tpulse'); m.rect = g.querySelector('rect'); m.text = g.querySelector('text'); });
     trailPlace();
-    // 새 선(path.born)과 같은 방식: 길이를 넘겨 그어지게 하고, 끝나면 떼어 점이 움직여도 선이 끊겨 보이지 않게 한다
+    // 새 선(path.born)과 같은 방식: 길이를 넘겨 그어지게 하고, 끝나면 떼어 점이 움직여도 선이 끊겨 보이지 않게 한다.
+    // 거꾸로 거친 선은 어긋남을 음수에서 0으로 줄여 끝 쪽(출발 문서)에서부터 차오르게 한다
     for (const s of tSegs) {
       if (!s.isNew) continue;
-      const el = s.el;
-      el.style.setProperty('--len', String(Math.ceil(el.getTotalLength()) + 1));
+      const el = s.el, len = Math.ceil(el.getTotalLength()) + 1;
+      el.style.setProperty('--len', String(len));
+      el.style.setProperty('--from', String(s.rev ? -len : len));
       el.classList.add('tdraw');
-      const done = () => { el.classList.remove('tdraw'); el.style.removeProperty('--len'); };
+      const done = () => { el.classList.remove('tdraw'); el.style.removeProperty('--len'); el.style.removeProperty('--from'); };
       el.addEventListener('animationend', done, { once: true });
       setTimeout(done, 1500);
     }
@@ -2183,13 +2194,8 @@ function viewGraph(carry) {
   }
   function trailPlace() {
     const f1 = v => v.toFixed(1);
-    for (const s of tSegs) {
-      const p = nodes[s.a], q = nodes[s.b], dx = q.x - p.x, dy = q.y - p.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
-      const sx = p.x + ux * (rad(p) + 3 * zk), sy = p.y + uy * (rad(p) + 3 * zk);
-      const ex = q.x - ux * (rad(q) + 5 * zk), ey = q.y - uy * (rad(q) + 5 * zk);
-      const bend = Math.min(40, L * 0.18), mx = (sx + ex) / 2 - uy * bend, my = (sy + ey) / 2 + ux * bend;
-      s.el.setAttribute('d', 'M' + f1(sx) + ',' + f1(sy) + ' Q' + f1(mx) + ',' + f1(my) + ' ' + f1(ex) + ',' + f1(ey));
-    }
+    // 흔적 선은 기존 연결 선과 같은 모양이다. 연결 선을 고친 뒤에 불리므로 그 모양을 그대로 옮긴다
+    for (const s of tSegs) s.el.setAttribute('d', lEls[s.i].getAttribute('d'));
     for (const m of tMarks) {
       const n = nodes[m.k], r = rad(n), x = f1(n.x), y = f1(n.y);
       m.ring.setAttribute('cx', x); m.ring.setAttribute('cy', y); m.ring.setAttribute('r', f1(r + 3.5 * zk));
@@ -2465,6 +2471,16 @@ if (SERVED && window.EventSource) {
   es.onmessage = ev => { try { onFilesChanged(JSON.parse(ev.data).paths || []); } catch (e) { /* 알림 형식이 다르면 무시 */ } };
   // 읽는 문서 흔적은 이름 단 알림(event: trail)으로 따로 온다
   es.addEventListener('trail', ev => { try { setTrail(JSON.parse(ev.data)); } catch (e) { /* 무시 */ } });
+  // 세션 시작 훅이 옛 버전 서버를 새 버전으로 바꾸면 이 화면은 새 서버에 다시 붙는다.
+  // 붙을 때마다 서버 버전을 보고, 처음 본 버전과 다르면 새 서버의 화면으로 다시 읽는다.
+  let serverVersion;
+  es.addEventListener('open', () => {
+    fetch('/health', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(h => {
+      const v = (h && h.version) || null;
+      if (serverVersion === undefined) serverVersion = v;
+      else if (v !== serverVersion) location.reload();
+    }).catch(() => { /* 서버가 아직 뜨는 중 */ });
+  });
 }
 if (SERVED) fetch('/trail', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(d => { if (d) setTrail(d, true); }).catch(() => { /* 예전 서버 */ });
 })();
