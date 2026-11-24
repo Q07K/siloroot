@@ -7,6 +7,8 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { writeConfig, updateConfig, loadConfig, findFreePort, pluginVersion } from '../lib/config.mjs';
 import { updateNotice } from '../lib/update-check.mjs';
+import { userDir, userFile } from '../lib/user.mjs';
+import { initProject } from '../scripts/init.mjs';
 import { makeProject, write } from './fixtures.mjs';
 
 const V = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'viewer');
@@ -304,4 +306,63 @@ test('hold가 SCHEMA 이상이면 모양 알림을 끄고 맞추기 알림만 �
 test('최신 작업 공간은 업데이트 알림이 없다', () => {
   const root = makeProject(); writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2, plugin: pluginVersion() });
   assert.equal(run('notify.mjs', root, ['--session']), '');
+});
+
+// ---- 모양 3: 홈의 후보와 홈 뷰어 ----
+const HOME = () => path.join(userDir(), 'siloroot-home');
+const v3Project = async () => {
+  fs.rmSync(path.join(userDir(), '.siloroot'), { recursive: true, force: true });
+  fs.rmSync(HOME(), { recursive: true, force: true });
+  const root = makeProject();
+  await initProject(root, { home: HOME() });
+  return root;
+};
+const slashed = (p) => p.split(path.sep).join('/');
+
+test('모양 3 프로젝트 세션은 홈의 승인된 사용자 정보 후보를 알린다', async () => {
+  const root = await v3Project();
+  write(HOME(), 'feedback/trait-2026-11-24-001.md', '---\ntype: trait\nstatus: 승인\n---\n\n# 사용자 정보 후보\n');
+  write(HOME(), 'feedback/rule-2026-11-24-001.md', '---\ntype: rule\nstatus: 승인\n---\n\n# 규칙 후보\n');
+  const ctx = JSON.parse(run('notify.mjs', root, ['--session'])).hookSpecificOutput.additionalContext;
+  const h = slashed(HOME());
+  assert.ok(ctx.includes(h + '/profile.md 반영 대기: ' + h + '/feedback/trait-2026-11-24-001.md'), ctx);
+  assert.ok(ctx.includes(h + '/writing-guide.md 반영 대기: ' + h + '/feedback/rule-2026-11-24-001.md'), ctx);
+});
+
+test('모양 3 프로젝트의 AI 코멘트 갱신 알림은 홈의 ai-comment.md를 본다', async () => {
+  const root = await v3Project();
+  const f = write(HOME(), 'ai-comment.md', '---\ntype: note\nstatus: 사용 중\n---\n\n# 코멘트\n');
+  const old = new Date(Date.now() - 3 * 86400000); fs.utimesSync(f, old, old);
+  const ctx = JSON.parse(run('notify.mjs', root, ['--session'])).hookSpecificOutput.additionalContext;
+  assert.ok(ctx.includes(slashed(HOME()) + '/ai-comment.md'), ctx);
+});
+
+test('user.json이 깨져도 notify는 프로젝트 할 일만 알리고 끝난다', async () => {
+  const root = await v3Project();
+  write(root, '.siloroot/private/feedback/2026-11-24-001.md', '---\ntype: feedback\nstatus: 대기\nrelated: [shared/README.md]\n---\n\n# 피드백\n');
+  write(HOME(), 'feedback/trait-2026-11-24-001.md', '---\ntype: trait\nstatus: 승인\n---\n\n# 후보\n');
+  fs.writeFileSync(userFile(), '{ 깨짐');
+  const ctx = JSON.parse(run('notify.mjs', root, ['--session'])).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /피드백 대기: \.siloroot\/private\/feedback\/2026-11-24-001\.md \(대상 \.siloroot\/shared\/README\.md\)/);
+  assert.doesNotMatch(ctx, /trait/);
+});
+
+test('autostart는 모양 3 프로젝트에서 홈 뷰어도 켠다', async () => {
+  const root = await v3Project();
+  const urls = [root, HOME()].map((r) => 'http://127.0.0.1:' + loadConfig(r).port);
+  try {
+    const r = spawnSync(process.execPath, [path.join(V, 'autostart.mjs')], {
+      encoding: 'utf8', input: '', env: { ...process.env, CLAUDE_PROJECT_DIR: root, VIEWER_AUTOSTART_DRY: '1' },
+    });
+    assert.match(r.stderr, /^home:mine$/m, r.stderr);
+    for (const [u, want] of [[urls[0], root], [urls[1], HOME()]]) {
+      const j = await (await fetch(u + '/health')).json();
+      assert.equal(path.resolve(j.root), path.resolve(want));
+    }
+  } finally {
+    // autostart가 따로 띄운 서버를 끈다. 이 테스트가 만든 폴더의 서버만
+    for (const [u, want] of [[urls[0], root], [urls[1], HOME()]]) {
+      try { const j = await (await fetch(u + '/health')).json(); if (j.pid && path.resolve(j.root) === path.resolve(want)) process.kill(j.pid); } catch { /* 이미 꺼짐 */ }
+    }
+  }
 });

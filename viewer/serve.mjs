@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { summarize } from './diff.mjs';
 import { loadConfig, pluginVersion, DEFAULT_DIRS } from '../lib/config.mjs';
+import { placesOf, localPlace } from '../lib/layout.mjs';
 import { trailDir, latestTrail } from '../lib/trail.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -31,7 +32,8 @@ const CFG = loadConfig(ROOT) || { port: 4180, docsRoot: ROOT, dirs: { ...DEFAULT
 const DOCS = CFG.docsRoot;
 const HTML = path.join(CFG.stateDir, 'viewer-private.html');
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
-const FB_REL = CFG.dirs.feedback;
+// 뷰어 댓글 자리(lib/layout.mjs). 모양 3 프로젝트는 private/feedback
+const FB_REL = localPlace(placesOf(CFG).feedback);
 const FEEDBACK_DIR = path.join(DOCS, FB_REL);
 const inDocs = (full) => full.startsWith(DOCS + path.sep) && !(full + path.sep).startsWith(CFG.stateDir + path.sep);
 const PORT = Number(argOf('--port') || (loadConfig(ROOT) ? CFG.port : process.env.PORT) || 4180);

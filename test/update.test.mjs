@@ -7,9 +7,12 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig, writeConfig, updateConfig, pluginVersion } from '../lib/config.mjs';
 import { claudeBlock } from '../lib/workspace-sync.mjs';
 import { MIGRATIONS } from '../lib/migrations/index.mjs';
+import { updateNotice } from '../lib/update-check.mjs';
 import { initProject } from '../scripts/init.mjs';
 import { planUpdate, applyUpdate } from '../scripts/update.mjs';
 import { makeProject, write } from './fixtures.mjs';
+// 모양 2(감싼 배치) 작업 공간: 모양 3 전의 init이 만들던 것. 업데이트와 맞추기는 모양 2에서도 돈다
+const initV2 = async (root) => { writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2, plugin: pluginVersion() }); return initProject(root); };
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UPDATE = path.join(REPO, 'scripts', 'update.mjs');
@@ -122,7 +125,7 @@ test('마이그레이션이 실패하면 거기서 멈추고 schema는 마지막
 
 test('plugin만 다르면 백업 없이 plugin만 적는다', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   updateConfig(root, { plugin: '0.0.1' });
   const before = snapshot(root);
   const p = planUpdate(root);
@@ -139,7 +142,7 @@ test('plugin만 다르면 백업 없이 plugin만 적는다', async () => {
 
 test('거절한 안내 문서 줄은 다음 plan의 guideGaps에 다시 나오지 않는다', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   const guide = path.join(root, '.siloroot', 'metadata-guide.md');
   fs.writeFileSync(guide, fs.readFileSync(guide, 'utf8').split('\n').filter((l) => !l.includes('`trait`')).join('\n'));
   const p = planUpdate(root);
@@ -153,7 +156,7 @@ test('거절한 안내 문서 줄은 다음 plan의 guideGaps에 다시 나오�
 
 test('모르는 schema(예: 9)면 아무것도 바꾸지 않고 unsupported-schema', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   updateConfig(root, { schema: 9, plugin: '0.0.1' });
   const before = snapshot(root);
   assert.deepEqual(planUpdate(root), { error: 'unsupported-schema', schema: 9 });
@@ -212,7 +215,7 @@ test('001이 맞추기 중에 실패해도 팀 CLAUDE.md 내용을 잃지 않고
 
 test('맞추기가 실패하면 refresh에서 멈췄다고 알리고 백업을 봉해 되돌릴 수 있다', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   const before = snapshot(root);
   fs.rmSync(path.join(root, '.siloroot', '01-log'), { recursive: true });
   write(root, '.siloroot/01-log', '폴더 자리에 파일');
@@ -228,7 +231,7 @@ test('맞추기가 실패하면 refresh에서 멈췄다고 알리고 백업을 �
 
 test('관리 블록만 맞춘 백업을 되돌려도 그 뒤 쓴 작업 기록과 사용자 정보는 그대로', async () => {
   const root = makeProject();
-  await initProject(root);
+  await initV2(root);
   const md = path.join(root, '.siloroot', 'CLAUDE.md');
   fs.writeFileSync(md, fs.readFileSync(md, 'utf8').replace('흐름 나누기', '옛 이름'));
   const res = applyUpdate(root, {});
@@ -239,4 +242,8 @@ test('관리 블록만 맞춘 백업을 되돌려도 그 뒤 쓴 작업 기록�
   assert.deepEqual(r.conflicts, []);
   assert.ok(read(root, '.siloroot/01-log/changelog.md').includes('업데이트 뒤 한 줄'));
   assert.ok(read(root, '.siloroot/CLAUDE.md').includes('옛 이름'));
+});
+
+test('갈 마이그레이션이 없는 모양 차이는 알리지 않는다', () => {
+  assert.deepEqual(updateNotice({ schema: 2, hold: null, plugin: pluginVersion() }), []);
 });

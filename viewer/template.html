@@ -246,6 +246,8 @@ select:hover{border-color:var(--faint)}
 .hull circle{cursor:grab}
 #gsvg.hdrag,#gsvg.hdrag .hull circle,#gsvg.hdrag .hlab text{cursor:grabbing}
 .nd.arch{opacity:.35}
+.nd.ext{opacity:.45}
+.nd.ext .lb{display:inline!important}
 .nd.arch.dim{opacity:.12}
 /* 실시간 갱신: 새로 생긴 점은 커지며 나타나고 둘레가 퍼진다. 새 선은 그어지듯 나타난다. 지운 점과 선은 흐려지며 사라진다 */
 .nd.born .dot{animation:fvborn .7s cubic-bezier(.2,1.5,.4,1) both;transform-box:fill-box;transform-origin:center}
@@ -547,7 +549,9 @@ const DARK = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark
 const PAL = DARK
   ? ['#C8D9E6', '#8FB2C1', '#E6D3BD', '#A9C4B6', '#C3AFC9', '#AEB8C2', '#D9A898', '#7FA3BE', '#F5EFEB']
   : ['#2F4156', '#567C8D', '#7FA3BE', '#B08D6A', '#6E8F7E', '#8A7091', '#6B7785', '#A26E5C', '#44627A'];
-const color = f => PAL[folders.indexOf(f) % PAL.length];
+// 다른 작업 공간(홈, 다른 프로젝트)을 가리키는 "바깥 점"의 묶음 이름과 색. 폴더 색과 섞이지 않게 흐린 회색 하나를 쓴다
+const EXT_FOLDER = '(바깥)';
+const color = f => (f === EXT_FOLDER ? (DARK ? '#7D8794' : '#A3ACB6') : PAL[folders.indexOf(f) % PAL.length]);
 const $ = s => document.querySelector(s);
 const ICON = {
   x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -1110,7 +1114,28 @@ function meDash(M) {
     }).join('') + '</div></section>';
   return h;
 }
+// 다른 작업 공간의 뷰어가 켜져 있는지 본다. 다른 포트라 응답은 읽지 못하고(no-cors), 연결이 되는지만 본다
+const viewerUp = url => (url ? fetch(url + '/health', { mode: 'no-cors', cache: 'no-store' }).then(() => true, () => false) : Promise.resolve(false));
+// 바깥 점을 눌렀을 때: 켜져 있으면 새 탭, 꺼져 있으면 알림. 새 탭이 막히면 링크를 알림에 둔다
+async function openExternal(n) {
+  const label = n.d.title;
+  if (!(await viewerUp(n.url))) { toast('<span>' + esc(label) + ' 뷰어가 꺼져 있습니다</span>', 4000); return; }
+  const w = window.open(n.url, '_blank');
+  if (w) w.opener = null;
+  else toast('<a href="' + esc(n.url) + '" target="_blank" rel="noopener">' + esc(label) + ' 뷰어 열기</a>', 6000);
+}
+// 모양 3 프로젝트의 "나": 사용자 정보는 홈에 있어서 홈 뷰어로 가는 링크만 둔다
+function viewMeHome() {
+  const H = D.home;
+  let card;
+  if (H && H.url) card = '<p class="fc">사용자 정보와 "나" 화면은 홈 뷰어에 있습니다.</p><div class="crow"><a class="pill on" href="' + esc(H.url) + '" target="_blank" rel="noopener">홈 뷰어 열기</a><span class="note" id="homeOff" hidden>홈 뷰어가 꺼져 있습니다</span></div>';
+  else if (H) card = '<p class="fc">사용자 정보와 "나" 화면은 홈 뷰어에 있습니다.</p><p class="note">홈 뷰어가 꺼져 있습니다</p>';
+  else card = '<p class="fc">홈을 찾지 못했습니다. /siloroot:init을 다시 실행하세요.</p>';
+  $('#view').innerHTML = '<div class="phead"><h1 class="page">나</h1></div><section class="pane grow mepane"><div class="pane-b pad"><article class="ocard">' + card + '</article></div></section>';
+  if (H && H.url) viewerUp(H.url).then(up => { const off = $('#homeOff'); if (off && !up) off.hidden = false; });
+}
 function viewMe() {
+  if (!D.objects.me) { viewMeHome(); return; }
   const { M, approved, pending, rejected, writing } = meCounts();
   const nope = (target, quote) => SERVED
     ? '<div class="crow"><button type="button" class="pill sm nope" data-t="' + esc(target) + '" data-q="' + esc(quote) + '">이건 아니에요</button></div><div class="nopef" hidden></div>'
@@ -1241,9 +1266,11 @@ const ARCHIVED = new Set(['보관', '끝남']);
 function graphData() {
   const keep = D.docs.filter(d => (GS.showCommon || !isCommon(d)) && (GS.showArch || !isArch(d)));
   const nodes = keep.map(d => ({ id: d.path, d, deg: 0, inc: 0, x: 0, y: 0, vx: 0, vy: 0 }));
+  // 바깥 점: 가리킨 작업 공간마다 하나. 그 작업 공간 문서는 읽지 않고, 누르면 그 뷰어를 새 탭으로 연다
+  for (const x of (D.externals || [])) nodes.push({ id: x.id, d: { path: x.id, title: x.label, folder: EXT_FOLDER, fm: {}, mtime: 0 }, ext: true, url: x.url, deg: 0, inc: 0, x: 0, y: 0, vx: 0, vy: 0 });
   const idx = new Map(nodes.map((n, k) => [n.id, k]));
   const lmap = new Map();
-  for (const e of D.edges) {
+  for (const e of D.edges.concat(D.extEdges || [])) {
     if (e.from === e.to || GS.kinds[e.kind] === false) continue;
     const a = idx.get(e.from), b = idx.get(e.to);
     if (a == null || b == null) continue;
@@ -1742,7 +1769,7 @@ function viewGraph(carry) {
     const f = color(n.d.folder), title = esc(n.d.title + ' (' + n.id + ')');
     const r = rad(n);
     const fill = f; // 점 색은 폴더 색
-    const cls = 'nd' + (isArch(n.d) ? ' arch' : '') + (born.has(k) ? ' born' : '');
+    const cls = 'nd' + (isArch(n.d) ? ' arch' : '') + (n.ext ? ' ext' : '') + (born.has(k) ? ' born' : '');
     return '<g class="' + cls + '" data-k="' + k + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')">' +
       '<circle class="halo" r="' + (r + 5).toFixed(1) + '" fill="' + fill + '"></circle><circle class="dot" r="' + r.toFixed(1) + '" fill="' + fill + '" data-tip="' + title + '"></circle>' +
       '<text class="lb" x="' + r.toFixed(1) + '" y="0">' + esc(short(n.d.title)) + '</text></g>';
@@ -2033,7 +2060,7 @@ function viewGraph(carry) {
     paint();
     placeTrailBox();
   }
-  function pick(k) { select(k); }
+  function pick(k) { if (nodes[k] && nodes[k].ext) openExternal(nodes[k]); else select(k); }
   svgEl.addEventListener('wheel', e => { e.preventDefault(); const p = toVB(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   svgEl.addEventListener('pointerdown', e => {
     const nd = e.target.closest('.nd'), hl = !nd && hulls ? e.target.closest('.hull') : null, p = toVB(e);
@@ -2068,7 +2095,7 @@ function viewGraph(carry) {
     if (graphWaiting) { graphWaiting = false; setTimeout(graphLiveUpdate, 0); }
   });
   svgEl.addEventListener('pointerleave', () => { if (!drag && hoverK != null) { hoverK = null; paint(); } });
-  svgEl.addEventListener('dblclick', e => { const nd = e.target.closest('.nd'); if (nd) location.hash = 'doc/' + encodeURIComponent(nodes[+nd.dataset.k].id); });
+  svgEl.addEventListener('dblclick', e => { const nd = e.target.closest('.nd'); if (nd && !nodes[+nd.dataset.k].ext) location.hash = 'doc/' + encodeURIComponent(nodes[+nd.dataset.k].id); });
   $('#zin').addEventListener('click', () => zoomAt(W / 2, H / 2, 1.3));
   $('#zout').addEventListener('click', () => zoomAt(W / 2, H / 2, 1 / 1.3));
   // 맞춤: 지금 보이는 점과 폴더 원(위의 이름 자리까지)이 모두 들어오게 배율과 위치를 정한다. 끌어서 넓혀 둔 뒤에도 맞는다.
