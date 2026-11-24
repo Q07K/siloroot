@@ -11,10 +11,12 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../lib/config.mjs';
+import { timeScript } from '../lib/metrics.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cfg = loadConfig(process.env.CLAUDE_PROJECT_DIR || process.cwd());
 if (!cfg) process.exit(0);
+timeScript(cfg.root, 'hook', 'hook:autostart');
 
 const URL = 'http://127.0.0.1:' + cfg.port;
 const DRY = process.env.VIEWER_AUTOSTART_DRY === '1';

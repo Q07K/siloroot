@@ -79,6 +79,40 @@ The templates and skill text are currently in Korean only.
 
 The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server and open it in the browser (unless a viewer tab is already open or the session restarted after compaction); when you send a message they tell you if there is feedback to process. In a 0.1.x-style folder (documents at the project root) that already had a `.gitignore`, add `.siloroot/state/` to it yourself.
 
+## Usage log
+
+To find where SiloRoot is slow or uses many tokens, the plugin writes one JSON line per step to `.siloroot/state/metrics.jsonl`. It is on by default, stays on this machine, and is kept out of git with the rest of `state/`.
+
+| Stage | What is measured |
+| --- | --- |
+| `turn:siloroot:<skill>` | A turn (one message and the whole response) that used a SiloRoot skill, by slash command or by Claude calling it |
+| `turn:siloroot-docs` | A turn that read or wrote files under `.siloroot/` without a SiloRoot skill. If a SiloRoot skill was used earlier in the session, the summary groups it as `turn:siloroot-docs (siloroot:<skill> 뒤)`, so follow-up Q&A turns of `note` or `verify` stay visible |
+| `turn:other` | Any other turn in the workspace, as a baseline |
+| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | Hook run time, including Node startup. The notify hooks also record how many characters they added to Claude's context |
+| `script:init`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | Script run time and document count |
+| `context:always-loaded` | At session start, the length in characters of `.siloroot/CLAUDE.md` and `profile.md`, which Claude loads on every turn |
+
+- Turn records come from a `Stop` hook. It reads the conversation transcript (`transcript_path` in the hook input) from where it stopped last time and adds up each response's `usage`: input, output, cache-read, and cache-write tokens. A response split over several lines is counted once by its message id. Subagent tokens (`<session>/subagents/`) go into a separate `sub` field. It also records how many characters each tool's results brought into the context (`resultChars`, by tool name) and how much of that came from tool calls on `.siloroot` (`docChars`), which shows what looking up documents costs. Only lengths are counted, never the content. The read position is kept per session in `.siloroot/state/metrics-cursor/`, so sessions running at the same time do not overwrite each other. If a position is lost and turns are logged twice, the summary counts each turn once.
+- A record holds only stage names, timestamps, durations, token counts, tool names with counts and time, SiloRoot skill names, and the session id. No document text, prompts, file paths, or other plugins' skill names.
+- If logging fails, the original work goes on. The `Stop` hook always exits 0 with no output.
+- To turn it off, set `"metrics": false` in `.siloroot/config.json` or the environment variable `SILOROOT_METRICS=0`. At 5 MB the file moves to `metrics.1.jsonl` and a new one starts.
+
+To see the summary, run the script in the plugin folder (for a marketplace install, `~/.claude/plugins/cache/<marketplace>/siloroot/<version>/`) from the project folder. `--days 7` limits it to the last week and `--json` prints the totals as JSON.
+
+```powershell
+node "<plugin folder>/scripts/metrics.mjs" . --days 7
+```
+
+It prints the stages that used the most time, tokens, and cost, then a table for turns (sorted by cost) and one for scripts and hooks.
+
+- Cost is the API list price of each response (`lib/pricing.mjs`, prices as of 2026-11-03), subagents included. 1-hour cache writes and fast mode are priced as such. It is a relative figure for comparing stages, not what a subscription plan bills. Responses from models missing from the table are counted as unpriced.
+- The cache-read share is how much of that cost went to re-reading the conversation from cache. Every tool call is a new request that reads the whole conversation again, so a large share means fewer calls would save the most.
+- Work tokens are input + output + cache-write, subagents included. Cache-read tokens grow with conversation length, so they get their own column; their price is included in the cost above.
+- A turn counts as a whole toward its stage. A message that used `/siloroot:note` and also did other work counts entirely as `turn:siloroot:note`, so per-skill numbers are approximate.
+- Result characters are characters, not tokens. A Korean character is roughly one token or more.
+- Turn time includes waiting for you. Answering a question or approving a permission prompt shows up as tool time (`AskUserQuestion`, `Edit`, `Write`, and so on).
+- Tokens a background subagent spends after its turn has ended are not counted.
+
 ## Development
 
 ```powershell
