@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { writeConfig, findFreePort, DEFAULT_DIRS } from '../lib/config.mjs';
+import { writeConfig, findFreePort, pluginVersion, DEFAULT_DIRS } from '../lib/config.mjs';
 import { makeProject, write } from './fixtures.mjs';
 
 const SERVE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'viewer', 'serve.mjs');
@@ -41,6 +41,12 @@ test('/health는 SiloRoot 표시와 루트 절대 경로를 돌려준다', async
   const j = await (await fetch(base + '/health')).json();
   assert.equal(j.siloroot, true);
   assert.equal(j.root, path.resolve(root));
+});
+
+test('/health는 서버의 플러그인 버전과 프로세스 번호를 돌려준다', async () => {
+  const j = await (await fetch(base + '/health')).json();
+  assert.equal(j.version, pluginVersion());
+  assert.equal(j.pid, child.pid);
 });
 
 test('첫 화면에 SiloRoot 이름이 있다', async () => {

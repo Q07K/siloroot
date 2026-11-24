@@ -142,6 +142,79 @@ test('화면을 찍으려고 띄운 headless 브라우저는 열린 화면으로
   });
 });
 
+// 예전 버전 뷰어 서버를 흉내 낸다. health는 /health 응답에 더할 값(version, pid). 따로 띄운 프로세스라
+// autostart가 꺼도 시험 프로세스는 남는다.
+async function fakeServer(root, port, health) {
+  const script = write(root, '_fake-serve.mjs', `
+import http from 'node:http';
+const extra = ${JSON.stringify(health)};
+if (extra.pid === 'self') extra.pid = process.pid;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({ siloroot: true, root: ${JSON.stringify(path.resolve(root))}, viewers: 0, ...extra }));
+}).listen(${port}, '127.0.0.1');
+`);
+  const child = spawn(process.execPath, [script], { stdio: 'ignore' });
+  const end = Date.now() + 5000;
+  for (;;) {
+    try { if ((await fetch('http://127.0.0.1:' + port + '/health')).ok) return child; } catch { /* 아직 */ }
+    if (Date.now() > end) { child.kill(); throw new Error('가짜 서버가 뜨지 않음'); }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+const exited = (child) => child.exitCode !== null || child.signalCode !== null;
+const waitExit = (child, ms = 5000) => (exited(child) ? Promise.resolve(true)
+  : new Promise((r) => { const t = setTimeout(() => r(false), ms); child.once('exit', () => { clearTimeout(t); r(true); }); }));
+const decideAsync = (root) => new Promise((resolve) => {
+  const p = spawn(process.execPath, [path.join(V, 'autostart.mjs')], {
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root, VIEWER_AUTOSTART_DRY: '1' },
+  });
+  let err = '';
+  p.stdout.resume();
+  p.stderr.on('data', (c) => { err += c; });
+  p.stdin.end(JSON.stringify({ hook_event_name: 'SessionStart', source: 'startup' }));
+  p.on('close', () => resolve(err.trim()));
+});
+// autostart가 새로 띄운 서버를 /health의 pid로 끈다.
+async function killServerOn(port) {
+  try { process.kill((await (await fetch('http://127.0.0.1:' + port + '/health')).json()).pid); } catch { /* 없음 */ }
+}
+
+for (const [name, health] of [
+  ['버전과 pid를 알려 주는 옛 서버', { version: '0.0.1', pid: 'self' }],
+  ['버전을 알려 주지 않는 옛 서버', {}],
+]) {
+  test(`${name}가 떠 있으면 끄고 지금 버전 서버를 새로 띄운다`, async () => {
+    const root = makeProject();
+    const port = await findFreePort(4290);
+    writeConfig(root, { port });
+    const old = await fakeServer(root, port, health);
+    try {
+      assert.equal(await decideAsync(root), 'open:no-viewer');
+      assert.equal(await waitExit(old), true, '옛 서버가 꺼지지 않음');
+      const j = await (await fetch('http://127.0.0.1:' + port + '/health')).json();
+      assert.equal(j.version, pluginVersion());
+    } finally {
+      old.kill();
+      await killServerOn(port);
+    }
+  });
+}
+
+test('지금 버전보다 새 서버가 떠 있으면 그대로 둔다', async () => {
+  const root = makeProject();
+  const port = await findFreePort(4280);
+  writeConfig(root, { port });
+  const newer = await fakeServer(root, port, { version: '999.0.0', pid: 'self' });
+  try {
+    assert.equal(await decideAsync(root), 'open:no-viewer');
+    assert.equal(exited(newer), false);
+    assert.equal((await (await fetch('http://127.0.0.1:' + port + '/health')).json()).version, '999.0.0');
+  } finally {
+    newer.kill();
+  }
+});
+
 test('대화 압축으로 다시 시작한 세션에서는 브라우저를 열지 않는다', async () => {
   await withServer(({ root }) => {
     assert.equal(decide(root, 'compact'), 'skip:compact');
