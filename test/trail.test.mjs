@@ -134,3 +134,89 @@ test('흔적 폴더가 없으면 latestTrail은 빈 흔적을 준다', () => {
   const { cfg } = project();
   assert.deepEqual(latestTrail(cfg), { session: null, items: [] });
 });
+
+// --- 훅 스크립트 (scripts/trail.mjs) ---
+import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SCRIPT = path.join(HERE, '..', 'scripts', 'trail.mjs');
+const hook = (root, input, args = []) => spawnSync(process.execPath, [SCRIPT, ...args], {
+  input, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root },
+});
+const listAll = (dir) => fs.readdirSync(dir, { recursive: true }).sort();
+
+test('훅은 Read를 흔적 파일에 남기고 아무것도 출력하지 않는다', () => {
+  const { root, a, cfg } = project();
+  const r = hook(root, JSON.stringify({ session_id: 's1', tool_name: 'Read', tool_input: { file_path: a } }));
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, '');
+  assert.deepEqual(latestTrail(cfg).items.map((e) => e.path), ['03-ideas/a.md']);
+});
+
+test('--reset은 그 세션 흔적을 비운다', () => {
+  const { root, a, cfg } = project();
+  hook(root, JSON.stringify({ session_id: 's1', tool_name: 'Read', tool_input: { file_path: a } }));
+  const r = hook(root, JSON.stringify({ session_id: 's1' }), ['--reset']);
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, '');
+  assert.deepEqual(latestTrail(cfg).items, []);
+});
+
+test('SiloRoot 폴더가 아니면 아무것도 만들지 않는다', () => {
+  const root = makeProject('그냥 폴더');
+  const f = write(root, 'notes.md', '# 메모\n');
+  const before = listAll(root);
+  for (const args of [[], ['--reset']]) {
+    const r = hook(root, JSON.stringify({ session_id: 's1', tool_name: 'Read', tool_input: { file_path: f } }), args);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '');
+  }
+  assert.deepEqual(listAll(root), before);
+});
+
+test('입력이 비었거나 깨졌으면 조용히 끝난다', () => {
+  const { root } = project();
+  for (const input of ['', '{"session_id":']) {
+    for (const args of [[], ['--reset']]) {
+      const r = hook(root, input, args);
+      assert.equal(r.status, 0);
+      assert.equal(r.stdout, '');
+    }
+  }
+});
+
+test('session_id가 경로 글자면 파일을 만들지 않는다', () => {
+  const { root, a, cfg } = project();
+  const r = hook(root, JSON.stringify({ session_id: '../../x', tool_name: 'Read', tool_input: { file_path: a } }));
+  assert.equal(r.status, 0);
+  assert.equal(fs.existsSync(trailDir(cfg)) ? fs.readdirSync(trailDir(cfg)).length : 0, 0);
+  assert.equal(fs.existsSync(path.join(root, '.siloroot', 'x.jsonl')), false);
+});
+
+test('동시에 붙여도 줄이 섞이지 않는다', async () => {
+  const { root, a, cfg } = project();
+  const input = JSON.stringify({ session_id: 'many', tool_name: 'Read', tool_input: { file_path: a } });
+  await Promise.all(Array.from({ length: 20 }, () => new Promise((resolve) => {
+    const p = spawn(process.execPath, [SCRIPT], { env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+    p.on('close', resolve);
+    p.stdin.end(input);
+  })));
+  const file = path.join(trailDir(cfg), 'many.jsonl');
+  const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean);
+  assert.equal(lines.length, 20);
+  assert.equal(readTrail(file).length, 20);
+});
+
+test('hooks.json에 두 흔적 훅이 async로 있다', () => {
+  const conf = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'hooks', 'hooks.json'), 'utf8'));
+  const isTrail = (h, extra = []) => h.command === 'node'
+    && JSON.stringify(h.args) === JSON.stringify(['${CLAUDE_PLUGIN_ROOT}/scripts/trail.mjs', ...extra]);
+  const post = conf.hooks.PostToolUse.find((g) => g.hooks.some((h) => isTrail(h)));
+  assert.ok(post, 'PostToolUse 흔적 훅이 없다');
+  assert.equal(post.matcher, 'Read|Edit|Write|MultiEdit|NotebookEdit|Bash');
+  assert.equal(post.hooks.find((h) => isTrail(h)).async, true);
+  const reset = conf.hooks.UserPromptSubmit.flatMap((g) => g.hooks).find((h) => isTrail(h, ['--reset']));
+  assert.ok(reset, 'UserPromptSubmit 비우기 훅이 없다');
+  assert.equal(reset.async, true);
+});
