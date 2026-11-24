@@ -14,10 +14,19 @@
 
 - `npm test`와 `claude plugin validate .`를 실행한다. 실패가 있으면 이번 변경 때문인지 원래 있던 것인지 가려 PR에 적는다.
 - 개인 정보 검사: 테스트가 `test/banned-words.local.txt`(git에 올리지 않음)의 금지어로 템플릿, 스킬, README를 검사한다. 커밋 기록과 PR 본문에도 실명, 회사, 고객사 이름을 쓰지 않는다.
-- 기능이나 템플릿이 바뀌면 `.claude-plugin/plugin.json`과 `package.json`의 버전을 함께 올린다.
+- 버전은 PR마다 올리지 않고 내보낼 때 올린다. 아래 "버전과 내보내기"를 따르고, PR 본문에 버전을 올렸는지(올렸으면 몇으로) 적는다.
 - 폴더 배치, 문서 위치, 속성 값, 설정 모양이 바뀌면 `SCHEMA`(`lib/config.mjs`)를 올리고 `lib/migrations/`에 마이그레이션과 테스트를 함께 낸다.
 - 관리 블록이나 안내 문서 템플릿만 바뀌면 `SCHEMA`는 그대로 둔다. `/siloroot:update`의 맞추기가 맡는다.
 - README는 영어(`README.md`)와 한국어(`README.ko.md`) 두 벌이다. 한쪽을 고치면 다른 쪽도 고친다.
+
+## 버전과 내보내기
+
+설치된 플러그인은 버전 번호가 바뀌어야 `claude plugin update`로 새 내용을 받는다. 번호가 오를 때마다 사용자는 플러그인을 올리고, 새 세션을 열고, `/siloroot:update`를 돌린다. 그래서 번호는 사용자에게 내보낼 묶음마다 한 번 올린다.
+
+- 새 기능과 템플릿 변경: 버전을 올리지 않고 `main`에 쌓는다. 한 기능을 여러 PR로 나눴으면 묶음이 끝났을 때 한 번 내보낸다.
+- 내보내기: 사용자가 정한다. 마지막 PR에서, 또는 `chore/release-<버전>` PR 하나로 `.claude-plugin/plugin.json`과 `package.json`의 부 버전(0.x.0)을 함께 올린다.
+- 이미 내보낸 버전의 버그 수정: 바로 패치 버전(0.x.y)을 올려 낸다. 깨진 것은 빨리 받아야 해서다.
+- 아직 내보내지 않은 `main`을 써 보려면 저장소를 `--plugin-dir`로 불러온다(README "개발").
 
 ## 저장소 설정
 
