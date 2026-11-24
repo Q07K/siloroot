@@ -8,6 +8,9 @@
 //   캐시 읽기 = 응답마다 앞 대화를 다시 읽는 양. 대화가 길수록 커져서 단계 비교를 가리므로 따로 둔다.
 // 도구 결과 글자 = 도구 결과(파일 읽기, 검색, 명령 출력 등)가 맥락에 들여온 글자 수. 그 가운데 문서 = .siloroot를 다룬 도구 호출의 몫.
 //   조회에 드는 비용을 본다. 글자 수라 토큰 수와 같지 않다(한글은 한 글자가 대략 한 토큰 이상).
+// 비용 = API 정가로 환산한 값(lib/pricing.mjs, 서브에이전트 포함). 구독 요금제의 실제 청구와는 다르고 단계끼리 견주는 상대값이다.
+//   캐시 읽기 몫 = 비용 가운데 캐시 읽기의 비율. 응답(도구 호출)마다 대화 전체를 다시 읽는 값이라, 이 몫이 크면 호출 횟수를 줄이는 것이 남는다.
+//   턴 표는 비용 순으로 적는다.
 // 턴의 단계는 그 턴에 쓴 siloroot 스킬로 정한다(턴 전체를 그 스킬에 넣는다). 스킬 없이 .siloroot/ 파일을 다룬 턴은 turn:siloroot-docs, 나머지는 turn:other.
 
 import path from 'node:path';
@@ -15,7 +18,7 @@ import { pathToFileURL } from 'node:url';
 import { loadConfig } from '../lib/config.mjs';
 import { readMetrics } from '../lib/metrics.mjs';
 
-const TK = ['input', 'output', 'cacheRead', 'cacheWrite', 'calls'];
+const TK = ['input', 'output', 'cacheRead', 'cacheWrite', 'calls', 'microUsd', 'microUsdRead', 'unpriced'];
 const zero = () => Object.fromEntries(TK.map((k) => [k, 0]));
 const addTo = (a, b) => { if (b) for (const k of TK) a[k] += Number(b[k]) || 0; };
 const work = (t) => t.input + t.output + t.cacheWrite;
@@ -67,6 +70,10 @@ export function aggregate(records, { days } = {}) {
       fails: s.fails,
       workTokens: work(all),
       avgWorkTokens: s.count ? Math.round(work(all) / s.count) : 0,
+      usd: all.microUsd / 1e6,
+      avgUsd: s.count ? all.microUsd / 1e6 / s.count : 0,
+      readShare: all.microUsd ? all.microUsdRead / all.microUsd : 0,
+      unpriced: all.unpriced,
       tokens: s.tokens,
       sub: s.sub,
       toolMs: s.toolMs,
@@ -77,21 +84,29 @@ export function aggregate(records, { days } = {}) {
       avgChars: s.chars.length ? Math.round(s.chars.reduce((a, b) => a + b, 0) / s.chars.length) : null,
     };
   });
-  const turns = list.filter((x) => x.kind === 'turn').sort((a, b) => b.workTokens - a.workTokens);
+  const turns = list.filter((x) => x.kind === 'turn').sort((a, b) => b.usd - a.usd || b.workTokens - a.workTokens);
   const runs = list.filter((x) => x.kind !== 'turn').sort((a, b) => b.totalMs - a.totalMs);
   const byTime = [...list].sort((a, b) => b.totalMs - a.totalMs)[0] || null;
-  const byTokens = turns[0] || null;
+  const byTokens = [...turns].sort((a, b) => b.workTokens - a.workTokens)[0] || null;
+  const byCost = turns[0] && turns[0].usd ? turns[0] : null;
+  const allUsd = turns.reduce((n, x) => n + x.usd, 0);
+  const allRead = turns.reduce((n, x) => n + x.usd * x.readShare, 0);
   return {
     from: first !== null ? new Date(first).toISOString() : null,
     to: last !== null ? new Date(last).toISOString() : null,
     turns,
     runs,
-    top: { time: byTime ? byTime.stage : null, tokens: byTokens && byTokens.workTokens ? byTokens.stage : null },
+    top: { time: byTime ? byTime.stage : null, tokens: byTokens && byTokens.workTokens ? byTokens.stage : null, cost: byCost ? byCost.stage : null },
+    usd: allUsd,
+    readShare: allUsd ? allRead / allUsd : 0,
+    unpriced: turns.reduce((n, x) => n + x.unpriced, 0),
     alwaysLoadedChars: context.length ? context[context.length - 1] : null,
   };
 }
 
 const fmtMs = (v) => (v < 1000 ? `${v}ms` : v < 60000 ? `${(v / 1000).toFixed(1)}초` : `${Math.floor(v / 60000)}분 ${Math.round((v % 60000) / 1000)}초`);
+const fmtUsd = (v) => '$' + (v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toFixed(3));
+const fmtPct = (v) => `${Math.round(v * 100)}%`;
 const fmtTk = (v) => (v < 1000 ? String(v) : v < 1e6 ? `${(v / 1000).toFixed(1)}k` : `${(v / 1e6).toFixed(2)}M`);
 const width = (s) => [...String(s)].reduce((n, ch) => n + (/[ᄀ-ᇿ㄰-㆏가-힯一-鿿　-〿＀-￯]/.test(ch) ? 2 : 1), 0);
 const pad = (s, w, right) => { const g = ' '.repeat(Math.max(0, w - width(s))); return right ? g + s : s + g; };
@@ -114,12 +129,14 @@ export function render(agg) {
   out.push(`SiloRoot 사용 기록: 턴 ${turnCount}개, 스크립트·훅 ${runCount}번 (${(agg.from || '').slice(0, 10)} ~ ${(agg.to || '').slice(0, 10)})`);
   if (agg.top.time) out.push(`시간을 가장 많이 쓴 단계: ${agg.top.time}`);
   if (agg.top.tokens) out.push(`토큰을 가장 많이 쓴 단계: ${agg.top.tokens}`);
+  if (agg.top.cost) out.push(`비용을 가장 많이 쓴 단계: ${agg.top.cost} (전체 ${fmtUsd(agg.usd)} API 정가 환산, 그 가운데 캐시 읽기 ${fmtPct(agg.readShare)})`);
+  if (agg.unpriced) out.push(`값을 매기지 못한 응답 ${agg.unpriced}번 (lib/pricing.mjs 표에 없는 모델)`);
   if (agg.alwaysLoadedChars !== null) out.push(`매 턴 불러오는 SiloRoot 규칙 문서(CLAUDE.md, profile.md): ${agg.alwaysLoadedChars.toLocaleString('en-US')}자`);
   if (agg.turns.length) {
-    out.push('', '턴 (작업 토큰 = 입력 + 출력 + 캐시 쓰기, 서브에이전트 포함. 캐시 읽기는 대화 길이를 따라 커져서 따로 둔다. 결과 글자 = 도구 결과가 맥락에 들여온 글자 수, 문서 = 그 가운데 .siloroot 몫)');
+    out.push('', '턴, 비용 순 (비용 = API 정가 환산, 서브에이전트 포함. 캐시 읽기 몫 = 응답마다 대화 전체를 다시 읽는 값의 비율. 작업 토큰 = 입력 + 출력 + 캐시 쓰기. 결과 글자 = 도구 결과가 맥락에 들여온 글자 수, 문서 = 그 가운데 .siloroot 몫)');
     out.push(table(
-      ['단계', '횟수', '합계 시간', '평균', 'p90', '작업 토큰', '평균 작업', '출력', '캐시 읽기', '응답 수', '서브에이전트', '결과 글자', '문서', '도구 시간 상위', '결과 글자 상위'],
-      agg.turns.map((x) => [x.stage, x.count, fmtMs(x.totalMs), fmtMs(x.avgMs), fmtMs(x.p90Ms), fmtTk(x.workTokens), fmtTk(x.avgWorkTokens),
+      ['단계', '횟수', '합계 시간', '평균', 'p90', '비용', '턴당 비용', '캐시 읽기 몫', '작업 토큰', '평균 작업', '출력', '캐시 읽기', '응답 수', '서브에이전트', '결과 글자', '문서', '도구 시간 상위', '결과 글자 상위'],
+      agg.turns.map((x) => [x.stage, x.count, fmtMs(x.totalMs), fmtMs(x.avgMs), fmtMs(x.p90Ms), fmtUsd(x.usd), fmtUsd(x.avgUsd), fmtPct(x.readShare), fmtTk(x.workTokens), fmtTk(x.avgWorkTokens),
         fmtTk(x.tokens.output + x.sub.output), fmtTk(x.tokens.cacheRead + x.sub.cacheRead), x.tokens.calls + x.sub.calls, fmtTk(work(x.sub)), fmtTk(x.totalResultChars), fmtTk(x.docChars), topTools(x.toolMs), topChars(x.resultChars)]),
     ));
   }

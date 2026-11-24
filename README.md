@@ -103,9 +103,11 @@ To see the summary, run the script in the plugin folder (for a marketplace insta
 node "<plugin folder>/scripts/metrics.mjs" . --days 7
 ```
 
-It prints the stage that used the most time and the one that used the most tokens, then a table for turns and one for scripts and hooks.
+It prints the stages that used the most time, tokens, and cost, then a table for turns (sorted by cost) and one for scripts and hooks.
 
-- Work tokens are input + output + cache-write, subagents included. Cache-read is shown in its own column: it grows with conversation length and would hide which stage is expensive.
+- Cost is the API list price of each response (`lib/pricing.mjs`, prices as of 2026-11-03), subagents included. 1-hour cache writes and fast mode are priced as such. It is a relative figure for comparing stages, not what a subscription plan bills. Responses from models missing from the table are counted as unpriced.
+- The cache-read share is how much of that cost went to re-reading the conversation from cache. Every tool call is a new request that reads the whole conversation again, so a large share means fewer calls would save the most.
+- Work tokens are input + output + cache-write, subagents included. Cache-read tokens grow with conversation length, so they get their own column; their price is included in the cost above.
 - A turn counts as a whole toward its stage. A message that used `/siloroot:note` and also did other work counts entirely as `turn:siloroot:note`, so per-skill numbers are approximate.
 - Result characters are characters, not tokens. A Korean character is roughly one token or more.
 - Turn time includes waiting for you. Answering a question or approving a permission prompt shows up as tool time (`AskUserQuestion`, `Edit`, `Write`, and so on).

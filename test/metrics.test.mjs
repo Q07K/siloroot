@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { writeConfig } from '../lib/config.mjs';
 import { clean, readMetrics } from '../lib/metrics.mjs';
 import { splitTurns } from '../lib/transcript.mjs';
+import { costOf } from '../lib/pricing.mjs';
 import { aggregate, render } from '../scripts/metrics.mjs';
 import { makeProject, write } from './fixtures.mjs';
 
@@ -22,7 +23,7 @@ const base = { sessionId: 's-1', cwd: 'C:\\Users\\' + MARK, gitBranch: MARK };
 const prompt = (s, content) => ({ ...base, type: 'user', timestamp: T(s), message: { role: 'user', content } });
 const meta = (s) => ({ ...base, type: 'user', isMeta: true, timestamp: T(s), message: { role: 'user', content: [{ type: 'text', text: '스킬 본문 ' + MARK }] } });
 const usage = (i, o, r, w) => ({ input_tokens: i, output_tokens: o, cache_read_input_tokens: r, cache_creation_input_tokens: w });
-const asst = (s, id, u, content) => ({ ...base, type: 'assistant', timestamp: T(s), message: { id, model: 'claude-test', role: 'assistant', usage: u, content } });
+const asst = (s, id, u, content) => ({ ...base, type: 'assistant', timestamp: T(s), message: { id, model: 'claude-opus-5-5', role: 'assistant', usage: u, content } });
 const use = (id, name, input) => ({ type: 'tool_use', id, name, input });
 const result = (s, id) => ({ ...base, type: 'user', timestamp: T(s), message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: MARK }] } });
 const text = (t) => ({ type: 'text', text: t + ' ' + MARK });
@@ -81,7 +82,11 @@ const turnsOf = (root) => readMetrics(path.join(root, '.siloroot', 'state')).fil
 test('턴 나누기: 사용자 메시지마다 턴을 나누고, 같은 응답은 한 번만 세고, 단계를 스킬과 .siloroot 접근으로 정한다', () => {
   const turns = splitTurns([...turn1, ...turn2, ...turn3, ...turn4]);
   assert.deepEqual(turns.map((t) => t.stage), ['turn:siloroot:note', 'turn:siloroot:feedback', 'turn:other', 'turn:siloroot-docs']);
-  assert.deepEqual(turns[0].tokens, { input: 15, output: 70, cacheRead: 2300, cacheWrite: 310, calls: 2 });
+  // 값(Opus 5.5, 마이크로달러): m1 = 10×4 + 20×20 + 300×5(5분 캐시 쓰기) + 1000×0.2 = 2140, m2 = 5×4 + 50×20 + 10×5 + 1300×0.2 = 1330
+  const { microUsd, microUsdRead, ...counts } = turns[0].tokens;
+  assert.deepEqual(counts, { input: 15, output: 70, cacheRead: 2300, cacheWrite: 310, calls: 2, unpriced: 0 });
+  assert.equal(Math.round(microUsd), 3470);
+  assert.equal(Math.round(microUsdRead), 460);
   assert.equal(turns[0].ms, 3000);
   assert.deepEqual(turns[0].tools, { Read: 1 });
   assert.equal(turns[0].toolMs.Read, 500);
@@ -178,7 +183,7 @@ test('Stop 훅: 서브에이전트 기록의 토큰을 그 턴에 따로 더한�
   ]));
   runHook(root, stopInput(root, tp));
   const [t] = turnsOf(root);
-  assert.deepEqual(t.sub, { input: 7, output: 70, cacheRead: 700, cacheWrite: 77, calls: 1 });
+  assert.deepEqual(t.sub, { input: 7, output: 70, cacheRead: 700, cacheWrite: 77, calls: 1, microUsd: 7 * 4 + 70 * 20 + 77 * 5 + 700 * 0.2, microUsdRead: 140, unpriced: 0 });
 });
 
 test('Stop 훅: 기록에는 문서 내용, 경로, 프롬프트, 다른 스킬 이름이 남지 않는다', () => {
@@ -253,6 +258,19 @@ test('빌드와 알림 훅이 걸린 시간을 남기고, 기록을 못 남겨�
   assert.ok(fs.existsSync(path.join(broken, '.siloroot', 'state', 'viewer-private.html')));
 });
 
+// ---------- 값 환산 ----------
+test('값 환산: 1시간 캐시 쓰기는 2배, fast는 2배, 표에 없는 모델은 값을 매기지 않는다', () => {
+  const u = { input_tokens: 1000, output_tokens: 100, cache_read_input_tokens: 10000, cache_creation_input_tokens: 500, cache_creation: { ephemeral_1h_input_tokens: 200 } };
+  // Sonnet 5.5: 입력 2, 출력 10, 5분 쓰기 2.5, 1시간 쓰기 4, 읽기 0.1
+  assert.deepEqual(costOf('claude-sonnet-5-5', u), { micro: 1000 * 2 + 100 * 10 + 300 * 2.5 + 200 * 4 + 10000 * 0.1, microRead: 1000 });
+  assert.equal(costOf('claude-sonnet-5-5', { ...u, speed: 'fast' }).micro, 2 * (1000 * 2 + 100 * 10 + 300 * 2.5 + 200 * 4 + 10000 * 0.1));
+  assert.equal(costOf('claude-haiku-4-5', { cache_read_input_tokens: 1000 }).microRead, 100);
+  assert.equal(costOf('some-other-model', u), null);
+  const t = splitTurns([prompt(0, 'x'), { ...asst(1, 'z1', usage(1, 1, 1, 1), [text('a')]), message: { id: 'z1', model: 'other', usage: usage(1, 1, 1, 1), content: [] } }]);
+  assert.equal(t[0].tokens.unpriced, 1);
+  assert.equal(t[0].tokens.microUsd, 0);
+});
+
 // ---------- 허용 칸 ----------
 test('clean: 허용한 칸과 모양만 남긴다', () => {
   const o = clean({ kind: 'turn', stage: 'turn:other', cwd: 'C:\\x', prompt: 'y', session: 'a/b', start: 'not a date',
@@ -276,6 +294,9 @@ test('요약: 단계별로 모아 시간과 토큰을 가장 많이 쓴 단계�
   assert.equal(note.docChars, MARK.length);
   const text = render(agg);
   assert.match(text, /결과 글자 상위/);
+  assert.match(text, /비용을 가장 많이 쓴 단계: turn:siloroot:note \(전체 \$0\.\d+ .*캐시 읽기 \d+%\)/);
+  assert.ok(Math.abs(note.usd - 0.00347) < 1e-6);
+  assert.equal(agg.turns[0].stage, 'turn:siloroot:note');
   assert.match(text, /토큰을 가장 많이 쓴 단계: turn:siloroot:note/);
   assert.match(text, /hook:metrics-turn/);
 
