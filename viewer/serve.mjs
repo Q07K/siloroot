@@ -7,6 +7,7 @@
 // GET /health 는 { siloroot: true, root, viewers } 를 돌려준다. 훅이 이 포트가 내 폴더의 서버인지,
 // 뷰어 화면이 이미 열려 있는지(viewers: /events에 붙은 화면 수) 확인할 때 쓴다.
 // 화면을 찍으려고 띄운 headless 브라우저는 사람이 보는 화면이 아니므로 viewers에 세지 않는다.
+// GET /trail 은 읽는 문서 흔적({ session, items }, lib/trail.mjs)을 돌려준다. 흔적이 바뀌면 /events로 event: trail 알림도 보낸다.
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -16,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { summarize } from './diff.mjs';
 import { loadConfig, DEFAULT_DIRS } from '../lib/config.mjs';
+import { trailDir, latestTrail } from '../lib/trail.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const argOf = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : undefined; };
@@ -88,6 +90,21 @@ function onChange(rel) {
   }, 400);
 }
 try { fs.watch(DOCS, { recursive: true }, (_e, f) => onChange(f)); } catch (e) { console.error('파일 감시를 시작하지 못했습니다:', e.message); }
+
+// 읽는 문서 흔적(.siloroot/state/trail/)이 바뀌면 가장 최근 세션의 흔적을 이름 단 알림(event: trail)으로 보낸다.
+// 훅이 연달아 붙여도 150ms 모아 한 번 보낸다. 흔적 파일이 생기기 전에 연 화면도 받도록 폴더를 먼저 만든다.
+let trailTimer = null;
+function onTrail() {
+  clearTimeout(trailTimer);
+  trailTimer = setTimeout(() => {
+    const msg = 'event: trail\ndata: ' + JSON.stringify(latestTrail(CFG)) + '\n\n';
+    for (const res of clients) res.write(msg);
+  }, 150);
+}
+try {
+  fs.mkdirSync(trailDir(CFG), { recursive: true });
+  fs.watch(trailDir(CFG), onTrail);
+} catch (e) { console.error('흔적 감시를 시작하지 못했습니다:', e.message); }
 setInterval(() => { for (const res of clients) res.write(': keep-alive\n\n'); }, 25000);
 
 // 다른 사이트가 이 서버로 요청을 보내지 못하게: 같은 주소에서 온 JSON 요청만 받는다
@@ -225,6 +242,10 @@ http.createServer(async (req, res) => {
       clients.add(res);
       req.on('close', () => clients.delete(res));
       return;
+    }
+    if (req.method === 'GET' && req.url === '/trail') {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(JSON.stringify(latestTrail(CFG))); return;
     }
     if (req.method === 'GET' && req.url === '/health') {
       const viewers = [...clients].filter((c) => !c.headless).length;
