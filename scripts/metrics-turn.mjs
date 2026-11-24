@@ -4,18 +4,19 @@
 // 걸린 시간, 토큰 수, 쓴 도구, siloroot 스킬을 .siloroot/state/metrics.jsonl에 남긴다 (lib/metrics.mjs).
 // - SiloRoot 폴더가 아니거나 기록을 껐으면 아무것도 하지 않는다.
 // - 무엇이 실패해도 출력 없이 0으로 끝난다. Stop 훅이 출력하거나 0이 아닌 값으로 끝나면 Claude의 응답 마무리를 막을 수 있다.
-// - 읽은 위치는 .siloroot/state/metrics-cursor.json에 세션별로 둔다. 다 쓰이지 않은 마지막 줄은 다음 실행이 읽는다.
+// - 읽은 위치는 세션마다 .siloroot/state/metrics-cursor/<세션 id>.json에 둔다. 여러 세션이 함께 돌아도 서로의 파일을 덮지 않고,
+//   임시 파일에 쓴 뒤 이름을 바꿔서 반쯤 쓴 파일을 읽지 않는다. 다 쓰이지 않은 마지막 줄은 다음 실행이 읽는다.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from '../lib/config.mjs';
-import { appendMetrics, metricsOn } from '../lib/metrics.mjs';
+import { appendMetrics, metricsOn, processStart } from '../lib/metrics.mjs';
 import { splitTurns, subagentUsage } from '../lib/transcript.mjs';
 
-const CURSOR = 'metrics-cursor.json';
+const CURSOR_DIR = 'metrics-cursor';
 const KEEP_IDS = 200;
 const KEEP_DAYS = 30;
-const t0 = Date.now();
+const t0 = processStart();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function readStdin() {
@@ -62,14 +63,14 @@ async function main() {
   const tp = typeof input.transcript_path === 'string' ? input.transcript_path : '';
   if (!session || !tp || !fs.existsSync(tp)) return;
 
-  const cursorFile = path.join(cfg.stateDir, CURSOR);
-  let cursors = {};
-  try { cursors = JSON.parse(fs.readFileSync(cursorFile, 'utf8')) || {}; } catch { cursors = {}; }
-  const prev = cursors[session] || {};
+  const dir = path.join(cfg.stateDir, CURSOR_DIR);
+  const cursorFile = path.join(dir, session + '.json');
+  let prev = {};
+  try { prev = JSON.parse(fs.readFileSync(cursorFile, 'utf8')) || {}; } catch { prev = {}; }
   const seenIds = new Set(Array.isArray(prev.ids) ? prev.ids : []);
 
   const { entries, offset } = readNew(tp, Number(prev.offset) || 0);
-  const turns = splitTurns(entries, { seenIds, prevStage: prev.stage, prevEnd: prev.end });
+  const turns = splitTurns(entries, { seenIds, prevStage: prev.stage, prevEnd: prev.end, prevSkill: prev.skill });
 
   const records = [];
   for (const t of turns) {
@@ -82,17 +83,23 @@ async function main() {
 
   const lastTurn = turns.filter((t) => !t.cont).pop();
   const ids = [...seenIds].slice(-KEEP_IDS);
-  cursors[session] = {
+  const next = {
     offset,
     ids,
     stage: lastTurn ? lastTurn.stage : prev.stage,
     end: turns.length ? turns[turns.length - 1].end : prev.end,
-    at: new Date(t1).toISOString(),
+    skill: turns.lastSkill || undefined,
   };
+  fs.mkdirSync(dir, { recursive: true });
+  const tmp = cursorFile + '.' + process.pid + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(next));
+  fs.renameSync(tmp, cursorFile);
+
+  // 오래 쓰지 않은 세션의 위치 파일은 지운다
   const cut = Date.now() - KEEP_DAYS * 86400000;
-  for (const [k, v] of Object.entries(cursors)) if (!v || !(Date.parse(v.at) > cut)) delete cursors[k];
-  fs.mkdirSync(cfg.stateDir, { recursive: true });
-  fs.writeFileSync(cursorFile, JSON.stringify(cursors));
+  for (const f of fs.readdirSync(dir)) {
+    try { const full = path.join(dir, f); if (fs.statSync(full).mtimeMs < cut) fs.unlinkSync(full); } catch { /* 무시 */ }
+  }
 }
 
 try { await main(); } catch { /* 기록 실패는 원래 작업을 막지 않는다 */ }

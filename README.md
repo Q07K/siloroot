@@ -86,13 +86,13 @@ To find where SiloRoot is slow or uses many tokens, the plugin writes one JSON l
 | Stage | What is measured |
 | --- | --- |
 | `turn:siloroot:<skill>` | A turn (one message and the whole response) that used a SiloRoot skill, by slash command or by Claude calling it |
-| `turn:siloroot-docs` | A turn that read or wrote files under `.siloroot/` without a SiloRoot skill |
+| `turn:siloroot-docs` | A turn that read or wrote files under `.siloroot/` without a SiloRoot skill. If a SiloRoot skill was used earlier in the session, the summary groups it as `turn:siloroot-docs (siloroot:<skill> 뒤)`, so follow-up Q&A turns of `note` or `verify` stay visible |
 | `turn:other` | Any other turn in the workspace, as a baseline |
-| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | Hook run time. The notify hooks also record how many characters they added to Claude's context |
+| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | Hook run time, including Node startup. The notify hooks also record how many characters they added to Claude's context |
 | `script:init`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | Script run time and document count |
 | `context:always-loaded` | At session start, the length in characters of `.siloroot/CLAUDE.md` and `profile.md`, which Claude loads on every turn |
 
-- Turn records come from a `Stop` hook. It reads the conversation transcript (`transcript_path` in the hook input) from where it stopped last time and adds up each response's `usage`: input, output, cache-read, and cache-write tokens. A response split over several lines is counted once by its message id. Subagent tokens (`<session>/subagents/`) go into a separate `sub` field.
+- Turn records come from a `Stop` hook. It reads the conversation transcript (`transcript_path` in the hook input) from where it stopped last time and adds up each response's `usage`: input, output, cache-read, and cache-write tokens. A response split over several lines is counted once by its message id. Subagent tokens (`<session>/subagents/`) go into a separate `sub` field. The read position is kept per session in `.siloroot/state/metrics-cursor/`, so sessions running at the same time do not overwrite each other. If a position is lost and turns are logged twice, the summary counts each turn once.
 - A record holds only stage names, timestamps, durations, token counts, tool names with counts and time, SiloRoot skill names, and the session id. No document text, prompts, file paths, or other plugins' skill names.
 - If logging fails, the original work goes on. The `Stop` hook always exits 0 with no output.
 - To turn it off, set `"metrics": false` in `.siloroot/config.json` or the environment variable `SILOROOT_METRICS=0`. At 5 MB the file moves to `metrics.1.jsonl` and a new one starts.

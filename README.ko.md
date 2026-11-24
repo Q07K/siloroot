@@ -86,13 +86,13 @@ SiloRoot가 어디서 느리고 토큰을 많이 쓰는지 보려고, 플러그�
 | 단계 | 재는 것 |
 | --- | --- |
 | `turn:siloroot:<스킬>` | SiloRoot 스킬을 쓴 턴(메시지 하나와 그 응답 전체). 슬래시 명령으로 불렀든 Claude가 불렀든 같다 |
-| `turn:siloroot-docs` | SiloRoot 스킬 없이 `.siloroot/` 안 파일을 읽거나 고친 턴 |
+| `turn:siloroot-docs` | SiloRoot 스킬 없이 `.siloroot/` 안 파일을 읽거나 고친 턴. 그 세션에서 앞서 SiloRoot 스킬을 썼으면 요약에서 `turn:siloroot-docs (siloroot:<스킬> 뒤)`로 따로 묶어서, `note`나 `verify`의 이어지는 문답 턴을 볼 수 있다 |
 | `turn:other` | 작업 공간의 나머지 턴. 비교 기준이다 |
-| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | 훅 실행 시간. 알림 훅은 Claude에게 덧붙인 글자 수도 남긴다 |
+| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | 훅 실행 시간(Node가 뜨는 시간 포함). 알림 훅은 Claude에게 덧붙인 글자 수도 남긴다 |
 | `script:init`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | 스크립트 실행 시간과 문서 수 |
 | `context:always-loaded` | 세션을 시작할 때 잰, 매 턴 불러오는 `.siloroot/CLAUDE.md`와 `profile.md`의 글자 수 |
 
-- 턴 기록은 `Stop` 훅이 남긴다. 훅 입력의 대화 기록(`transcript_path`)을 지난번 읽은 곳부터 읽고, 응답마다 있는 `usage`(입력, 출력, 캐시 읽기, 캐시 쓰기 토큰)를 더한다. 여러 줄로 나뉜 응답은 메시지 id로 한 번만 센다. 서브에이전트 토큰(`<세션>/subagents/`)은 `sub` 칸에 따로 둔다.
+- 턴 기록은 `Stop` 훅이 남긴다. 훅 입력의 대화 기록(`transcript_path`)을 지난번 읽은 곳부터 읽고, 응답마다 있는 `usage`(입력, 출력, 캐시 읽기, 캐시 쓰기 토큰)를 더한다. 여러 줄로 나뉜 응답은 메시지 id로 한 번만 센다. 서브에이전트 토큰(`<세션>/subagents/`)은 `sub` 칸에 따로 둔다. 읽은 위치는 세션마다 `.siloroot/state/metrics-cursor/`에 따로 두어 함께 도는 세션이 서로 덮지 않는다. 위치를 잃어 같은 턴이 두 번 남아도 요약은 한 번만 센다.
 - 기록에는 단계 이름, 시각, 걸린 시간, 토큰 수, 도구 이름별 횟수와 시간, SiloRoot 스킬 이름, 세션 id만 들어간다. 문서 내용, 프롬프트, 파일 경로, 다른 플러그인의 스킬 이름은 남기지 않는다.
 - 기록이 실패해도 원래 작업은 그대로 간다. `Stop` 훅은 늘 출력 없이 0으로 끝난다.
 - 끄려면 `.siloroot/config.json`에 `"metrics": false`를 넣거나 환경 변수 `SILOROOT_METRICS=0`을 준다. 파일이 5 MB를 넘으면 `metrics.1.jsonl`로 옮기고 새로 쌓는다.

@@ -132,6 +132,30 @@ test('Stop 훅: 다 쓰이지 않은 마지막 줄은 다음 실행에 읽고, �
   assert.equal(turns[1].tokens.output, 6);
 });
 
+test('Stop 훅: 위치 파일을 잃어 같은 턴을 다시 남겨도 요약은 한 번만 센다', () => {
+  const { root, tp } = setup('훅 위치 잃음');
+  fs.writeFileSync(tp, jsonl([...turn1, ...turn2]));
+  runHook(root, stopInput(root, tp));
+  fs.rmSync(path.join(root, '.siloroot', 'state', 'metrics-cursor'), { recursive: true });
+  runHook(root, stopInput(root, tp));
+  assert.equal(turnsOf(root).length, 4);
+  const agg = aggregate(readMetrics(path.join(root, '.siloroot', 'state')));
+  assert.equal(agg.turns.reduce((n, x) => n + x.count, 0), 2);
+  assert.equal(agg.turns.find((x) => x.stage === 'turn:siloroot:note').workTokens, 15 + 70 + 310);
+});
+
+test('Stop 훅: 스킬을 부른 뒤 .siloroot/를 다룬 턴은 실행이 나뉘어도 어느 스킬 뒤인지 남긴다', () => {
+  const { root, tp } = setup('훅 스킬 이어짐');
+  fs.writeFileSync(tp, jsonl(turn1));
+  runHook(root, stopInput(root, tp));
+  fs.appendFileSync(tp, jsonl([...turn3, ...turn4]));
+  runHook(root, stopInput(root, tp));
+  const turns = turnsOf(root);
+  assert.deepEqual(turns.map((x) => [x.stage, x.after]), [['turn:siloroot:note', undefined], ['turn:other', undefined], ['turn:siloroot-docs', 'siloroot:note']]);
+  const agg = aggregate(readMetrics(path.join(root, '.siloroot', 'state')));
+  assert.ok(agg.turns.find((x) => x.stage === 'turn:siloroot-docs (siloroot:note 뒤)'));
+});
+
 test('Stop 훅: 서브에이전트 기록의 토큰을 그 턴에 따로 더한다', () => {
   const { root, tp } = setup('훅 서브에이전트');
   fs.writeFileSync(tp, jsonl(turn1));
@@ -149,7 +173,7 @@ test('Stop 훅: 기록에는 문서 내용, 경로, 프롬프트, 다른 스킬 
   const { root, tp } = setup('훅 개인 정보');
   fs.writeFileSync(tp, jsonl([...turn1, ...turn2, ...turn3, ...turn4]));
   runHook(root, stopInput(root, tp));
-  const all = metricsText(root) + fs.readFileSync(path.join(root, '.siloroot', 'state', 'metrics-cursor.json'), 'utf8');
+  const all = metricsText(root) + fs.readFileSync(path.join(root, '.siloroot', 'state', 'metrics-cursor', 's-1.json'), 'utf8');
   assert.ok(all.length > 0);
   assert.ok(!all.includes(MARK), '마커가 기록에 남았다');
   assert.ok(!all.includes('Users'), '폴더 경로가 기록에 남았다');

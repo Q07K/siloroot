@@ -24,13 +24,22 @@ export function aggregate(records, { days } = {}) {
   const stages = {};
   let first = null; let last = null;
   const context = [];
+  const seenTurns = new Set();
   for (const r of records) {
     if (!r || typeof r.stage !== 'string') continue;
+    // 위치 파일을 잃어 같은 턴을 다시 남긴 경우를 대비해 세션과 시작 시각이 같은 턴은 한 번만 센다
+    if (r.kind === 'turn' && r.session && r.start) {
+      const key = r.session + '|' + r.start + '|' + (r.cont ? 'c' : 't');
+      if (seenTurns.has(key)) continue;
+      seenTurns.add(key);
+    }
     const at = Date.parse(r.end || r.start);
     if (since && !(at >= since)) continue;
     if (Number.isFinite(at)) { if (first === null || at < first) first = at; if (last === null || at > last) last = at; }
     if (r.kind === 'context') { if (Number.isFinite(r.chars)) context.push(r.chars); continue; }
-    const s = stages[r.stage] || (stages[r.stage] = { stage: r.stage, kind: r.kind, count: 0, totalMs: 0, durations: [], fails: 0, tokens: zero(), sub: zero(), toolMs: {}, tools: {}, chars: [] });
+    // 스킬을 부른 뒤 이어진 문답 턴(after)은 따로 묶는다. 예: turn:siloroot-docs (siloroot:note 뒤)
+    const name = r.kind === 'turn' && r.after ? `${r.stage} (${r.after} 뒤)` : r.stage;
+    const s = stages[name] || (stages[name] = { stage: name, kind: r.kind, count: 0, totalMs: 0, durations: [], fails: 0, tokens: zero(), sub: zero(), toolMs: {}, tools: {}, chars: [] });
     const isCont = r.kind === 'turn' && r.cont;
     s.count += r.kind === 'turn' ? (Number.isFinite(r.turns) ? r.turns : isCont ? 0 : 1) : 1;
     if (Number.isFinite(r.ms)) { s.totalMs += r.ms; if (!isCont) s.durations.push(r.ms); }
