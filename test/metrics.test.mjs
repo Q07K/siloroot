@@ -91,6 +91,18 @@ test('턴 나누기: 사용자 메시지마다 턴을 나누고, 같은 응답�
   assert.equal(turns[2].touched, false);
 });
 
+test('턴 나누기: 도구 결과가 들여온 글자 수를 도구별로 세고, .siloroot를 다룬 호출의 몫은 따로 센다', () => {
+  const big = { ...result(1.7, 'u1'), message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'u1', content: [{ type: 'text', text: 'abcde' }, { type: 'image', source: {} }] }] } };
+  const turns = splitTurns([turn1[0], turn1[1], turn1[2], turn1[3], big, turn1[5], ...turn2, ...turn3, ...turn4]);
+  assert.deepEqual(turns[0].resultChars, { Read: 5 });
+  assert.equal(turns[0].docChars, 5);
+  assert.deepEqual(turns[1].resultChars, { Skill: MARK.length * 2 });
+  assert.equal(turns[1].docChars, 0);
+  assert.deepEqual(turns[2].resultChars, { Bash: MARK.length, mcp: MARK.length });
+  assert.equal(turns[2].docChars, 0);
+  assert.equal(turns[3].docChars, MARK.length);
+});
+
 // ---------- 훅 ----------
 test('Stop 훅: 끝난 턴마다 한 줄씩 남기고, 다시 실행하면 이미 센 턴은 다시 세지 않는다', () => {
   const { root, tp } = setup('훅 기본');
@@ -244,8 +256,8 @@ test('빌드와 알림 훅이 걸린 시간을 남기고, 기록을 못 남겨�
 // ---------- 허용 칸 ----------
 test('clean: 허용한 칸과 모양만 남긴다', () => {
   const o = clean({ kind: 'turn', stage: 'turn:other', cwd: 'C:\\x', prompt: 'y', session: 'a/b', start: 'not a date',
-    skills: ['siloroot:note', 'superpowers:x', MARK], tools: { Read: 1, 'C:\\a': 2 }, tokens: { input: 1, text: 2 } });
-  assert.deepEqual(o, { v: 1, kind: 'turn', stage: 'turn:other', skills: ['siloroot:note'], tools: { Read: 1 }, tokens: { input: 1 } });
+    skills: ['siloroot:note', 'superpowers:x', MARK], tools: { Read: 1, 'C:\\a': 2 }, tokens: { input: 1, text: 2 }, resultChars: { Read: 9, [MARK]: 3 }, docChars: 4 });
+  assert.deepEqual(o, { v: 1, kind: 'turn', stage: 'turn:other', docChars: 4, skills: ['siloroot:note'], tools: { Read: 1 }, tokens: { input: 1 }, resultChars: { Read: 9 } });
   assert.equal(clean({ kind: 'turn', stage: MARK }), null);
   assert.equal(clean({ kind: 'nope', stage: 'x' }), null);
 });
@@ -260,7 +272,10 @@ test('요약: 단계별로 모아 시간과 토큰을 가장 많이 쓴 단계�
   const note = agg.turns.find((x) => x.stage === 'turn:siloroot:note');
   assert.equal(note.count, 1);
   assert.equal(note.workTokens, 15 + 70 + 310);
+  assert.equal(note.totalResultChars, MARK.length);
+  assert.equal(note.docChars, MARK.length);
   const text = render(agg);
+  assert.match(text, /결과 글자 상위/);
   assert.match(text, /토큰을 가장 많이 쓴 단계: turn:siloroot:note/);
   assert.match(text, /hook:metrics-turn/);
 

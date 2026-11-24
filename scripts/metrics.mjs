@@ -6,6 +6,8 @@
 // 토큰 칸
 //   작업 토큰 = 입력 + 출력 + 캐시 쓰기 (서브에이전트 포함). 단계를 비교하는 기준이다.
 //   캐시 읽기 = 응답마다 앞 대화를 다시 읽는 양. 대화가 길수록 커져서 단계 비교를 가리므로 따로 둔다.
+// 도구 결과 글자 = 도구 결과(파일 읽기, 검색, 명령 출력 등)가 맥락에 들여온 글자 수. 그 가운데 문서 = .siloroot를 다룬 도구 호출의 몫.
+//   조회에 드는 비용을 본다. 글자 수라 토큰 수와 같지 않다(한글은 한 글자가 대략 한 토큰 이상).
 // 턴의 단계는 그 턴에 쓴 siloroot 스킬로 정한다(턴 전체를 그 스킬에 넣는다). 스킬 없이 .siloroot/ 파일을 다룬 턴은 turn:siloroot-docs, 나머지는 turn:other.
 
 import path from 'node:path';
@@ -39,7 +41,7 @@ export function aggregate(records, { days } = {}) {
     if (r.kind === 'context') { if (Number.isFinite(r.chars)) context.push(r.chars); continue; }
     // 스킬을 부른 뒤 이어진 문답 턴(after)은 따로 묶는다. 예: turn:siloroot-docs (siloroot:note 뒤)
     const name = r.kind === 'turn' && r.after ? `${r.stage} (${r.after} 뒤)` : r.stage;
-    const s = stages[name] || (stages[name] = { stage: name, kind: r.kind, count: 0, totalMs: 0, durations: [], fails: 0, tokens: zero(), sub: zero(), toolMs: {}, tools: {}, chars: [] });
+    const s = stages[name] || (stages[name] = { stage: name, kind: r.kind, count: 0, totalMs: 0, durations: [], fails: 0, tokens: zero(), sub: zero(), toolMs: {}, tools: {}, resultChars: {}, docChars: 0, chars: [] });
     const isCont = r.kind === 'turn' && r.cont;
     s.count += r.kind === 'turn' ? (Number.isFinite(r.turns) ? r.turns : isCont ? 0 : 1) : 1;
     if (Number.isFinite(r.ms)) { s.totalMs += r.ms; if (!isCont) s.durations.push(r.ms); }
@@ -48,6 +50,8 @@ export function aggregate(records, { days } = {}) {
     addTo(s.sub, r.sub);
     for (const [k, v] of Object.entries(r.toolMs || {})) s.toolMs[k] = (s.toolMs[k] || 0) + v;
     for (const [k, v] of Object.entries(r.tools || {})) s.tools[k] = (s.tools[k] || 0) + v;
+    for (const [k, v] of Object.entries(r.resultChars || {})) s.resultChars[k] = (s.resultChars[k] || 0) + v;
+    if (Number.isFinite(r.docChars)) s.docChars += r.docChars;
     if (Number.isFinite(r.chars)) s.chars.push(r.chars);
   }
   const list = Object.values(stages).map((s) => {
@@ -67,6 +71,9 @@ export function aggregate(records, { days } = {}) {
       sub: s.sub,
       toolMs: s.toolMs,
       tools: s.tools,
+      resultChars: s.resultChars,
+      totalResultChars: Object.values(s.resultChars).reduce((a, b) => a + b, 0),
+      docChars: s.docChars,
       avgChars: s.chars.length ? Math.round(s.chars.reduce((a, b) => a + b, 0) / s.chars.length) : null,
     };
   });
@@ -95,7 +102,9 @@ function table(head, rows, rightFrom = 1) {
   return [line(head), ...rows.map(line)].join('\n');
 }
 
-const topTools = (o, n = 3) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `${k} ${fmtMs(v)}`).join(', ') || '-';
+const topBy = (fmt) => (o, n = 3) => Object.entries(o).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `${k} ${fmt(v)}`).join(', ') || '-';
+const topTools = topBy(fmtMs);
+const topChars = topBy(fmtTk);
 
 export function render(agg) {
   const out = [];
@@ -107,11 +116,11 @@ export function render(agg) {
   if (agg.top.tokens) out.push(`토큰을 가장 많이 쓴 단계: ${agg.top.tokens}`);
   if (agg.alwaysLoadedChars !== null) out.push(`매 턴 불러오는 SiloRoot 규칙 문서(CLAUDE.md, profile.md): ${agg.alwaysLoadedChars.toLocaleString('en-US')}자`);
   if (agg.turns.length) {
-    out.push('', '턴 (작업 토큰 = 입력 + 출력 + 캐시 쓰기, 서브에이전트 포함. 캐시 읽기는 대화 길이를 따라 커져서 따로 둔다)');
+    out.push('', '턴 (작업 토큰 = 입력 + 출력 + 캐시 쓰기, 서브에이전트 포함. 캐시 읽기는 대화 길이를 따라 커져서 따로 둔다. 결과 글자 = 도구 결과가 맥락에 들여온 글자 수, 문서 = 그 가운데 .siloroot 몫)');
     out.push(table(
-      ['단계', '횟수', '합계 시간', '평균', 'p90', '작업 토큰', '평균 작업', '출력', '캐시 읽기', '응답 수', '서브에이전트', '도구 시간 상위'],
+      ['단계', '횟수', '합계 시간', '평균', 'p90', '작업 토큰', '평균 작업', '출력', '캐시 읽기', '응답 수', '서브에이전트', '결과 글자', '문서', '도구 시간 상위', '결과 글자 상위'],
       agg.turns.map((x) => [x.stage, x.count, fmtMs(x.totalMs), fmtMs(x.avgMs), fmtMs(x.p90Ms), fmtTk(x.workTokens), fmtTk(x.avgWorkTokens),
-        fmtTk(x.tokens.output + x.sub.output), fmtTk(x.tokens.cacheRead + x.sub.cacheRead), x.tokens.calls + x.sub.calls, fmtTk(work(x.sub)), topTools(x.toolMs)]),
+        fmtTk(x.tokens.output + x.sub.output), fmtTk(x.tokens.cacheRead + x.sub.cacheRead), x.tokens.calls + x.sub.calls, fmtTk(work(x.sub)), fmtTk(x.totalResultChars), fmtTk(x.docChars), topTools(x.toolMs), topChars(x.resultChars)]),
     ));
   }
   if (agg.runs.length) {
