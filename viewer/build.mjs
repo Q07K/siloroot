@@ -15,6 +15,8 @@ import { loadConfig, DEFAULT_DIRS } from '../lib/config.mjs';
 import { AI_COMMENT_FILE, AI_COMMENT_HOUR } from '../lib/me-schedule.mjs';
 import { timeScript } from '../lib/metrics.mjs';
 import { VOCAB } from '../lib/vocab.mjs';
+import { placesOf, localPlace, folderRules, groupOf } from '../lib/layout.mjs';
+import { readUser, workspaceRoot } from '../lib/user.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -31,7 +33,13 @@ const timer = timeScript(ROOT, 'script', 'script:build' + (VARIANT ? ':' + VARIA
 const CFG = loadConfig(ROOT) || { docsRoot: ROOT, dirs: { ...DEFAULT_DIRS }, stateDir: path.join(ROOT, '.siloroot', 'state') };
 // 문서를 찾고 경로를 셀 기준. 감싼 배치(wrapped)면 프로젝트의 .siloroot/, 예전 배치면 프로젝트 맨 위다.
 const DOCS = CFG.docsRoot;
-const DIRS = CFG.dirs;
+// 역할마다 문서 자리(lib/layout.mjs). 이 작업 공간에 없는 자리(홈에 있는 것 등)는 null이고, 그 객체는 빈 목록이다
+const PLACES = placesOf(CFG);
+const L = (role) => localPlace(PLACES[role]);
+const V3_PROJECT = (CFG.schema ?? 0) >= 3 && CFG.mode !== 'home';
+const STUDY = L('study'), LOG = L('log'), CAND = L('candidates');
+const IDEAS = L('ideas') || L('personalIdeas');
+const PROFILE_FILE = L('profile'), WRITING = L('writingGuide'), AI_COMMENT = L('aiComment');
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
 const OUT_DIR = CFG.stateDir;
 const OUT_HTML = path.join(OUT_DIR, 'viewer-private.html');
@@ -68,6 +76,24 @@ for (const rel of mdSet) {
 }
 
 // ---------- 2. 링크 해석 ----------
+// 다른 작업 공간을 가리키는 경로: home:study/a.md, <프로젝트 이름>:shared/issues/x.md (이름은 user.json)
+// 이름은 두 글자 이상이라 C:/x.md는 걸리지 않고, https://...는 이름 https가 등록되지 않아 버려진다
+const WS_REF = /^([\p{L}\p{N}][\p{L}\p{N}._-]+):([^\s:]+\.(md|markdown))$/u;
+const USER = readUser();
+const SAME = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
+const ROOT_SLASH = ROOT.split(path.sep).join('/');
+// 이 작업 공간 자신의 이름. 자기 이름으로 적은 경로는 안의 문서로 읽는다
+const SELF = CFG.mode === 'home' ? 'home' : (USER.projects.find((p) => SAME(p.path, ROOT_SLASH)) || {}).name || null;
+const wsRootOf = (name) => (name === 'home' ? USER.home : workspaceRoot(name));
+// { name, rel, known } | null. known: 홈이거나 user.json에 있는 이름
+// 모양 1·2 작업 공간은 다른 작업 공간 경로를 읽지 않는다
+function wsRef(raw) {
+  if ((CFG.schema ?? 0) < 3) return null;
+  const m = String(raw).trim().match(WS_REF);
+  if (!m) return null;
+  return { name: m[1], rel: m[2], known: m[1] === 'home' || !!workspaceRoot(m[1]) };
+}
+
 // mode 'link': 마크다운 링크. 문서 기준 상대 경로를 먼저 본다.
 // mode 'code': 백틱 안의 경로 글자. 폴더 맨 위 기준을 먼저 본다(이 폴더 문서들이 그렇게 쓴다).
 function resolveTarget(raw, fromRel, mode) {
@@ -104,16 +130,19 @@ function extractLinks(text, rel) {
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/^\s*```[\s\S]*?^\s*```/gm, '');
   const links = [];
+  const exts = [];
   const linkMap = {};
   const add = (raw, kind) => {
-    const target = resolveTarget(raw, rel, kind);
+    const ws = wsRef(raw);
+    if (ws && ws.name !== SELF) { if (ws.known) exts.push({ name: ws.name, target: ws.name + ':' + ws.rel, kind }); return; }
+    const target = resolveTarget(ws ? ws.rel : raw, rel, kind);
     if (!target) return;
     linkMap[raw] = target;
     if (target !== rel) links.push({ to: target, kind });
   };
   for (const m of body.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) add(m[1], 'link');
   for (const m of body.matchAll(/`([^`\n]+)`/g)) add(m[1], 'code');
-  return { links, linkMap };
+  return { links, exts, linkMap };
 }
 
 // ---------- 3. 문서 정보 ----------
@@ -150,10 +179,10 @@ const docs = files.map((full) => {
   const text = fs.readFileSync(full, 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n');
   const st = fs.statSync(full);
   const fm = parseFrontmatter(text);
-  const { links, linkMap } = extractLinks(text, rel);
+  const { links, exts, linkMap } = extractLinks(text, rel);
   return {
     path: rel,
-    folder: rel.includes('/') ? rel.split('/')[0] : '(맨 위)',
+    folder: groupOf(rel, CFG),
     title: titleOf(text, rel, fm),
     mtime: Math.round(st.mtimeMs),
     size: st.size,
@@ -162,10 +191,22 @@ const docs = files.map((full) => {
     hash: crypto.createHash('sha256').update(text).digest('hex'),
     linkMap,
     _links: links,
+    _exts: exts,
   };
 }).sort((a, b) => a.path.localeCompare(b.path));
 
 const edges = [];
+// 다른 작업 공간으로 가는 연결은 edges와 따로 둔다. 문서 화면의 앞뒤 연결 목록에 섞이지 않게 한다. 그 작업 공간 문서는 읽지 않는다
+const extEdges = [];
+const externals = new Map();
+function addExt(from, name, target, kind) {
+  if (!externals.has(name)) {
+    const r = wsRootOf(name);
+    const c = r ? loadConfig(r) : null;
+    externals.set(name, { id: '@' + name, name, label: name === 'home' ? '홈' : name, url: c ? 'http://127.0.0.1:' + c.port : null });
+  }
+  if (!extEdges.some((e) => e.from === from && e.target === target && e.kind === kind)) extEdges.push({ from, to: '@' + name, kind, target });
+}
 for (const d of docs) {
   const seen = new Set();
   for (const l of d._links) {
@@ -174,17 +215,15 @@ for (const d of docs) {
     seen.add(key);
     edges.push({ from: d.path, to: l.to, kind: l.kind });
   }
+  for (const x of d._exts) addExt(d.path, x.name, x.target, x.kind);
   delete d._links;
+  delete d._exts;
 }
 
 // ---------- 3-1. 속성 점검과 related 연결 ----------
 // 쓸 수 있는 type과 status(VOCAB)는 lib/vocab.mjs에 있다.
-// 폴더마다 정해진 type. 여기 없는 폴더도 type 자체는 모두 필수다.
-const REQUIRED = [
-  { prefix: DIRS.ideas + '/', type: ['idea', 'decision'], skip: /(^|\/)README\.md$/i },
-  { prefix: DIRS.study + '/', type: 'study', skip: /(^|\/)README\.md$/i },
-  { prefix: DIRS.feedback + '/', type: ['feedback', 'rule', 'trait'], skip: /(^|\/)README\.md$/i },
-];
+// 폴더마다 정해진 type(lib/layout.mjs의 folderRules). 폴더의 README.md는 목록이라 빠진다. 여기 없는 폴더도 type 자체는 모두 필수다.
+const REQUIRED = folderRules(CFG).map((r) => ({ prefix: r.prefix, type: r.types, skip: /(^|\/)README\.md$/i }));
 const tagsOf = (d) => { const t = d.fm && d.fm.tags; return (Array.isArray(t) ? t : t ? String(t).split(',') : []).map((s) => String(s).trim()).filter(Boolean); };
 const typeOk = (req, t) => (Array.isArray(req.type) ? req.type.includes(t) : req.type === t);
 const EXEMPT = () => false;
@@ -195,7 +234,13 @@ for (const d of docs) {
   const rel = fm.related ? (Array.isArray(fm.related) ? fm.related : [fm.related]) : [];
   d.related = [];
   for (const r of rel) {
-    const t = resolveTarget(r, d.path, 'code');
+    const ws = wsRef(r);
+    if (ws && ws.name !== SELF) {
+      if (ws.known) addExt(d.path, ws.name, ws.name + ':' + ws.rel, 'prop');
+      else warn('related의 "' + r + '": 작업 공간 "' + ws.name + '"를 user.json에서 찾지 못함');
+      continue;
+    }
+    const t = resolveTarget(ws ? ws.rel : r, d.path, 'code');
     if (!t) { warn('related의 "' + r + '" 문서를 찾지 못함'); continue; }
     d.related.push(t);
     if (t !== d.path) edges.push({ from: d.path, to: t, kind: 'prop' });
@@ -211,7 +256,19 @@ for (const d of docs) {
     if (req && VOCAB[t] && !typeOk(req, t)) warn('이 폴더의 type은 ' + [].concat(req.type).join(' 또는 ') + '여야 함');
   }
   if (fm.created && !/^\d{4}-\d{2}-\d{2}$/.test(String(fm.created))) warn('created는 YYYY-MM-DD 형식이어야 함');
-  if (fm.type === 'study' && !tagsOf(d).length) warn('tags에 분야가 없음 (' + DIRS.study + '/README.md "노트 쓰는 법")');
+  if (fm.type === 'study' && !tagsOf(d).length) warn('tags에 분야가 없음 (' + (L('study') || 'study') + '/README.md "노트 쓰는 법")');
+}
+
+// 방향: 모양 3 프로젝트의 공유 문서(shared/)는 팀원이 볼 수 없는 문서(private/, 다른 작업 공간)를 가리키지 않는다. 막지는 않고 대상마다 한 번 알린다
+if (V3_PROJECT) {
+  for (const d of docs) {
+    if (!d.path.startsWith('shared/')) continue;
+    const hidden = new Set([
+      ...edges.filter((e) => e.from === d.path && e.to.startsWith('private/')).map((e) => e.to),
+      ...extEdges.filter((e) => e.from === d.path).map((e) => e.target),
+    ]);
+    for (const t of hidden) issues.push({ doc: d.path, msg: '공유 문서가 팀원이 볼 수 없는 ' + t + '을 가리킴' });
+  }
 }
 
 // ---------- 4. 객체 모으기 ----------
@@ -242,19 +299,20 @@ function parseQuestions(d) {
 }
 
 function parseStudy() {
-  const readme = get(DIRS.study + '/README.md');
+  if (!STUDY) return [];
+  const readme = get(STUDY + '/README.md');
   const level = {};
   if (readme) {
     for (const m of readme.text.matchAll(/^\|\s*\[([^\]]+)\]\(([^)]+)\)\s*\|\s*([^|]*)\|\s*([^|]*)\|/gm)) {
-      level[DIRS.study + '/' + m[2].trim()] = { first: m[3].trim(), level: m[4].trim() };
+      level[STUDY + '/' + m[2].trim()] = { first: m[3].trim(), level: m[4].trim() };
     }
   }
   return docs
-    .filter((d) => d.path.startsWith(DIRS.study + '/') && !/README\.md$/i.test(d.path))
+    .filter((d) => d.path.startsWith(STUDY + '/') && !/README\.md$/i.test(d.path))
     .map((d) => {
       const row = level[d.path] || {};
       const fmStatus = d.fm && d.fm.status ? String(d.fm.status) : '';
-      if (fmStatus && row.level && fmStatus !== row.level) issues.push({ doc: d.path, msg: 'status "' + fmStatus + '"와 ' + DIRS.study + '/README.md의 이해도 "' + row.level + '"가 다름' });
+      if (fmStatus && row.level && fmStatus !== row.level) issues.push({ doc: d.path, msg: 'status "' + fmStatus + '"와 ' + STUDY + '/README.md의 이해도 "' + row.level + '"가 다름' });
       return { title: d.title, doc: d.path, level: fmStatus || row.level || '', first: (d.fm && d.fm.created) || row.first || '' };
     });
 }
@@ -284,7 +342,7 @@ const bullets = (s) => s.split('\n').filter((l) => /^-\s+/.test(l)).map((l) => l
 
 // "나" 화면: AI가 쓰는 사용자 정보(승인된 profile, trait 후보, 글쓰기 규칙). 점수나 평가는 만들지 않고 원본 문장과 근거만 모은다.
 function parseMe() {
-  const PROFILE = DIRS.profile + '/profile.md';
+  const PROFILE = PROFILE_FILE;
   const fmStatus = (d) => (d.fm && d.fm.status ? String(d.fm.status) : '');
   const traitOf = (d) => {
     const row = tableRows(sectionBody(d.text, '제안하는 항목'))[0];
@@ -294,7 +352,7 @@ function parseMe() {
       evidence: bullets(sectionBody(d.text, '근거')), memo: bullets(sectionBody(d.text, '메모')),
     };
   };
-  const traits = docs.filter((d) => d.path.startsWith(DIRS.feedback + '/') && d.fm && d.fm.type === 'trait').map(traitOf);
+  const traits = docs.filter((d) => d.path.startsWith(CAND + '/') && d.fm && d.fm.type === 'trait').map(traitOf);
   const byPath = Object.fromEntries(traits.map((t) => [t.doc, t]));
 
   const profileDoc = get(PROFILE);
@@ -311,8 +369,8 @@ function parseMe() {
   }
   const groups = profileDoc ? [...profileDoc.text.matchAll(/^##\s+(.+)$/gm)].map((m) => m[1].trim()) : [];
 
-  const wg = get('writing-guide.md');
-  const writing = { doc: 'writing-guide.md', principles: [], banned: [] };
+  const wg = WRITING && get(WRITING);
+  const writing = { doc: WRITING, principles: [], banned: [] };
   if (wg) {
     for (const r of tableRows(wg.text)) {
       if (r.header[0] === '원칙') writing.principles.push({ name: r.cells[0], content: r.cells[1] || '', source: r.cells[2] || '' });
@@ -322,7 +380,7 @@ function parseMe() {
 
   const rejected = [
     ...traits.filter((t) => t.status === '거절').map((t) => ({ kind: '사용자 정보', doc: t.doc, title: t.title, content: t.content, evidence: t.evidence, memo: t.memo })),
-    ...docs.filter((d) => d.path.startsWith(DIRS.feedback + '/') && d.fm && d.fm.type === 'rule' && fmStatus(d) === '거절').map((d) => {
+    ...docs.filter((d) => d.path.startsWith(CAND + '/') && d.fm && d.fm.type === 'rule' && fmStatus(d) === '거절').map((d) => {
       const row = tableRows(sectionBody(d.text, '제안하는 규칙'))[0];
       return { kind: '글쓰기 규칙', doc: d.path, title: d.title.replace(/^규칙 후보:\s*/, ''), content: row ? row.cells[0] + ' → ' + (row.cells[1] || '') : '', evidence: bullets(sectionBody(d.text, '근거가 된 수정')), memo: bullets(sectionBody(d.text, '메모')) };
     }),
@@ -336,11 +394,12 @@ function parseMe() {
 }
 
 const objects = {
-  me: parseMe(),
-  questions: parseQuestions(get(DIRS.log + '/open-questions.md')),
+  // "나"는 사용자 정보가 있는 작업 공간(모양 1·2, 홈)에만 있다. 모양 3 프로젝트는 홈 뷰어로 가는 링크를 보인다(data.home)
+  me: PROFILE_FILE ? parseMe() : null,
+  questions: LOG ? parseQuestions(get(LOG + '/open-questions.md')) : [],
   claims: [],
   ideas: docs
-    .filter((d) => d.path.startsWith(DIRS.ideas + '/') && !/README\.md$/i.test(d.path) && !(d.fm && d.fm.type === 'decision'))
+    .filter((d) => IDEAS && d.path.startsWith(IDEAS + '/') && !/README\.md$/i.test(d.path) && !(d.fm && ['decision', 'design', 'roadmap'].includes(d.fm.type)))
     .map((d) => ({ title: d.title, doc: d.path, status: (d.fm && d.fm.status ? String(d.fm.status) : ((d.text.match(/^-\s*상태:\s*(.+)$/m) || [])[1] || '')).trim() })),
   study: parseStudy(),
   typed: docs.filter((d) => d.fm && d.fm.type).map((d) => ({ title: d.title, doc: d.path, type: String(d.fm.type), status: d.fm.status ? String(d.fm.status) : '' })),
@@ -376,13 +435,13 @@ function buildRadar(o) {
   axes.push({
     key: 'breadth', name: '공부 넓이', value: pct(fieldNames.length / ME_TARGETS.breadth),
     formula: '서로 다른 분야 수 ÷ 목표 ' + ME_TARGETS.breadth + ' = ' + fieldNames.length + ' ÷ ' + ME_TARGETS.breadth,
-    target: '분야 ' + ME_TARGETS.breadth + '개', note: '분야는 공부 노트 tags의 첫 낱말이다 (' + DIRS.study + '/README.md).',
+    target: '분야 ' + ME_TARGETS.breadth + '개', note: '분야는 공부 노트 tags의 첫 낱말이다 (' + STUDY + '/README.md).',
     evidence: fieldNames.map((f) => ({ text: f + ' ' + fields[f].length + '개: ' + fields[f].map((s) => s.title).join(', ') })),
   });
 
   // 마무리
   const q = o.questions, qDone = q.filter((x) => x.done).length;
-  const ideas = docs.filter((d) => d.path.startsWith(DIRS.ideas + '/') && d.fm && d.fm.type === 'idea');
+  const ideas = docs.filter((d) => d.path.startsWith(IDEAS + '/') && d.fm && d.fm.type === 'idea');
   const started = ideas.filter((d) => String(d.fm.status) !== '아이디어');
   const finished = started.filter((d) => ['완료', '접음'].includes(String(d.fm.status)));
   const qr = q.length ? qDone / q.length : 0, ir = started.length ? finished.length / started.length : 0;
@@ -391,14 +450,14 @@ function buildRadar(o) {
     formula: '(끝낸 질문 비율 + 끝낸 아이디어 비율) ÷ 2 = (' + qDone + '/' + q.length + ' + ' + finished.length + '/' + started.length + ') ÷ 2',
     target: '둘 다 100%',
     note: '아이디어는 "아이디어" 상태를 빼고 완료, 접음을 끝낸 것으로 센다. 끝낸 질문을 [x]로 두지 않고 줄째 지우면 여기서 세지 못한다.',
-    evidence: [{ text: '미해결 질문: 끝냄 ' + qDone + ' / 전체 ' + q.length, doc: DIRS.log + '/open-questions.md' },
+    evidence: [{ text: '미해결 질문: 끝냄 ' + qDone + ' / 전체 ' + q.length, doc: LOG + '/open-questions.md' },
       ...started.map((d) => ({ text: d.title + ' · ' + d.fm.status, doc: d.path }))],
   });
 
   // 꾸준함: changelog 날짜 제목과 문서 created
   const window14 = daysBack(ME_TARGETS.steadyDays);
   const byDay = {};
-  const log = get(DIRS.log + '/changelog.md');
+  const log = get(LOG + '/changelog.md');
   if (log) for (const m of log.text.matchAll(/^##\s+(\d{4}-\d{2}-\d{2})\s*$/gm)) (byDay[m[1]] = byDay[m[1]] || new Set()).add('changelog');
   for (const d of docs) { const c = d.fm && d.fm.created ? String(d.fm.created) : ''; if (c) (byDay[c] = byDay[c] || new Set()).add('새 문서'); }
   const active = window14.filter((day) => byDay[day]);
@@ -412,7 +471,7 @@ function buildRadar(o) {
 
   // AI 길들이기
   const window30 = new Set(daysBack(ME_TARGETS.tamingDays));
-  const fb = docs.filter((d) => d.path.startsWith(DIRS.feedback + '/') && d.fm && window30.has(String(d.fm.created || '')) && (
+  const fb = docs.filter((d) => d.path.startsWith(CAND + '/') && d.fm && window30.has(String(d.fm.created || '')) && (
     (['rule', 'trait'].includes(d.fm.type) && ['반영', '거절'].includes(String(d.fm.status))) || (d.fm.type === 'feedback' && String(d.fm.status) === '완료')));
   const kind = { rule: '글쓰기 규칙', trait: '사용자 정보', feedback: '댓글' };
   axes.push({
@@ -437,11 +496,12 @@ function meHistory(radar) {
   return rows;
 }
 
-objects.me.radar = buildRadar(objects);
-objects.me.history = meHistory(objects.me.radar);
+if (objects.me) {
+  objects.me.radar = buildRadar(objects);
+  objects.me.history = meHistory(objects.me.radar);
 // AI 코멘트와 갱신 시각(매일 hour시 이후 첫 세션에서 훅이 알린다. lib/me-schedule.mjs)
-const AI_COMMENT = DIRS.profile + '/' + AI_COMMENT_FILE;
-objects.me.comment = { doc: AI_COMMENT, hour: AI_COMMENT_HOUR, mtime: get(AI_COMMENT) ? get(AI_COMMENT).mtime : 0 };
+  objects.me.comment = { doc: AI_COMMENT, hour: AI_COMMENT_HOUR, mtime: get(AI_COMMENT) ? get(AI_COMMENT).mtime : 0 };
+}
 
 // ---------- 5. 지난번과 비교 ----------
 const hash = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -480,7 +540,13 @@ let edits = [];
 try {
   edits = fs.readFileSync(EDIT_LOG, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).reverse().slice(0, 50);
 } catch { edits = []; }
-const data = { builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits };
+// 홈 뷰어 주소: 모양 3 프로젝트의 "나" 자리에 링크로 보인다. 홈 설정을 못 읽으면 url은 null
+const homeCfg = V3_PROJECT && USER.home ? loadConfig(USER.home) : null;
+const homeLink = V3_PROJECT ? { label: '홈', url: homeCfg ? 'http://127.0.0.1:' + homeCfg.port : null } : null;
+const data = {
+  builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits,
+  mode: CFG.mode || 'project', schema: CFG.schema ?? null, home: homeLink, externals: [...externals.values()], extEdges,
+};
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 if (DATA_ONLY) fs.writeFileSync(path.join(OUT_DIR, 'data-private.json'), json);

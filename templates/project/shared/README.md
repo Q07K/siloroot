@@ -18,5 +18,5 @@ related: [metadata-guide.md]
 | `shared/roadmap/` | 만드는 순서와 계획 (`roadmap`) |
 | `shared/conventions/` | 팀이 따르는 약속과 정책 (`convention`) |
 
-- 여기 문서는 팀원이 볼 수 없는 문서(`private/`, `home:`)를 가리키지 않는다. 뷰어의 속성 점검이 경고한다.
+- 여기 문서는 팀원이 볼 수 없는 문서(개인 영역과 홈의 문서)를 가리키지 않는다. 뷰어의 속성 점검이 경고한다.
 - 팀원이 이 저장소를 받아 `/siloroot:init`을 하면 이 폴더를 그대로 쓰고 나머지를 자기 것으로 만든다.
