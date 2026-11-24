@@ -41,6 +41,7 @@ Install the SiloRoot plugin in this project. The marketplace is Q07K/siloroot.
 | `/siloroot:note` | Learn a technical concept through Q&A. Creates and extends study notes. When questions drift to a neighboring topic, splits it into its own note and links the two |
 | `/siloroot:verify` | Say "검증해 줘" (verify me). Claude asks questions, grades your answers, and updates the verification log and understanding level |
 | `/siloroot:feedback` | Processes comments and web edits left in the viewer, and records user-profile candidates (work habits and preferences Claude noticed). When you say "from now on, always …", Claude still writes a candidate first, takes your words as approval, and adds it to `05-profile/profile.md`. The hooks tell you when there is something to process |
+| `/siloroot:update` | After you upgrade the plugin, brings the workspace up to the new version. Moves an older workspace layout to the new one (migration) and refreshes the managed block and guide documents. Shows the changes first, asks for approval, and keeps a backup so you can roll back |
 
 One conversation can move freely between study, ideas, decisions, and projects. The conversation stays as it is; Claude looks at what kind of content came up, files it in the right folder, and links the documents to each other. The rules live in the workspace's `CLAUDE.md` block.
 
@@ -64,9 +65,19 @@ Everything SiloRoot creates goes inside the project's `.siloroot/` folder. You r
 
 - Paths inside documents (`related`, backtick paths) are relative to `.siloroot/`. Claude adds the `.siloroot/` prefix only when opening or searching files.
 - `.git/info/exclude` is per clone, so run init again after cloning the project on another machine.
-- Folders initialized with 0.1.x, where documents sit at the project root, keep working that way. Running init again does not move them.
+- Folders initialized with 0.1.x, where documents sit at the project root, keep working that way. init does not move them; `/siloroot:update` moves them into `.siloroot/` (see "Updating" below).
 
 The templates and skill text are currently in Korean only.
+
+## Updating
+
+After you upgrade the plugin (`/plugin`), `/siloroot:update` brings the workspace in line with it. If the workspace is behind, a hook says so once at session start. It is not added to every message.
+
+- The workspace records its layout number (`schema`) and the plugin version it was last brought up to (`plugin`) in `.siloroot/config.json`.
+- When a version changes the layout, a migration moves things. Today there is one: layout 1 (the old style, documents at the project root) to layout 2 (documents wrapped in `.siloroot/`).
+- The changes are shown first, and anything that needs a person's choice (content outside the block in the team `CLAUDE.md`, the top-level `.gitignore`, documents already committed to git, and so on) is asked one by one. Defaults are never picked without an answer.
+- You can stay on the current layout instead. You then get only the managed-block refresh, and the notice for that layout stops (`hold` in `config.json`).
+- Before changing anything it makes a backup in `.siloroot/state/backups/`. Say "되돌려 줘" (roll it back) to restore, newest backup first. If you edited files after the update, it stops and asks. Backups that changed the layout are never removed automatically; refresh-only backups keep the latest 5.
 
 ## Viewer
 
@@ -77,7 +88,7 @@ The templates and skill text are currently in Korean only.
 - The "나" (me) page opens with a usage radar computed from your own folder records: study depth (how many study notes passed verification), study breadth (distinct fields in study-note `tags`), follow-through (closed open questions and finished ideas), consistency (days with a record in the last 14), and AI training (rule and profile candidates you decided plus comments you closed in the last 30 days). Click an axis to see its formula, target and evidence. Next to it is an AI comment (`05-profile/ai-comment.md`, Claude's opinion, not approved information). A hook asks Claude to rewrite it in the first session after 9 a.m. each day, and the panel shows when it was last written and when the next update is due. Below that, each axis is compared with a week ago. Further down are the entries Claude currently uses about you, with their evidence: approved entries from `05-profile/profile.md`, pending and rejected user-profile candidates, and the writing rules. If an item is wrong, press "이건 아니에요" (that's not right) to leave a comment on it.
 - The connection graph links documents through `related` properties and backticked paths. By default it shows every link type, common documents (guides, indexes, ledgers, logs), archived documents and unlinked documents. Folders are listed in a legend at the bottom left of the graph (click one to hide it), and the other switches sit behind the "필터" (filter) button at the top right, which shows how many are turned off. If a document is created or deleted while you are looking at the graph, its node and edges are added or removed without a reload. Documents are grouped by folder: each folder is its own small disk inside a circle (repulsion that weakens with distance, gravity that grows with distance, springs that stay loose around hubs, and collision): documents with more links inside the folder sit nearer the center, circles fit their dots tightly and keep apart, and you can drag a circle (or its name) to move the whole folder or drag a dot out to stretch it. Folder names are drawn above the lines. Titles appear from 150% zoom (or on hover), nodes never overlap, and "맞춤" (fit) frames everything visible. Lines curve around other nodes instead of crossing them (one smooth arc, bending at most 22% of the line length, otherwise straight), and the layout pushes nodes away from lines. Links between folders are drawn as bundles: they gather at the edge of the source circle, travel together along a shortest path that avoids other folder circles (grid search, then smoothed), and fan out to each document in the target folder while avoiding the other documents there. Hovering or selecting a document highlights its links along the same bundles. While you drag, the avoidance is skipped and recomputed when you let go, so dragging stays smooth. New links drawn during a live update no longer look cut off once their drawing animation ends.
 
-The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server and open it in the browser (unless a viewer tab is already open or the session restarted after compaction); when you send a message they tell you if there is feedback to process. In a 0.1.x-style folder (documents at the project root) that already had a `.gitignore`, add `.siloroot/state/` to it yourself.
+The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server and open it in the browser (unless a viewer tab is already open or the session restarted after compaction); when you send a message they tell you if there is feedback to process. If the workspace is behind the installed plugin, the session-start hook also tells you an update is available. In a 0.1.x-style folder (documents at the project root) that already had a `.gitignore`, add `.siloroot/state/` to it yourself.
 
 ## Usage log
 
@@ -89,7 +100,7 @@ To find where SiloRoot is slow or uses many tokens, the plugin writes one JSON l
 | `turn:siloroot-docs` | A turn that read or wrote files under `.siloroot/` without a SiloRoot skill. If a SiloRoot skill was used earlier in the session, the summary groups it as `turn:siloroot-docs (siloroot:<skill> 뒤)`, so follow-up Q&A turns of `note` or `verify` stay visible |
 | `turn:other` | Any other turn in the workspace, as a baseline |
 | `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | Hook run time, including Node startup. The notify hooks also record how many characters they added to Claude's context |
-| `script:init`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | Script run time and document count |
+| `script:init`, `script:update`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | Script run time and document count |
 | `context:always-loaded` | At session start, the length in characters of `.siloroot/CLAUDE.md` and `profile.md`, which Claude loads on every turn |
 
 - Turn records come from a `Stop` hook. It reads the conversation transcript (`transcript_path` in the hook input) from where it stopped last time and adds up each response's `usage`: input, output, cache-read, and cache-write tokens. A response split over several lines is counted once by its message id. Subagent tokens (`<session>/subagents/`) go into a separate `sub` field. It also records how many characters each tool's results brought into the context (`resultChars`, by tool name) and how much of that came from tool calls on `.siloroot` (`docChars`), which shows what looking up documents costs. Only lengths are counted, never the content. The read position is kept per session in `.siloroot/state/metrics-cursor/`, so sessions running at the same time do not overwrite each other. If a position is lost and turns are logged twice, the summary counts each turn once.

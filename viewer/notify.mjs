@@ -4,12 +4,14 @@
 //   (인자 없음): 사용자가 메시지를 보낼 때(UserPromptSubmit). 지난번 알린 뒤 새로 생긴 것만 알린다.
 // 할 일: 대기, 진행 중인 피드백 / 승인됐지만 아직 반영 안 한 규칙 후보와 사용자 정보 후보 / 규칙 후보를 아직 안 본 웹 편집
 //        / (세션 시작 때만) 갱신 시각이 지난 "나" 화면 AI 코멘트 (lib/me-schedule.mjs)
-// SiloRoot 폴더가 아니거나 할 일이 없으면 아무것도 출력하지 않는다.
+// (세션 시작 때만) 작업 공간이 설치된 플러그인보다 뒤처졌으면 업데이트를 따로 알린다 (lib/update-check.mjs, /siloroot:update)
+// SiloRoot 폴더가 아니거나 알릴 것이 없으면 아무것도 출력하지 않는다.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from '../lib/config.mjs';
 import { timeScript, appendMetrics } from '../lib/metrics.mjs';
+import { updateNotice } from '../lib/update-check.mjs';
 import { AI_COMMENT_FILE, AI_COMMENT_HOUR, lastSlot, commentDue } from '../lib/me-schedule.mjs';
 
 const cfg = loadConfig(process.env.CLAUDE_PROJECT_DIR || process.cwd());
@@ -67,8 +69,15 @@ const show = SESSION ? items : items.filter((x) => !seen[x.key]);
 for (const x of items) seen[x.key] = true;
 try { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(STATE, JSON.stringify(seen)); } catch { /* 알림 기록을 못 남겨도 알림은 보낸다 */ }
 
-if (show.length) {
-  const text = '[SiloRoot] 처리할 일이 있습니다. /siloroot:feedback 절차를 따릅니다.\n' + show.map((x) => '- ' + x.text).join('\n');
+// 업데이트 안내는 처리 절차가 달라 할 일과 섞지 않고 앞에 따로 붙인다. 메시지 알림에는 붙이지 않는다(토큰을 계속 쓰지 않게)
+const parts = [];
+let updateLines = [];
+if (SESSION) { try { updateLines = updateNotice(cfg); } catch { updateLines = []; } }
+if (updateLines.length) parts.push('[SiloRoot] 업데이트할 것이 있습니다. /siloroot:update로 미리 보고 올릴 수 있습니다.\n' + updateLines.map((l) => '- ' + l).join('\n'));
+if (show.length) parts.push('[SiloRoot] 처리할 일이 있습니다. /siloroot:feedback 절차를 따릅니다.\n' + show.map((x) => '- ' + x.text).join('\n'));
+
+if (parts.length) {
+  const text = parts.join('\n\n');
   console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: SESSION ? 'SessionStart' : 'UserPromptSubmit', additionalContext: text } }));
   timer.set({ chars: text.length });
 }
