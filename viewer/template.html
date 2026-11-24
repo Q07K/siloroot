@@ -2028,6 +2028,7 @@ function viewGraph(carry) {
     $('#gclose').addEventListener('click', () => select(null));
     box.querySelectorAll('.gnb').forEach(b => b.addEventListener('click', () => pick(+b.dataset.k)));
     paint();
+    placeTrailBox();
   }
   function pick(k) { select(k); }
   svgEl.addEventListener('wheel', e => { e.preventDefault(); const p = toVB(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
@@ -2106,7 +2107,7 @@ function viewGraph(carry) {
     tSegs = []; tMarks = []; trailNodes = new Set();
     const on = SERVED && GS.trail;
     trailLayer.style.display = on ? '' : 'none';
-    if (!on) { trailLayer.innerHTML = ''; trailBox.hidden = true; paint(); return; }
+    if (!on) { trailLayer.innerHTML = ''; trailBox.hidden = true; placeTrailBox(); paint(); return; }
     const items = TRAIL.items;
     const seen = trailSeen.session === TRAIL.session ? trailSeen.n : 0;
     const grew = items.length > seen;
@@ -2199,7 +2200,10 @@ function viewGraph(carry) {
   }
   // 목록 상자는 알림 상자(창 오른쪽 아래 16px에 고정)가 뜨는 자리보다 위에 둔다. 알림 상자 높이는 떠 있으면 재고, 아니면 한 줄(44px)로 본다.
   // 좁은 화면에서 아래로 눕는 폴더 범례와 가로로 겹치면 범례 위로 올린다
+  // 고른 점의 정보 상자(#ginfo, 왼쪽 위)와 가로로 겹치면(좁은 화면) 정보 상자 높이를 목록 상자 위까지로 줄인다. 정보 상자의 문서 목록은 줄어들며 스크롤한다
   function placeTrailBox() {
+    const info = $('#ginfo');
+    if (info) info.style.maxHeight = '';
     if (!trailBox.isConnected || trailBox.hidden) return;
     const gw = trailBox.parentElement.getBoundingClientRect();
     const t = $('#toast'), th = t && !t.hidden ? t.getBoundingClientRect().height : 0;
@@ -2209,7 +2213,13 @@ function viewGraph(carry) {
       const r = lg.getBoundingClientRect(), left = gw.right - 12 - trailBox.offsetWidth;
       if (r.width && r.right > left && r.left < gw.right - 12) b = Math.max(b, Math.ceil(gw.bottom - r.top) + 8);
     }
-    trailBox.style.bottom = Math.min(b, Math.max(34, gw.height - trailBox.offsetHeight - 12)) + 'px';
+    b = Math.min(b, Math.max(34, gw.height - trailBox.offsetHeight - 12));
+    trailBox.style.bottom = b + 'px';
+    if (info && !info.hidden) {
+      // 상자가 움직이는 중(transition)이어도 도착할 자리로 잰다
+      const a = info.getBoundingClientRect(), top = gw.bottom - b - trailBox.offsetHeight, left = gw.right - 12 - trailBox.offsetWidth;
+      if (a.left < gw.right - 12 && a.right > left && a.bottom > top - 12) info.style.maxHeight = Math.max(120, Math.floor(top - 12 - a.top)) + 'px';
+    }
   }
   if (trailBtn) trailBtn.addEventListener('click', () => {
     GS.trail = !GS.trail; saveGS();

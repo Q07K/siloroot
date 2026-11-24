@@ -220,3 +220,11 @@ test('hooks.json에 두 흔적 훅이 async로 있다', () => {
   assert.ok(reset, 'UserPromptSubmit 비우기 훅이 없다');
   assert.equal(reset.async, true);
 });
+
+test('docPathsInCommand는 프로젝트 맨 위의 같은 이름 파일을 문서로 잘못 남기지 않는다', () => {
+  const { root, cfg } = project();
+  write(root, 'CLAUDE.md', '# 팀 규칙\n');
+  assert.deepEqual(docPathsInCommand(cfg, 'cat CLAUDE.md', root), []);
+  assert.deepEqual(docPathsInCommand(cfg, 'git diff -- CLAUDE.md', root), []);
+  assert.deepEqual(docPathsInCommand(cfg, 'cat .siloroot/CLAUDE.md', root), ['CLAUDE.md']);
+});
