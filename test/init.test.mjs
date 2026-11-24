@@ -372,3 +372,13 @@ test('홈이 지워진 모양 3 프로젝트에서 다시 실행하면 홈을 �
     fs.writeFileSync(userFile(), saved);
   }
 });
+
+test('스킬은 옛 폴더 이름을 박지 않는다', () => {
+  for (const f of fs.readdirSync(path.join(REPO, 'skills'), { recursive: true }).map(String).filter((f) => f.endsWith('.md')))
+    assert.doesNotMatch(fs.readFileSync(path.join(REPO, 'skills', f), 'utf8'), /0[1-5]-(log|study|ideas|feedback|profile)/, f);
+});
+
+test('플러그인 버전은 0.6.0으로 두 파일이 같다', () => {
+  const v = (f) => JSON.parse(fs.readFileSync(path.join(REPO, f), 'utf8')).version;
+  assert.equal(v('.claude-plugin/plugin.json'), '0.6.0'); assert.equal(v('package.json'), '0.6.0');
+});

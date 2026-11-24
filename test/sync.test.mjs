@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { initProject } from '../scripts/init.mjs';
-import { loadConfig, pluginVersion } from '../lib/config.mjs';
+import { loadConfig, pluginVersion, DEFAULT_DIRS } from '../lib/config.mjs';
 import { planRefresh, applyRefresh } from '../lib/workspace-sync.mjs';
 import { makeProject } from './fixtures.mjs';
 // 모양 2(감싼 배치) 작업 공간: 모양 3 전의 init이 만들던 것. 업데이트와 맞추기는 모양 2에서도 돈다
@@ -141,4 +141,17 @@ test('git 저장소에서 모양 3 프로젝트를 맞추면 shared 아래만 gi
   write(root, '.siloroot/private/notes/a.md', 'x'); write(root, '.siloroot/shared/ideas/b.md', 'x');
   const st = git(root, ['status', '--porcelain', '--untracked-files=all']).split('\n').filter(Boolean).map((l) => l.slice(3).replace(/^"|"$/g, '')).sort();
   assert.deepEqual(st, ['.siloroot/shared/README.md', '.siloroot/shared/ideas/b.md']);
+});
+
+test('모양 2 블록의 자리 표도 placesOf의 모든 자리를 적는다', () => {
+  for (const layout of ['wrapped', 'flat']) {
+    const cfg = { schema: layout === 'wrapped' ? 2 : 1, mode: 'project', layout, dirs: { ...DEFAULT_DIRS } };
+    const rows = blockOf(cfg).split('\n').filter((l) => l.startsWith('|'));
+    assert.ok(rows.some((l) => l.startsWith('| 자리 | 경로 |')));
+    for (const [role, place] of Object.entries(placesOf(cfg))) {
+      if (!place) continue;
+      const shown = '`' + place + (place.endsWith('.md') ? '' : '/') + '`';
+      assert.ok(rows.some((l) => l.includes(ROLE_LABELS[role]) && l.includes(shown)), layout + ' ' + role);
+    }
+  }
 });

@@ -54,7 +54,7 @@ description: SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘�
 
 7. 결과를 알린다: 백업 이름(`backup`, 없으면 파일을 바꾸지 않은 것), 마이그레이션 결과, 만든 파일과 고친 파일(`refresh`), 알릴 것(`refresh.notes`, `refresh.warnings`), 점검 결과(`check.warnings` 속성 경고 수, `check.broken` 끊어진 `related`), 되돌리는 법("되돌려 줘"라고 하면 된다). 감싼 배치로 옮겼으면 규칙은 `CLAUDE.local.md`가 불러오므로 다음 세션부터 적용된다고 알린다.
 
-8. 작업 기록(`01-log/changelog.md`)에 한 줄을 남긴다. 예: `SiloRoot 업데이트: 모양 1 → 2, 플러그인 0.4.0 (백업 <이름>)`.
+8. 작업 기록 자리의 `changelog.md`에 한 줄을 남긴다. 예: `SiloRoot 업데이트: 모양 1 → 2, 플러그인 0.4.0 (백업 <이름>)`.
 
 ## 되돌리기
 
