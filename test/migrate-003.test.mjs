@@ -52,7 +52,7 @@ function v3Project(name = '앱') {
   D('shared/ideas/app-decision-x.md', fm('decision', '확정', 'related: [shared/ideas/app.md]\n') + '# 결정 x\n');
   D('shared/issues/port.md', fm('issue', '원인 찾음') + '# 포트\n');
   D('shared/issues/old.md', fm('issue', '안 함') + '# 옛 문제\n');
-  D('private/notes/n.md', fm('note', '사용 중') + '# 메모\n\n기록은 `private/log/changelog.md`, 질문은 [여기](../log/open-questions.md).\n');
+  D('private/notes/n.md', fm('note', '사용 중', 'related: [private/log/changelog.md]\n') + '# 메모\n\n기록은 `private/log/changelog.md`, 질문은 [여기](../log/open-questions.md). 맨 이름 `open-questions.md`는 그대로.\n');
   write(home, 'study/a.md', fm('study', '검증 전', `tags: [웹]\nrelated: [${name}:shared/roadmap/app-plan.md]\n`) + `# a\n\n\`${name}:shared/roadmap/app-plan.md\`\n`);
   return { root, home };
 }
@@ -101,7 +101,10 @@ test('apply: 작업 기록을 날짜별로 나누고 옮기며 경로를 고치�
   assert.match(app, /계획 `shared\/plans\/app-plan\.md`, 결정 `shared\/decisions\/app-decision-x\.md`/);
   assert.match(read(root, S('shared/design/app.md')), /\[여기\]\(\.\.\/plans\/app-plan\.md\)/);
   const note = read(root, S('private/notes/n.md'));
-  assert.match(note, /기록은 `private\/worklog\/`/);
+  assert.match(note, /^related: \[private\/worklog\]$/m, 'related는 나눈 작업 일지 자리로');
+  assert.match(note, /기록은 `private\/log\/changelog\.md`/, '본문의 옛 작업 기록 이야기는 그때의 것이라 그대로');
+  assert.match(note, /맨 이름 `open-questions\.md`는 그대로/);
+  assert.match(read(root, S('shared/README.md')), /`shared\/plans\/`/, '손대지 않은 영역 안내는 모양 4 템플릿으로');
   assert.match(note, /\[여기\]\(\.\.\/open-questions\.md\)/);
   // 홈 문서의 프로젝트 경로
   assert.match(read(home, 'study/a.md'), /^related: \[앱:shared\/plans\/app-plan\.md\]$/m);
