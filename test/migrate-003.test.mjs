@@ -151,7 +151,7 @@ test('홈: 작업 기록을 worklog/로 나누고 확인할 것을 맨 위로 �
   reset();
   const { root, home } = v3Project();
   write(home, 'log/changelog.md', fm('log', '사용 중') + '# 작업 기록\n\n## 2026-11-23\n\n- 홈을 만들었다.\n');
-  write(root, '.siloroot/private/notes/h.md', fm('note', '사용 중', 'related: [home:log/open-questions.md]\n') + '# h\n\n`home:log/open-questions.md`\n');
+  write(root, '.siloroot/private/notes/h.md', fm('note', '사용 중', 'related: [home:log/open-questions.md, home:log/changelog.md]\n') + '# h\n\n`home:log/open-questions.md`, 그때 기록은 `home:log/changelog.md`\n');
   const res = applyUpdate(home, answers());
   assert.equal(res.stoppedAt, null, JSON.stringify(res));
   assert.equal(loadConfig(home).schema, 4);
@@ -159,7 +159,8 @@ test('홈: 작업 기록을 worklog/로 나누고 확인할 것을 맨 위로 �
   assert.ok(exists(home, 'open-questions.md'));
   assert.ok(!exists(home, 'log'));
   assert.ok(exists(home, 'ideas/README.md'));
-  assert.match(read(root, '.siloroot/private/notes/h.md'), /^related: \[home:open-questions\.md\]$/m);
+  assert.match(read(root, '.siloroot/private/notes/h.md'), /^related: \[home:open-questions\.md, home:worklog\/README\.md\]$/m);
+  assert.match(read(root, '.siloroot/private/notes/h.md'), /그때 기록은 `home:log\/changelog\.md`/);
   assert.match(read(root, '.siloroot/private/notes/h.md'), /`home:open-questions\.md`/);
   assert.match(execFileSync(process.execPath, [BUILD, home], { encoding: 'utf8' }), /속성 점검: 경고 0개/);
 });
