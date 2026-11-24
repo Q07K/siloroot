@@ -121,3 +121,22 @@ test('흔적이 바뀌면 /events로 trail 알림이 온다', async () => {
     req.destroy();
   }
 });
+
+test('모양 3 프로젝트의 뷰어 댓글은 private/feedback에 쓴다', async () => {
+  const r3 = makeProject('모양 3 서버');
+  const p3 = await findFreePort(4240);
+  writeConfig(r3, { port: p3, layout: 'wrapped', schema: 3, mode: 'project' });
+  write(r3, '.siloroot/shared/ideas/a.md', '---\ntype: idea\nstatus: 아이디어\n---\n\n# a\n');
+  const b3 = 'http://127.0.0.1:' + p3;
+  const c3 = spawn(process.execPath, [SERVE, r3], { stdio: 'ignore' });
+  try {
+    await waitUp(b3 + '/health');
+    const r = await fetch(b3 + '/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json', origin: b3 }, body: JSON.stringify({ target: 'shared/ideas/a.md', body: '다시 보기' }) });
+    assert.equal(r.status, 200);
+    const j = await r.json();
+    assert.ok(j.path.startsWith('private/feedback/'), j.path);
+    assert.ok(fs.existsSync(path.join(r3, '.siloroot', j.path)));
+  } finally {
+    c3.kill();
+  }
+});

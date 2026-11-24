@@ -4,7 +4,7 @@
 // - 화면의 "다 확인했어요"를 누르면 지금 상태를 이전 상태로 저장한다.
 // - 화면에서 댓글(피드백)을 남기고, 문서를 고치고, 규칙 후보를 승인할 수 있다. 쓰는 곳은 아래 safePath가 정한다.
 // 실행: node viewer/serve.mjs <프로젝트 폴더>  →  http://127.0.0.1:<설정의 port>
-// GET /health 는 { siloroot: true, root, viewers } 를 돌려준다. 훅이 이 포트가 내 폴더의 서버인지,
+// GET /health 는 { siloroot: true, root, viewers, pid } 를 돌려준다. 훅이 이 포트가 내 폴더의 서버인지,
 // 뷰어 화면이 이미 열려 있는지(viewers: /events에 붙은 화면 수) 확인할 때 쓴다.
 // 화면을 찍으려고 띄운 headless 브라우저는 사람이 보는 화면이 아니므로 viewers에 세지 않는다.
 // GET /trail 은 읽는 문서 흔적({ session, items }, lib/trail.mjs)을 돌려준다. 흔적이 바뀌면 /events로 event: trail 알림도 보낸다.
@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { summarize } from './diff.mjs';
 import { loadConfig, DEFAULT_DIRS } from '../lib/config.mjs';
+import { placesOf, localPlace } from '../lib/layout.mjs';
 import { trailDir, latestTrail } from '../lib/trail.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -30,7 +31,8 @@ const CFG = loadConfig(ROOT) || { port: 4180, docsRoot: ROOT, dirs: { ...DEFAULT
 const DOCS = CFG.docsRoot;
 const HTML = path.join(CFG.stateDir, 'viewer-private.html');
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
-const FB_REL = CFG.dirs.feedback;
+// 뷰어 댓글 자리(lib/layout.mjs). 모양 3 프로젝트는 private/feedback
+const FB_REL = localPlace(placesOf(CFG).feedback);
 const FEEDBACK_DIR = path.join(DOCS, FB_REL);
 const inDocs = (full) => full.startsWith(DOCS + path.sep) && !(full + path.sep).startsWith(CFG.stateDir + path.sep);
 const PORT = Number(argOf('--port') || (loadConfig(ROOT) ? CFG.port : process.env.PORT) || 4180);
@@ -249,7 +251,7 @@ http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && req.url === '/health') {
       const viewers = [...clients].filter((c) => !c.headless).length;
-      return send(res, 200, { siloroot: true, root: ROOT, viewers });
+      return send(res, 200, { siloroot: true, root: ROOT, viewers, pid: process.pid });
     }
     if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
       build(['--keep-snapshot']);
