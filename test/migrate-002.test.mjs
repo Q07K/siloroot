@@ -47,11 +47,12 @@ function v2Project(name = '앱') {
   D('03-ideas/app-decision-plan.md', fm('decision', '제안', 'related: [03-ideas/app-decision-design.md]\n') + '# 앱 계획\n');
   D('03-ideas/app-mock.gif', 'GIF89a');
   D('03-ideas/diary.md', fm('idea', '아이디어') + '# 일기 앱(개인)\n\n`02-study/a.md`를 보고 떠올렸다.\n');
-  D('04-feedback/2026-11-22-001.md', fm('feedback', '대기', 'target: 03-ideas/app.md\n') + '# 댓글\n');
+  // 뷰어가 만드는 댓글 꼴(viewer/serve.mjs): related로 대상 문서를 가리킨다
+  D('04-feedback/2026-11-22-001.md', fm('feedback', '대기', 'related: [03-ideas/app.md]\n') + '# 피드백: 03-ideas/app.md\n\n## 댓글\n\n좋다\n');
   D('04-feedback/trait-short.md', fm('trait', '반영') + '# 짧게 답하기\n');
   D('05-profile/profile.md', read(root, '.siloroot/05-profile/profile.md').replace(/(## 작업 방식\n\n[^\n]*\n\| --- \| --- \| --- \| --- \|)/, '$1\n' + PROFILE_ROW));
-  D('06-discussions/README.md', fm('index', '사용 중') + '# 논의\n');
-  D('06-discussions/2026-11-24-a.md', fm('note', '사용 중', 'related: [03-ideas/app.md]\n') + '# 논의 a\n');
+  D('06-discussions/README.md', fm('index', '사용 중') + '# 논의\n\n논의는 `06-discussions/`에, 아이디어는 `03-ideas/`에 둔다. 목록은 `README.md`.\n');
+  D('06-discussions/2026-11-24-a.md', fm('note', '사용 중', 'related: [03-ideas/app.md]\n') + '# 논의 a\n\n그때는 `06-discussions/`와 `02-study/`를 썼다.\n');
   D('07-misc/x.md', fm('note', '사용 중') + '# 기타\n');
   D('metadata-guide.md', read(root, '.siloroot/metadata-guide.md').replace('| `03-ideas/` |', '| `06-discussions/` | `note` | 사용자가 더한 논의 폴더 |\n| `07-misc/` | `note` | 사용자가 더한 기타 폴더 |\n| `03-ideas/` |'));
   D('CLAUDE.md', read(root, '.siloroot/CLAUDE.md') + '\n## 더한 폴더\n\n- 논의는 `06-discussions/`에, 목록은 `06-discussions/README.md`.\n');
@@ -94,6 +95,7 @@ test('plan은 파일을 바꾸지 않고 문서마다 갈 곳을 낸다', () => 
   assert.equal(to['writing-guide.md'].to, 'home:writing-guide.md');
   assert.ok(!m.plan.placements.some((x) => x.to.startsWith('shared/') && /study|feedback|profile|discussions|misc|log/.test(x.from)), '개인 문서는 shared/로 가지 않는다');
   assert.deepEqual(m.plan.decisions.map((d) => d.id).sort(), ['home-access', 'home-location']);
+  assert.ok(m.plan.notes.some((n) => n.includes('옛 폴더 이름') && n.includes('`03-ideas/`')), m.plan.notes.join('\n'));
   assert.equal(m.plan.decisions.find((d) => d.id === 'home-location').free, true);
   assert.deepEqual(tree(root), before);
   assert.ok(!fs.existsSync(userFile()));
@@ -130,6 +132,13 @@ test('apply: 홈을 만들고 옮기고 경로를 고치며 모양 3이 된다',
   // 사용자 정보와 후보는 홈
   assert.ok(read(home, 'profile.md').includes('| 짧게 답하기 | 답은 짧게 | `feedback/trait-short.md` | 2026-11-21 |'));
   assert.ok(exists(home, 'feedback/trait-short.md'));
+  // 새로 만든 홈의 안내 문서는 모양 3 템플릿이고 옛 폴더 이름을 적지 않는다
+  assert.equal(read(home, 'feedback/README.md'), readTpl('home/feedback/README.md'));
+  assert.doesNotMatch(read(home, 'writing-guide.md'), /04-feedback/);
+  assert.doesNotMatch(read(home, 'study/README.md'), /02-study/);
+  // 안내 문서에서는 통째로 옮긴 폴더 이름을 고치고, 나뉜 폴더 이름과 맨 파일 이름은 그대로 둔다. 기록 문서의 옛 이름은 그대로
+  assert.match(read(root, '.siloroot/private/discussions/README.md'), /논의는 `private\/discussions\/`에, 아이디어는 `03-ideas\/`에 둔다\. 목록은 `README\.md`\./);
+  assert.match(read(root, '.siloroot/private/discussions/2026-11-24-a.md'), /그때는 `06-discussions\/`와 `02-study\/`를 썼다/);
   // 관리 블록 밖, 속성 가이드
   const claude = read(root, '.siloroot/CLAUDE.md');
   assert.match(claude, /논의는 `private\/discussions\/`에, 목록은 `private\/discussions\/README\.md`/);
@@ -169,7 +178,7 @@ test('아이디어를 홈으로 보내면 옆의 결정과 그림도 따라간�
   for (const f of ['ideas/app.md', 'ideas/app-decision-design.md', 'ideas/app-decision-plan.md', 'ideas/app-mock.gif', 'ideas/diary.md']) assert.ok(exists(home, f), f);
   assert.ok(!exists(root, '.siloroot/shared/design/app-decision-design.md'));
   assert.match(read(home, 'ideas/diary.md'), /`study\/a\.md`/);
-  assert.match(read(root, '.siloroot/private/feedback/2026-11-22-001.md'), /^target: 03-ideas\/app\.md$/m, 'related가 아닌 속성은 고치지 않는다');
+  assert.match(read(root, '.siloroot/private/feedback/2026-11-22-001.md'), /^related: \[home:ideas\/app\.md\]$/m, '기다리는 댓글도 옮긴 대상을 가리킨다');
   assert.match(buildOut(home), /속성 점검: 경고 0개/);
 });
 

@@ -33,8 +33,8 @@ const DOCS = CFG.docsRoot;
 const HTML = path.join(CFG.stateDir, 'viewer-private.html');
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
 // 뷰어 댓글 자리(lib/layout.mjs). 모양 3 프로젝트는 private/feedback
-const FB_REL = localPlace(placesOf(CFG).feedback);
-const FEEDBACK_DIR = path.join(DOCS, FB_REL);
+// 서버가 켜져 있는 동안 /siloroot:update가 모양을 바꿀 수 있어 쓸 때마다 설정을 다시 읽는다(옛 폴더를 되살리지 않게)
+const fbRel = () => localPlace(placesOf(loadConfig(ROOT) || CFG).feedback);
 const inDocs = (full) => full.startsWith(DOCS + path.sep) && !(full + path.sep).startsWith(CFG.stateDir + path.sep);
 const PORT = Number(argOf('--port') || (loadConfig(ROOT) ? CFG.port : process.env.PORT) || 4180);
 const STATUS = {
@@ -142,12 +142,14 @@ function setStatus(text, status, note) {
 }
 
 function nextFeedbackPath() {
-  fs.mkdirSync(FEEDBACK_DIR, { recursive: true });
+  const rel = fbRel();
+  const dir = path.join(DOCS, rel);
+  fs.mkdirSync(dir, { recursive: true });
   const day = today();
-  const used = fs.readdirSync(FEEDBACK_DIR).filter((f) => f.startsWith(day + '-')).length;
+  const used = fs.readdirSync(dir).filter((f) => f.startsWith(day + '-')).length;
   for (let n = used + 1; ; n++) {
     const name = `${day}-${String(n).padStart(3, '0')}.md`;
-    if (!fs.existsSync(path.join(FEEDBACK_DIR, name))) return { rel: FB_REL + '/' + name, full: path.join(FEEDBACK_DIR, name) };
+    if (!fs.existsSync(path.join(dir, name))) return { rel: rel + '/' + name, full: path.join(dir, name) };
   }
 }
 
@@ -175,7 +177,7 @@ async function api(req, res) {
 
   if (req.url === '/api/status') {
     const p = safePath(body.path);
-    if (!p || !p.rel.startsWith(FB_REL + '/') || !fs.existsSync(p.full)) return send(res, 400, { error: '피드백 파일만 상태를 바꿀 수 있습니다.' });
+    if (!p || !p.rel.startsWith(fbRel() + '/') || !fs.existsSync(p.full)) return send(res, 400, { error: '피드백 파일만 상태를 바꿀 수 있습니다.' });
     const text = norm(fs.readFileSync(p.full, 'utf8'));
     const type = (text.match(/^type:\s*(\S+)/m) || [])[1];
     if (!STATUS[type] || !STATUS[type].includes(body.status)) return send(res, 400, { error: '쓸 수 없는 상태입니다.' });

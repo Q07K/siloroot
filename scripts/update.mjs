@@ -43,7 +43,9 @@ function saveDeclined(cfg, add) {
 const refreshChanges = (r) => r.blocks.filter((b) => b.state === 'created' || b.state === 'updated').map((b) => b.file)
   .concat(r.missingFiles, r.missingLines.map((l) => l.file));
 const refreshClean = (r) => r.blocks.every((b) => b.state === 'skipped' || b.state === 'conflict') && !r.missingFiles.length && !r.missingLines.length;
-const heldBy = (cfg, m) => cfg.hold != null && m.to <= cfg.hold;
+// 머물기: hold는 사용자가 올리지 않기로 한 모양까지다. 남은 마이그레이션이 모두 그 안이면 머무는 중이다.
+// 그보다 새 모양이 나오면 머물기가 풀려 다시 묻는다(세션 알림 lib/update-check.mjs와 같은 규칙). 하나만 보므로 m은 받지 않는다
+const heldBy = (cfg) => cfg.hold != null && nextOf(cfg).every((x) => x.to <= cfg.hold);
 // 답이 고를 값에 맞는가. free인 질문(홈 위치 같은 경로)은 빈 글자가 아니면 된다
 export const validAnswer = (d, a) => (d.free ? typeof a === 'string' && a.trim() !== '' : d.options.includes(a));
 // 이번에 볼 마이그레이션은 다음 하나뿐이다
@@ -66,7 +68,7 @@ export function planUpdate(rootArg) {
   const declined = readDeclined(cfg);
   const pending = nextOf(cfg);
   const migrations = pending.slice(0, 1).map((m) => ({
-    id: m.id, title: m.title, from: m.from, to: m.to, held: heldBy(cfg, m), plan: m.plan({ root, cfg }),
+    id: m.id, title: m.title, from: m.from, to: m.to, held: heldBy(cfg), plan: m.plan({ root, cfg }),
   }));
   const refresh = planRefresh(root, cfg, { declined });
   const upToDate = migrations.every((m) => m.held) && refreshClean(refresh) && !refresh.guideGaps.length;
@@ -99,7 +101,7 @@ export function applyUpdate(rootArg, answersArg = {}) {
   let holding = false;
   for (const m of pending) {
     // 전에 머물기로 한(hold) 마이그레이션은 답이 없으면 계속 머문다
-    const a = answers.migrations[m.id] ?? (heldBy(cfg, m) ? 'hold' : undefined);
+    const a = answers.migrations[m.id] ?? (heldBy(cfg) ? 'hold' : undefined);
     if (a !== 'apply' && a !== 'hold') { missing.push('migration:' + m.id); continue; }
     if (a === 'hold') holding = true;
     run.push({ m, hold: holding });
@@ -136,7 +138,8 @@ export function applyUpdate(rootArg, answersArg = {}) {
   let stoppedAt = null;
   let heldTo = null;
   for (const { m, hold } of run) {
-    if (hold) { results.push({ id: m.id, status: 'held' }); heldTo = Math.max(heldTo ?? 0, m.to); continue; }
+    // 머물면 지금 플러그인이 아는 모양 전부를 거절한 것으로 적는다. 다음에 새 모양이 나오면 다시 묻는다
+    if (hold) { results.push({ id: m.id, status: 'held' }); heldTo = Math.max(heldTo ?? 0, SCHEMA); continue; }
     try {
       m.apply({ root, cfg: loadConfig(root) }, answers.decisions, answers);
       updateConfig(root, { schema: m.to, hold: null });

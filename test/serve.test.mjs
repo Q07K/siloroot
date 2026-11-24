@@ -146,3 +146,26 @@ test('모양 3 프로젝트의 뷰어 댓글은 private/feedback에 쓴다', asy
     c3.kill();
   }
 });
+
+test('서버가 켜진 채 모양 2에서 3으로 옮겨도 새 댓글은 private/feedback에 쓴다', async () => {
+  const r = makeProject('옮기는 중 서버');
+  const p = await findFreePort(4250);
+  writeConfig(r, { port: p, layout: 'wrapped', schema: 2 });
+  write(r, '.siloroot/03-ideas/a.md', '---\ntype: idea\nstatus: 아이디어\n---\n\n# a\n');
+  const b = 'http://127.0.0.1:' + p;
+  const c = spawn(process.execPath, [SERVE, r], { stdio: 'ignore' });
+  try {
+    await waitUp(b + '/health');
+    // 업데이트(002)가 문서를 옮기고 설정을 모양 3으로 바꾼 뒤
+    write(r, '.siloroot/shared/ideas/a.md', '---\ntype: idea\nstatus: 아이디어\n---\n\n# a\n');
+    fs.rmSync(path.join(r, '.siloroot', '03-ideas'), { recursive: true });
+    writeConfig(r, { port: p, layout: 'wrapped', schema: 3, mode: 'project' });
+    const res = await fetch(b + '/api/feedback', { method: 'POST', headers: { 'content-type': 'application/json', origin: b }, body: JSON.stringify({ target: 'shared/ideas/a.md', body: '옮긴 뒤 댓글' }) });
+    assert.equal(res.status, 200);
+    const j = await res.json();
+    assert.ok(j.path.startsWith('private/feedback/'), j.path);
+    assert.ok(!fs.existsSync(path.join(r, '.siloroot', '04-feedback')), '옛 댓글 폴더를 되살리지 않는다');
+  } finally {
+    c.kill();
+  }
+});

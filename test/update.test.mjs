@@ -95,7 +95,7 @@ test('hold로 답하면 모양은 그대로, 맞추기만 하고 hold가 적힌�
   const res = applyUpdate(root, answersFor(planUpdate(root), 'hold'));
   assert.deepEqual(res.migrations, [{ id: ID, status: 'held' }]);
   const cfg = loadConfig(root);
-  assert.equal(cfg.layout, 'flat'); assert.equal(cfg.schema, 1); assert.equal(cfg.hold, 2);
+  assert.equal(cfg.layout, 'flat'); assert.equal(cfg.schema, 1); assert.equal(cfg.hold, 3, "머물면 지금 아는 모양 전부를 거절한 것으로 적는다");
   assert.equal(cfg.plugin, pluginVersion());
   assert.ok(exists(root, '02-study/a.md'));
   assert.ok(exists(root, '01-log/open-questions.md'), '빠진 파일은 맞춘다');
@@ -196,7 +196,7 @@ test('머물기로 한 마이그레이션은 답이 없어도 머문 것으로 �
   assert.equal(res.error, undefined, JSON.stringify(res));
   assert.deepEqual(res.migrations, [{ id: ID, status: 'held' }]);
   assert.equal(loadConfig(root).plugin, pluginVersion());
-  assert.equal(loadConfig(root).hold, 2);
+  assert.equal(loadConfig(root).hold, 3);
 });
 
 test('001이 맞추기 중에 실패해도 팀 CLAUDE.md 내용을 잃지 않고 다시 돌리면 이어진다', () => {
@@ -273,4 +273,18 @@ test('모양 3 프로젝트의 알림은 뒤처진 홈도 함께 알린다', asy
   // 홈에서 업데이트를 돌리면 홈도 맞춰진다
   assert.equal(applyUpdate(home, {}).plugin, pluginVersion());
   assert.deepEqual(updateNotice(loadConfig(root)), []);
+});
+
+test('예전에 모양 2까지 머물기로 한 모양 1 작업 공간은 새 모양 3이 나오면 다시 묻는다', () => {
+  const root = flatProject();
+  updateConfig(root, { hold: 2 });
+  assert.match(updateNotice(loadConfig(root))[0], /모양 1 → 3/);
+  const p = planUpdate(root);
+  assert.equal(p.migrations[0].held, false, '알림과 미리 보기가 같은 규칙을 따른다');
+  assert.equal(p.upToDate, false);
+  // 다시 머물면 지금 아는 모양 전부(3)까지 머물고 알림이 멈춘다
+  applyUpdate(root, answersFor(p, 'hold'));
+  assert.equal(loadConfig(root).hold, 3);
+  assert.deepEqual(updateNotice({ ...loadConfig(root), plugin: pluginVersion() }), []);
+  assert.equal(planUpdate(root).migrations[0].held, true);
 });
