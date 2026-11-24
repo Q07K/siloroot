@@ -378,9 +378,10 @@ test('스킬은 옛 폴더 이름을 박지 않는다', () => {
     assert.doesNotMatch(fs.readFileSync(path.join(REPO, 'skills', f), 'utf8'), /0[1-5]-(log|study|ideas|feedback|profile)/, f);
 });
 
-test('플러그인 버전은 0.7.0으로 두 파일이 같다', () => {
+// 버전은 내보낼 때 올린다(CLAUDE.md "버전과 내보내기"). 테스트는 번호를 박지 않고 두 파일이 같은지만 본다
+test('플러그인 버전은 두 파일이 같다', () => {
   const v = (f) => JSON.parse(fs.readFileSync(path.join(REPO, f), 'utf8')).version;
-  assert.equal(v('.claude-plugin/plugin.json'), '0.7.0'); assert.equal(v('package.json'), '0.7.0');
+  assert.match(v('package.json'), /^\d+\.\d+\.\d+$/); assert.equal(v('.claude-plugin/plugin.json'), v('package.json'));
 });
 
 // ---- 최종 검토에서 나온 것 ----

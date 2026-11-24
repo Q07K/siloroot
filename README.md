@@ -153,6 +153,14 @@ npm test
 claude plugin validate .
 ```
 
+Versions are bumped when a release goes out, not with every pull request. Features build up on `main` and ship together as one minor version (0.x.0); a fix to a released version ships right away as a patch version (0.x.y). To try `main` before it is released, load the clone for one terminal session:
+
+```powershell
+claude --plugin-dir <path to the clone>
+```
+
+This applies only to that session. While you do this, turn off the installed SiloRoot for the project so its hooks do not run as well (`claude plugin disable siloroot@siloroot --scope project`), and turn it back on afterwards (`claude plugin enable siloroot@siloroot --scope project`).
+
 The privacy test reads banned words from `test/banned-words.local.txt` (one word per line), which is not committed. Without that file the test runs with no banned words.
 
 The README exists in English (`README.md`) and Korean (`README.ko.md`). When you change one, change the other too.

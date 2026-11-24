@@ -153,6 +153,14 @@ npm test
 claude plugin validate .
 ```
 
+버전은 PR마다 올리지 않고 내보낼 때 올린다. 기능은 `main`에 쌓았다가 부 버전(0.x.0) 하나로 함께 내보내고, 이미 내보낸 버전의 버그 수정은 바로 패치 버전(0.x.y)으로 낸다. 내보내기 전의 `main`을 써 보려면 내려받은 저장소를 터미널 세션 하나에 불러온다.
+
+```powershell
+claude --plugin-dir <내려받은 경로>
+```
+
+그 세션에만 적용된다. 그동안 이 프로젝트에 설치된 SiloRoot는 꺼 두어 훅이 같이 돌지 않게 하고(`claude plugin disable siloroot@siloroot --scope project`), 끝나면 다시 켠다(`claude plugin enable siloroot@siloroot --scope project`).
+
 개인 정보 검사 테스트는 git에 올리지 않는 `test/banned-words.local.txt`(한 줄에 낱말 하나)에서 금지어를 읽는다. 파일이 없으면 금지어 없이 지나간다.
 
 README는 영어(`README.md`)와 한국어(`README.ko.md`) 두 벌이다. 한쪽을 고치면 다른 쪽도 같이 고친다.
