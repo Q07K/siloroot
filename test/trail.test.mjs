@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { makeProject, write } from './fixtures.mjs';
 import { loadConfig, writeConfig } from '../lib/config.mjs';
+import { setHome } from '../lib/user.mjs';
 import {
   trailDir, toDocPath, docPathsInCommand, entriesFromHook, safeSession,
   appendTrail, resetTrail, readTrail, latestTrail,
@@ -30,6 +31,20 @@ test('toDocPath는 문서 위치 안의 md만 상대 경로로 바꾼다', () =>
   assert.equal(toDocPath(cfg, path.join(root, '.siloroot', 'state', 'trail', 'x.md')), null);
   assert.equal(toDocPath(cfg, path.join(root, '.siloroot', '03-ideas', 'a.txt')), null);
   assert.equal(toDocPath(cfg, path.join(root, '.siloroot', '_draft', 'b.md')), null);
+});
+
+test('모양 3 프로젝트의 toDocPath는 홈 문서를 home: 경로로 남기고, 홈이나 모양 2는 남기지 않는다', () => {
+  const root = makeProject(), home = makeProject();
+  writeConfig(root, { port: 4251, layout: 'wrapped', schema: 3, mode: 'project' });
+  const note = write(home, 'study/a.md', '# a\n');
+  write(home, '_draft/b.md', '# b\n');
+  setHome(home);
+  const cfg = loadConfig(root);
+  assert.equal(toDocPath(cfg, note), 'home:study/a.md');
+  assert.equal(toDocPath(cfg, path.join(home, '_draft', 'b.md')), null);
+  assert.equal(toDocPath(cfg, path.join(home, 'study', 'a.txt')), null);
+  writeConfig(root, { port: 4251, layout: 'wrapped', schema: 2 });
+  assert.equal(toDocPath(loadConfig(root), note), null);
 });
 
 test('toDocPath는 드라이브 글자 대소문자와 구분자가 달라도 같은 문서로 본다', (t) => {
