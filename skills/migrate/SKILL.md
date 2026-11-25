@@ -70,13 +70,13 @@ description: SiloRoot 작업 공간을 새 모양으로 옮긴다(마이그레�
 
 9. `more`였으면 1단계부터 다시 미리 본다.
 
-10. 홈 맞추기: 모양 3 이상 프로젝트면(옮긴 직후 포함) 홈도 같은 스크립트로 맞춘다. 홈 위치는 `~/.siloroot/user.json`의 `home`이다(관리 블록에도 적혀 있다).
+10. 홈 옮기기: 모양 3 이상 프로젝트면(옮긴 직후 포함) 홈도 같은 스크립트로 미리 본다. 홈 위치는 `~/.siloroot/user.json`의 `home`이다(관리 블록에도 적혀 있다).
 
     ```bash
     node "${CLAUDE_PLUGIN_ROOT}/scripts/update.mjs" "<홈 폴더>" --plan
     ```
 
-    `upToDate`이고 `pluginFrom`과 `pluginTo`가 같으면 넘어간다. 아니면 1~7단계를 홈에 대해 한다. 홈의 백업은 홈의 `.siloroot/state/backups/`에 따로 쌓인다. 기록은 홈의 작업 일지(모양 4는 `worklog/YYYY-MM-DD.md`, 모양 3은 `log/changelog.md`)에 남긴다.
+    홈에 옮길 마이그레이션(`migrations`)이 있으면 1~7단계를 홈에 대해 한다. 없고 맞출 것만 남았으면 `/siloroot:update`가 맞춘다고 알리고 넘어간다. 홈의 백업은 홈의 `.siloroot/state/backups/`에 따로 쌓인다. 기록은 홈의 작업 일지(모양 4는 `worklog/YYYY-MM-DD.md`, 모양 3은 `log/changelog.md`)에 남긴다.
 
 11. 마이그레이션 계획에 `plan.after`(옮긴 뒤 Claude가 할 일)가 있었으면, 적용한 뒤 그 항목을 차례로 한다. 문서를 고치는 일은 하나씩 묻고 승인한 것만 한다. 이 일은 업데이트 백업 밖이라고 알린다.
 

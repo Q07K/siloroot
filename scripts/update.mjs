@@ -29,6 +29,7 @@ import { createBackup, sealBackup, listBackups, restoreBackup, pruneBackups } fr
 import { timeScript } from '../lib/metrics.mjs';
 import { isOlder, ensureServer } from '../lib/servers.mjs';
 import { readUser } from '../lib/user.mjs';
+import { UPDATE_FROM } from '../lib/update-check.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUILD = path.join(here, '..', 'viewer', 'build.mjs');
@@ -187,8 +188,23 @@ export function applyUpdate(rootArg, answersArg = {}) {
 // ---------- /siloroot:update(가벼운 길) ----------
 
 const norm = (p) => path.resolve(String(p || '')).split(path.sep).join('/').toLowerCase();
-// 이 스크립트가 플러그인 설치 폴더(~/.claude/plugins/cache) 밖에서 돌면 --plugin-dir로 불러온 개발 플러그인이다
-export const isDevCopy = (dir = here) => !/[\\/]\.claude[\\/]plugins[\\/]cache[\\/]/i.test(dir);
+// 이 스크립트가 플러그인 설치 폴더(~/.claude/plugins/cache) 밖에서 돌면 --plugin-dir로 불러온 개발 플러그인이다.
+// 테스트는 SILOROOT_DEV_COPY=0으로 설치된 플러그인처럼 돌린다
+export const isDevCopy = (dir = here) => (process.env.SILOROOT_DEV_COPY === '0' ? false : !/[\\/]\.claude[\\/]plugins[\\/]cache[\\/]/i.test(dir));
+
+// 바뀐 것을 보일 옛 버전: 받은 값, 없으면 세션 시작 훅이 번호를 조용히 올리며 남긴 기록(state/update-from.json). 보인 뒤 기록을 지운다
+export function changesFor(rootArg, from) {
+  const o = open(rootArg);
+  if (o.error) return o;
+  const f = path.join(o.cfg.stateDir, UPDATE_FROM);
+  let rec = null;
+  try { rec = JSON.parse(fs.readFileSync(f, 'utf8')).from || null; } catch { /* 없음 */ }
+  // 기록이 받은 값보다 옛것이면 기록부터 보인다(사이에 훅이 조용히 올린 버전이 있었다)
+  const base = from && rec ? (isOlder(rec, from) ? rec : from) : from || rec;
+  try { fs.rmSync(f, { force: true }); } catch { /* 못 지워도 보인다 */ }
+  if (!base) return { from: null, to: pluginVersion(), changes: [], note: '옛 버전을 알 수 없어 바뀐 것을 보이지 않습니다.' };
+  return { from: base, to: pluginVersion(), changes: changesBetween(base) };
+}
 
 // claude plugin list --json 결과에서 이 프로젝트에 깔린 siloroot. 프로젝트 범위 설치가 먼저, 없으면 사용자 범위
 export function pickInstall(list, root) {
@@ -320,7 +336,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
       const file = flag('--answers');
       res = applyRefreshOnly(target, file ? JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')) : {});
     } else if (args.includes('--servers')) res = await swapServers(target);
-    else if (args.includes('--changes')) res = { from: flag('--changes') || null, to: pluginVersion(), changes: changesBetween(flag('--changes') || null) };
+    else if (args.includes('--changes')) { const v = flag('--changes'); res = changesFor(target, v && !v.startsWith('--') ? v : null); }
     else if (args.includes('--plan')) res = planUpdate(target);
     else if (args.includes('--apply')) {
       const file = flag('--answers');

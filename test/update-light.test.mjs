@@ -144,3 +144,35 @@ test('세션 시작 알림은 번호만 옛것인 작업 공간의 plugin을 조
   assert.ok(!out.includes('업데이트할 것'), out);
   assert.equal(loadConfig(root).plugin, pluginVersion());
 });
+
+test('훅이 번호를 조용히 올리면 옛 번호를 남기고, --changes는 값이 없을 때 그 기록을 쓰고 지운다', async () => {
+  const { stampPlugin } = await import('../lib/update-check.mjs');
+  const { changesFor } = await import('../scripts/update.mjs');
+  const root = await v4Project();
+  updateConfig(root, { plugin: '0.7.0' });
+  stampPlugin(root);
+  updateConfig(root, { plugin: '0.8.0' }); stampPlugin(root); // 다시 올려도 가장 옛 번호를 둔다
+  const rec = path.join(loadConfig(root).stateDir, 'update-from.json');
+  assert.equal(JSON.parse(fs.readFileSync(rec, 'utf8')).from, '0.7.0');
+  const c = changesFor(root);
+  assert.equal(c.from, '0.7.0'); assert.ok(c.changes.some((x) => x.version === pluginVersion()));
+  assert.equal(fs.existsSync(rec), false);
+  assert.deepEqual(changesFor(root).changes, []);
+  // 받은 값이 있으면 그 값(기록이 더 옛것이면 기록)
+  assert.equal(changesFor(root, '0.8.0').from, '0.8.0');
+});
+
+test('설치된 플러그인처럼 돌면 --versions가 설치 버전과 최신 버전을 견준다', async () => {
+  const root = await v4Project();
+  const loc = tmp();
+  write(loc, '.claude-plugin/marketplace.json', JSON.stringify({ name: 'siloroot', plugins: [{ name: 'siloroot', source: './' }] }));
+  write(loc, '.claude-plugin/plugin.json', JSON.stringify({ name: 'siloroot', version: '99.0.0' }));
+  const st = loadConfig(root).stateDir;
+  fs.mkdirSync(st, { recursive: true });
+  fs.writeFileSync(path.join(st, 'plugin-list.json'), JSON.stringify([{ id: 'siloroot@siloroot', version: '0.8.1', scope: 'project', projectPath: root, installPath: '/x/0.8.1' }]));
+  fs.writeFileSync(path.join(st, 'plugin-markets.json'), JSON.stringify([{ name: 'siloroot', installLocation: loc }]));
+  const out = execFileSync(process.execPath, [path.join(REPO, 'scripts', 'update.mjs'), root, '--versions'], { encoding: 'utf8', env: { ...process.env, SILOROOT_DEV_COPY: '0' } });
+  const v = JSON.parse(out);
+  assert.equal(v.installed, '0.8.1'); assert.equal(v.latest, '99.0.0'); assert.equal(v.newer, true);
+  assert.equal(v.id, 'siloroot@siloroot'); assert.equal(v.scope, 'project'); assert.equal(v.market, 'siloroot');
+});

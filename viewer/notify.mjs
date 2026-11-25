@@ -11,9 +11,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, updateConfig, pluginVersion } from '../lib/config.mjs';
+import { loadConfig } from '../lib/config.mjs';
 import { timeScript, appendMetrics } from '../lib/metrics.mjs';
-import { checkUpdate } from '../lib/update-check.mjs';
+import { checkUpdate, stampPlugin } from '../lib/update-check.mjs';
 import { AI_COMMENT_HOUR, lastSlot, commentDue } from '../lib/me-schedule.mjs';
 import { placesOf, localPlace } from '../lib/layout.mjs';
 import { readUser } from '../lib/user.mjs';
@@ -115,7 +115,7 @@ if (SESSION) {
     const u = checkUpdate(cfg);
     updateLines = u.lines;
     // 맞출 것 없이 플러그인 번호만 옛것인 작업 공간은 알리지 않고 번호만 올려 적는다(lib/update-check.mjs)
-    for (const r of u.stamp) { try { updateConfig(r, { plugin: pluginVersion() }); } catch { /* 못 적어도 다음 세션에 다시 본다 */ } }
+    for (const r of u.stamp) { try { stampPlugin(r); } catch { /* 못 적어도 다음 세션에 다시 본다 */ } }
   } catch { updateLines = []; }
 }
 if (updateLines.length) parts.push('[SiloRoot] 업데이트할 것이 있습니다. 줄 끝의 명령으로 미리 보고 올릴 수 있습니다.\n' + updateLines.map((l) => '- ' + l).join('\n'));
