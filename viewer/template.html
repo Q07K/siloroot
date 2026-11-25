@@ -1693,7 +1693,7 @@ let landSeedMemo = { sig: '', seeds: [] };
 function landSeeds(hulls, nodes) {
   const sig = [...hulls].map(([f, h]) => f + h.cx.toFixed(0) + ',' + h.cy.toFixed(0) + ',' + h.r.toFixed(0)).join(';');
   if (sig === landSeedMemo.sig) return landSeedMemo.seeds;
-  const seeds = [...hulls.values()].filter(h => AREA_KEYS.includes(areaOf(h.f))).map(h => ({ x: h.cx, y: h.cy, r: h.r, a: areaOf(h.f) }));
+  const seeds = [...hulls.values()].filter(h => AREA_KEYS.includes(areaOf(h.f))).map(h => ({ x: h.cx, y: h.cy, r: h.r, a: areaOf(h.f), f: h.f }));
   landSeedMemo = { sig, seeds };
   return seeds;
 }
@@ -1855,6 +1855,8 @@ function territoryPath(cs) {
 function landCircle(ms, nodes, pad = 30) { const c = enclosingCircle(ms.flatMap(h => hullPts(h, nodes, 0))); return { cx: c.x, cy: c.y, r: c.r + pad }; }
 // 영역 하나의 SVG: [영토 g, 이름표 g]
 function areaSvg(s) {
+  // 영역 폴더를 범례에서 모두 끈 영토: 빈 g만 둔다. 다시 켜면 drawAreas가 이 자리를 채운다
+  if (s.off) return ['<g class="area" data-a="' + s.a + '"></g>', '<g class="alab" data-a="' + s.a + '"></g>'];
   const c = AREA_C[s.a], f1 = v => v.toFixed(1), st = ' style="fill:' + c + ';stroke:' + c + '"';
   // 이름표: 영토 아이콘 + 영어 이름. 화면 배율과 상관없이 같은 크기로 보이게 그룹째 --fk만큼 키운다(글자 크기는 16px 고정).
   // 한국어 설명(공유 · 팀과 나눌 수 있음 등)은 그래프에 쓰지 않고, 이름표에 마우스를 올리면 뜬다(data-tip)
@@ -1875,13 +1877,17 @@ function hullPts(h, nodes, pad) {
   return pts;
 }
 // 그릴 영토. rootX, rootY: 영역 바로 밑 문서(README)를 놓을 자리. fitAs: 그림 크기 맞출 때 쓸 모양.
-// 클러스터마다 반지름 + LAND_REACH 원을 두고, 같은 영토의 원들을 이은 모양(territoryPath)을 칠한다
-function areaShapes(hulls, nodes) {
+// 클러스터마다 반지름 + LAND_REACH 원을 두고, 같은 영토의 원들을 이은 모양(territoryPath)을 칠한다.
+// hide(선택): 범례에서 끈 폴더. 그 클러스터 원은 영토에서 뺀다. 영역 폴더를 모두 끄면 off인 빈 영토를 돌려준다.
+// 배치와 그림 크기 맞추기는 hide 없이 부른다(끄고 켜도 자리가 바뀌지 않게)
+function areaShapes(hulls, nodes, hide) {
   if (!hulls) return [];
   const out = [], seeds = landSeeds(hulls, nodes);
   for (const a of AREA_KEYS) {
-    const cs = seeds.filter(q => q.a === a).map(q => ({ x: q.x, y: q.y, r: q.r + LAND_REACH }));
-    if (!cs.length) continue;
+    const mine = seeds.filter(q => q.a === a);
+    if (!mine.length) continue;
+    const cs = mine.filter(q => !(hide && hide.has(q.f))).map(q => ({ x: q.x, y: q.y, r: q.r + LAND_REACH }));
+    if (!cs.length) { out.push({ a, off: true }); continue; }
     const b = { x: Math.min(...cs.map(c => c.x - c.r)), y: Math.min(...cs.map(c => c.y - c.r)) }; b.w = Math.max(...cs.map(c => c.x + c.r)) - b.x; b.h = Math.max(...cs.map(c => c.y + c.r)) - b.y;
     const top = cs.reduce((m, c) => (c.y - c.r < m.y - m.r ? c : m));
     const spot = readmeSpot(hulls, nodes, a) || { x: b.x + b.w / 2, y: b.y + b.h / 2 };
@@ -1988,7 +1994,7 @@ function viewGraph(carry) {
   const isReadme = n => /(^|\/)README\.md$/i.test(n.id);
   const emptyTip = '비어 있는 자리. 무엇을 넣는지는 이 폴더의 README.md에 있습니다';
   // 영토와 영토 이름표
-  const AREAS = areaShapes(hulls, nodes);
+  const AREAS = areaShapes(hulls, nodes, GS.hidden);
   for (const s of AREAS) {
     const [g, t] = areaSvg(s);
     decor += g; hullLabels += t;
@@ -2822,9 +2828,9 @@ function viewGraph(carry) {
       h._lw = el._w;
     }
   }
-  // 폴더 원이 움직이면 영토와 영토 이름표도 따라간다
+  // 폴더 원이 움직이거나 범례에서 폴더를 끄고 켜면 영토와 영토 이름표도 따라간다
   function drawAreas() {
-    for (const s of areaShapes(hulls, nodes)) {
+    for (const s of areaShapes(hulls, nodes, GS.hidden)) {
       const g = svgEl.querySelector('#gd .area[data-a="' + s.a + '"]'), t = svgEl.querySelector('#ghl .alab[data-a="' + s.a + '"]');
       const [gs, ts] = areaSvg(s);
       if (g) g.outerHTML = gs;
@@ -3012,7 +3018,7 @@ function viewGraph(carry) {
   $('#zfit').addEventListener('click', fitView);
   // 창이나 칸 너비가 바뀌면 판이 화면에 맞춰지는 배율도 바뀌므로 이름표 크기를 다시 잡는다
   if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!svgEl.isConnected) { ro.disconnect(); return; } apply(); placeTrailBox(); }); ro.observe(svgEl); }
-  const refresh = () => { if (GS.sel != null && GS.sel < nodes.length && !visibleNode(GS.sel)) select(null); saveGS(); trailBuild(); paint(); };
+  const refresh = () => { if (GS.sel != null && GS.sel < nodes.length && !visibleNode(GS.sel)) select(null); saveGS(); trailBuild(); if (hulls) drawAreas(); paint(); };
   // 줄 종류, 공통 문서, 보관 문서는 배치 자체가 바뀌므로 다시 그린다
   const relayout = () => { GS.sel = null; saveGS(); viewGraph(); };
   document.querySelectorAll('#gf .fchip').forEach(b => b.addEventListener('click', () => {
