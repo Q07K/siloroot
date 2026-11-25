@@ -33,6 +33,19 @@ claude plugin install siloroot@siloroot --scope project
 - 설치를 부탁한 대화에는 적용되지 않는다. 설치가 끝나면 같은 프로젝트에서 새 세션을 열고 `/siloroot:init`을 실행한다.
 - 업데이트도 같다. "이 프로젝트의 SiloRoot 플러그인 업데이트해 줘"라고 하면 Claude가 `claude plugin update siloroot@siloroot --scope project`를 실행한다. 적용하려면 새 세션을 연다.
 
+### Codex에서 문서 흔적 보기
+
+이미 초기화한 SiloRoot 작업 공간에서 Codex의 셸 읽기와 `apply_patch` 편집을 연결 그래프의 흔적으로 볼 수 있다.
+
+```powershell
+codex plugin marketplace add Q07K/siloroot
+codex plugin add siloroot@siloroot
+```
+
+작업 중인 저장소 사본을 시험할 때는 첫 줄에 GitHub 이름 대신 그 폴더의 절대 경로를 넣는다. Codex 데스크톱은 **설정 → Hooks**, CLI는 `/hooks`에서 SiloRoot 훅을 검토하고 신뢰할 수 있다. 작업 공간에서 새 세션을 열고, 실행 중인 SiloRoot 뷰어에서 **연결 → 흔적**을 본다. [Codex 훅 문서](https://developers.openai.com/codex/hooks#review-and-trust-hooks)
+
+뷰어가 꺼져 있으면 `node "<SiloRoot 플러그인 폴더>/viewer/serve.mjs" "<작업 공간 폴더>"`로 켠다. 파일 흔적은 현재 Codex 세션에서 새 메시지를 보내면 비워진다.
+
 ## 스킬
 
 | 스킬 | 언제 |

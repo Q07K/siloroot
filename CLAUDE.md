@@ -28,7 +28,7 @@
 - 부 버전(0.x.0): 작업 공간 모양(`SCHEMA`)이 바뀌어 마이그레이션이 있는 묶음.
 - 패치 버전(0.x.y): 그 밖의 모든 묶음. 새 기능, 화면 개편, 템플릿과 관리 블록 변경, 버그 수정.
 - 새 기능과 템플릿 변경: 버전을 올리지 않고 `main`에 쌓는다. 한 기능을 여러 PR로 나눴으면 묶음이 끝났을 때 한 번 내보낸다.
-- 내보내기: 사용자가 정한다. 마지막 PR에서, 또는 `chore/release-<버전>` PR 하나로 `.claude-plugin/plugin.json`과 `package.json`의 버전을 함께 올린다. `CHANGELOG.md`의 "다음" 절을 그 버전 제목(`## 0.x.y`)으로 바꾼다. `/siloroot:update`가 이 절을 사용자에게 보인다.
+- 내보내기: 사용자가 정한다. 마지막 PR에서, 또는 `chore/release-<버전>` PR 하나로 `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `package.json`의 버전을 함께 올린다. `CHANGELOG.md`의 "다음" 절을 그 버전 제목(`## 0.x.y`)으로 바꾼다. `/siloroot:update`가 이 절을 사용자에게 보인다.
 - `main`에 쌓는 PR은 사용자가 알아볼 변경이면 `CHANGELOG.md`의 "다음" 절에 한 줄을 더한다.
 - `skills/update/SKILL.md`의 "맞추기" 절 제목은 바꾸지 않는다. 옛 버전 스킬이 플러그인을 올린 뒤 새 버전 스킬의 이 절부터 이어 간다.
 - 이미 내보낸 버전의 버그 수정: 다른 묶음을 기다리지 않고 바로 패치 버전을 올려 낸다. 깨진 것은 빨리 받아야 해서다.

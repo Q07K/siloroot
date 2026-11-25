@@ -161,6 +161,80 @@ const hook = (root, input, args = []) => spawnSync(process.execPath, [SCRIPT, ..
 });
 const listAll = (dir) => fs.readdirSync(dir, { recursive: true }).sort();
 
+const codexPatch = [
+  '*** Begin Patch',
+  '*** Add File: .siloroot/03-ideas/new note.md',
+  '+# 새 문서',
+  '*** Update File: .siloroot/CLAUDE.md',
+  '*** Move to: .siloroot/03-ideas/rules.md',
+  '@@',
+  '-# 규칙',
+  '+# 새 규칙',
+  '*** Delete File: .siloroot/03-ideas/a.md',
+  '*** Add File: src/outside.md',
+  '+# 코드 폴더',
+  '*** End Patch',
+].join('\n');
+
+test('Codex apply_patch는 새 문서와 옮기거나 지운 문서를 편집으로 기록한다', () => {
+  const { cfg } = project();
+  const entries = entriesFromHook(cfg, {
+    cwd: cfg.root,
+    tool_name: 'apply_patch',
+    tool_input: { command: codexPatch.replaceAll('\n', '\r\n') },
+  });
+  assert.deepEqual(entries, [
+    { kind: 'edit', path: '03-ideas/new note.md' },
+    { kind: 'edit', path: 'CLAUDE.md' },
+    { kind: 'edit', path: '03-ideas/rules.md' },
+    { kind: 'edit', path: '03-ideas/a.md' },
+  ]);
+});
+
+test('Codex 플러그인의 훅 명령은 문서 읽기, 추가, 새 메시지를 같은 세션에 반영한다', () => {
+  const pluginRoot = path.join(HERE, '..');
+  const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, '.codex-plugin', 'plugin.json'), 'utf8'));
+  const claudeManifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, '.claude-plugin', 'plugin.json'), 'utf8'));
+  assert.equal(manifest.version, claudeManifest.version);
+  const { hooks } = JSON.parse(fs.readFileSync(path.join(pluginRoot, manifest.hooks), 'utf8'));
+  const post = hooks.PostToolUse.find((group) => ['Bash', 'apply_patch'].every((tool) => new RegExp(group.matcher).test(tool)));
+  assert.ok(post, 'Codex의 읽기와 패치 도구가 흔적 훅에 연결되어야 한다');
+  const [record] = post.hooks;
+  const [reset] = hooks.UserPromptSubmit[0].hooks;
+  assert.equal(record.async, true);
+  assert.notEqual(reset.async, true);
+
+  const { root, cfg } = project();
+  const runHook = (hook, input) => {
+    const command = win ? hook.commandWindows || hook.command : hook.command;
+    const result = spawnSync(command, {
+      cwd: root, shell: true, windowsHide: true, encoding: 'utf8', timeout: 5000,
+      input: JSON.stringify({ cwd: root, session_id: 'codex-session', ...input }),
+      env: { ...process.env, PLUGIN_ROOT: pluginRoot, CLAUDE_PROJECT_DIR: '' },
+    });
+    assert.equal(result.status, 0, result.stderr || result.error?.message);
+    assert.equal(result.stdout, '');
+  };
+  const file = path.join(trailDir(cfg), 'codex-session.jsonl');
+  appendTrail(cfg, 'other-session', [{ kind: 'read', path: '03-ideas/a.md' }]);
+  runHook(record, {
+    hook_event_name: 'PostToolUse', tool_name: 'Bash',
+    tool_input: { command: win ? 'Get-Content .siloroot/03-ideas/a.md' : 'cat .siloroot/03-ideas/a.md' },
+  });
+  write(root, '.siloroot/03-ideas/new note.md', '# 새 문서\n');
+  runHook(record, {
+    hook_event_name: 'PostToolUse', tool_name: 'apply_patch',
+    tool_input: { command: '*** Begin Patch\n*** Add File: .siloroot/03-ideas/new note.md\n+# 새 문서\n*** End Patch' },
+  });
+  assert.deepEqual(readTrail(file).map(({ kind, path: doc }) => ({ kind, path: doc })), [
+    { kind: 'read', path: '03-ideas/a.md' },
+    { kind: 'edit', path: '03-ideas/new note.md' },
+  ]);
+  runHook(reset, { hook_event_name: 'UserPromptSubmit' });
+  assert.equal(fs.statSync(file).size, 0);
+  assert.equal(readTrail(path.join(trailDir(cfg), 'other-session.jsonl')).length, 1);
+});
+
 test('훅은 Read를 흔적 파일에 남기고 아무것도 출력하지 않는다', () => {
   const { root, a, cfg } = project();
   const r = hook(root, JSON.stringify({ session_id: 's1', tool_name: 'Read', tool_input: { file_path: a } }));

@@ -33,6 +33,19 @@ Install the SiloRoot plugin in this project. The marketplace is Q07K/siloroot.
 - The conversation where you asked does not get the plugin. When the install finishes, open a new session in the same project and run `/siloroot:init`.
 - Updates work the same way. Ask "Update the SiloRoot plugin in this project" and Claude runs `claude plugin update siloroot@siloroot --scope project`. Open a new session to apply it.
 
+### View document activity from Codex
+
+In an existing SiloRoot workspace, the connection graph can show document activity from Codex shell reads and `apply_patch` edits.
+
+```powershell
+codex plugin marketplace add Q07K/siloroot
+codex plugin add siloroot@siloroot
+```
+
+To test a local checkout, use its absolute path in place of the GitHub repository in the first command. Review and trust the SiloRoot hooks in **Settings → Hooks** in the Codex desktop app or with `/hooks` in the CLI. Open a new session in the workspace and select **Connections → Trail** in the running SiloRoot viewer. [Codex hooks documentation](https://developers.openai.com/codex/hooks#review-and-trust-hooks)
+
+If the viewer is stopped, run `node "<SiloRoot plugin folder>/viewer/serve.mjs" "<workspace folder>"`. A new message clears the current Codex session's trail.
+
 ## Skills
 
 | Skill | When |
