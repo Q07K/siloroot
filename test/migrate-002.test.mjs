@@ -152,8 +152,8 @@ test('apply: 홈을 만들고 옮기고 경로를 고치며 모양 3이 된다',
   assert.doesNotMatch(out, /찾지 못함/);
   assert.doesNotMatch(out, /type/);
   assert.match(buildOut(home), /속성 점검: 경고 0개/);
-  // 다시 미리 보면 최신
-  assert.equal(planUpdate(root).upToDate, true);
+  // 다시 미리 보면 다음 모양(003)이 남았다
+  assert.deepEqual(planUpdate(root).migrations.map((m) => m.id), ['003-doc-slots']);
 });
 
 test('되돌리면 프로젝트는 원래대로, 홈과 user.json은 지워진다', () => {

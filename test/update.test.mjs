@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, writeConfig, updateConfig, pluginVersion } from '../lib/config.mjs';
+import { loadConfig, writeConfig, updateConfig, pluginVersion, SCHEMA } from '../lib/config.mjs';
 import { claudeBlock } from '../lib/workspace-sync.mjs';
 import { MIGRATIONS } from '../lib/migrations/index.mjs';
 import { updateNotice } from '../lib/update-check.mjs';
@@ -12,11 +12,11 @@ import { initProject } from '../scripts/init.mjs';
 import { planUpdate, applyUpdate } from '../scripts/update.mjs';
 import { makeProject, write } from './fixtures.mjs';
 // 모양 2(감싼 배치)에 머물기로 한 작업 공간: 모양 3 전의 init이 만들던 것. 업데이트의 맞추기는 모양 2에서도 돈다.
-// 머물기(hold: 3)를 적어 002를 묻지 않게 하고 맞추기만 본다. 002는 test/migrate-002.test.mjs가 본다
+// 머물기(hold: SCHEMA)를 적어 002를 묻지 않게 하고 맞추기만 본다. 002는 test/migrate-002.test.mjs가 본다
 const initV2 = async (root) => {
   writeConfig(root, { port: 4180, layout: 'wrapped', schema: 2, plugin: pluginVersion() });
   const res = await initProject(root);
-  updateConfig(root, { hold: 3 });
+  updateConfig(root, { hold: SCHEMA });
   return res;
 };
 
@@ -67,7 +67,7 @@ test('flat 작업 공간: 한 칸씩 오른다. 001을 적용한 뒤 다시 미�
   assert.equal(loadConfig(root).layout, 'wrapped');
   const again = planUpdate(root);
   assert.deepEqual(again.migrations.map((m) => m.id), ['002-project-areas']);
-  assert.equal(again.from, 2); assert.equal(again.to, 3); assert.equal(again.more, false);
+  assert.equal(again.from, 2); assert.equal(again.to, 3); assert.equal(again.more, true);
   assert.ok(refreshCleanOf(again.refresh), JSON.stringify(again.refresh));
 });
 
@@ -95,7 +95,7 @@ test('hold로 답하면 모양은 그대로, 맞추기만 하고 hold가 적힌�
   const res = applyUpdate(root, answersFor(planUpdate(root), 'hold'));
   assert.deepEqual(res.migrations, [{ id: ID, status: 'held' }]);
   const cfg = loadConfig(root);
-  assert.equal(cfg.layout, 'flat'); assert.equal(cfg.schema, 1); assert.equal(cfg.hold, 3, "머물면 지금 아는 모양 전부를 거절한 것으로 적는다");
+  assert.equal(cfg.layout, 'flat'); assert.equal(cfg.schema, 1); assert.equal(cfg.hold, SCHEMA, "머물면 지금 아는 모양 전부를 거절한 것으로 적는다");
   assert.equal(cfg.plugin, pluginVersion());
   assert.ok(exists(root, '02-study/a.md'));
   assert.ok(exists(root, '01-log/open-questions.md'), '빠진 파일은 맞춘다');
@@ -196,7 +196,7 @@ test('머물기로 한 마이그레이션은 답이 없어도 머문 것으로 �
   assert.equal(res.error, undefined, JSON.stringify(res));
   assert.deepEqual(res.migrations, [{ id: ID, status: 'held' }]);
   assert.equal(loadConfig(root).plugin, pluginVersion());
-  assert.equal(loadConfig(root).hold, 3);
+  assert.equal(loadConfig(root).hold, SCHEMA);
 });
 
 test('001이 맞추기 중에 실패해도 팀 CLAUDE.md 내용을 잃지 않고 다시 돌리면 이어진다', () => {
@@ -253,9 +253,10 @@ test('관리 블록만 맞춘 백업을 되돌려도 그 뒤 쓴 작업 기록�
 });
 
 test('모양 2는 002를 알리고, 모양 3이나 머물기로 한 모양 2는 알리지 않는다', () => {
-  assert.match(updateNotice({ schema: 2, hold: null, plugin: pluginVersion() })[0], /모양 2 → 3/);
-  assert.deepEqual(updateNotice({ schema: 2, hold: 3, plugin: pluginVersion() }), []);
-  assert.deepEqual(updateNotice({ schema: 3, hold: null, plugin: pluginVersion() }), []);
+  assert.match(updateNotice({ schema: 2, hold: null, plugin: pluginVersion() })[0], /모양 2 → 4/);
+  assert.deepEqual(updateNotice({ schema: 2, hold: 4, plugin: pluginVersion() }), []);
+  assert.deepEqual(updateNotice({ schema: 4, hold: null, plugin: pluginVersion() }), []);
+  assert.match(updateNotice({ schema: 3, hold: null, plugin: pluginVersion() })[0], /모양 3 → 4/);
 });
 
 test('모양 3 프로젝트의 알림은 뒤처진 홈도 함께 알린다', async () => {
@@ -278,13 +279,13 @@ test('모양 3 프로젝트의 알림은 뒤처진 홈도 함께 알린다', asy
 test('예전에 모양 2까지 머물기로 한 모양 1 작업 공간은 새 모양 3이 나오면 다시 묻는다', () => {
   const root = flatProject();
   updateConfig(root, { hold: 2 });
-  assert.match(updateNotice(loadConfig(root))[0], /모양 1 → 3/);
+  assert.match(updateNotice(loadConfig(root))[0], /모양 1 → 4/);
   const p = planUpdate(root);
   assert.equal(p.migrations[0].held, false, '알림과 미리 보기가 같은 규칙을 따른다');
   assert.equal(p.upToDate, false);
-  // 다시 머물면 지금 아는 모양 전부(3)까지 머물고 알림이 멈춘다
+  // 다시 머물면 지금 아는 모양 전부(SCHEMA)까지 머물고 알림이 멈춘다
   applyUpdate(root, answersFor(p, 'hold'));
-  assert.equal(loadConfig(root).hold, 3);
+  assert.equal(loadConfig(root).hold, SCHEMA);
   assert.deepEqual(updateNotice({ ...loadConfig(root), plugin: pluginVersion() }), []);
   assert.equal(planUpdate(root).migrations[0].held, true);
 });

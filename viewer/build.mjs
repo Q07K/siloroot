@@ -15,7 +15,7 @@ import { loadConfig, DEFAULT_DIRS } from '../lib/config.mjs';
 import { AI_COMMENT_FILE, AI_COMMENT_HOUR } from '../lib/me-schedule.mjs';
 import { timeScript } from '../lib/metrics.mjs';
 import { VOCAB } from '../lib/vocab.mjs';
-import { placesOf, localPlace, folderRules, groupOf } from '../lib/layout.mjs';
+import { placesOf, localPlace, folderRules, groupOf, slotFolders } from '../lib/layout.mjs';
 import { readUser, workspaceRoot, WS_REF } from '../lib/user.mjs';
 import { makeIndex, resolveTarget as resolveLink } from '../lib/links.mjs';
 
@@ -39,6 +39,8 @@ const PLACES = placesOf(CFG);
 const L = (role) => localPlace(PLACES[role]);
 const V3_PROJECT = (CFG.schema ?? 0) >= 3 && CFG.mode !== 'home';
 const STUDY = L('study'), LOG = L('log'), CAND = L('candidates');
+// 확인할 것과 작업 일지: 모양 4는 자리표에 따로 있고, 모양 3까지는 작업 기록 폴더 안이다
+const OPEN_Q = L('openQuestions') || (LOG ? LOG + '/open-questions.md' : null), WORKLOG = L('worklog');
 const IDEAS = L('ideas') || L('personalIdeas');
 const PROFILE_FILE = L('profile'), WRITING = L('writingGuide'), AI_COMMENT = L('aiComment');
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
@@ -362,7 +364,7 @@ function parseMe() {
 const objects = {
   // "나"는 사용자 정보가 있는 작업 공간(모양 1·2, 홈)에만 있다. 모양 3 프로젝트는 홈 뷰어로 가는 링크를 보인다(data.home)
   me: PROFILE_FILE ? parseMe() : null,
-  questions: LOG ? parseQuestions(get(LOG + '/open-questions.md')) : [],
+  questions: OPEN_Q ? parseQuestions(get(OPEN_Q)) : [],
   claims: [],
   ideas: docs
     .filter((d) => IDEAS && d.path.startsWith(IDEAS + '/') && !/README\.md$/i.test(d.path) && !(d.fm && ['decision', 'design', 'roadmap'].includes(d.fm.type)))
@@ -416,14 +418,18 @@ function buildRadar(o) {
     formula: '(끝낸 질문 비율 + 끝낸 아이디어 비율) ÷ 2 = (' + qDone + '/' + q.length + ' + ' + finished.length + '/' + started.length + ') ÷ 2',
     target: '둘 다 100%',
     note: '아이디어는 "아이디어" 상태를 빼고 완료, 접음을 끝낸 것으로 센다. 끝낸 질문을 [x]로 두지 않고 줄째 지우면 여기서 세지 못한다.',
-    evidence: [{ text: '미해결 질문: 끝냄 ' + qDone + ' / 전체 ' + q.length, doc: LOG + '/open-questions.md' },
+    evidence: [{ text: '미해결 질문: 끝냄 ' + qDone + ' / 전체 ' + q.length, doc: OPEN_Q },
       ...started.map((d) => ({ text: d.title + ' · ' + d.fm.status, doc: d.path }))],
   });
 
-  // 꾸준함: changelog 날짜 제목과 문서 created
+  // 꾸준함: 작업 일지(모양 4는 worklog/의 날짜 문서, 그 전은 changelog의 날짜 제목)와 문서 created
   const window14 = daysBack(ME_TARGETS.steadyDays);
   const byDay = {};
-  const log = get(LOG + '/changelog.md');
+  if (WORKLOG) for (const d of docs) {
+    const m = d.path.startsWith(WORKLOG + '/') && d.path.slice(WORKLOG.length + 1).match(/^(\d{4}-\d{2}-\d{2})\.md$/);
+    if (m) (byDay[m[1]] = byDay[m[1]] || new Set()).add('changelog');
+  }
+  const log = LOG ? get(LOG + '/changelog.md') : null;
   if (log) for (const m of log.text.matchAll(/^##\s+(\d{4}-\d{2}-\d{2})\s*$/gm)) (byDay[m[1]] = byDay[m[1]] || new Set()).add('changelog');
   for (const d of docs) { const c = d.fm && d.fm.created ? String(d.fm.created) : ''; if (c) (byDay[c] = byDay[c] || new Set()).add('새 문서'); }
   const active = window14.filter((day) => byDay[day]);
@@ -431,8 +437,8 @@ function buildRadar(o) {
   axes.push({
     key: 'steady', name: '꾸준함', value: pct(active.length / ME_TARGETS.steadyDays),
     formula: '최근 ' + ME_TARGETS.steadyDays + '일 중 기록이 있는 날 ÷ ' + ME_TARGETS.steadyDays + ' = ' + active.length + ' ÷ ' + ME_TARGETS.steadyDays,
-    target: ME_TARGETS.steadyDays + '일 모두', note: '기록은 changelog의 날짜 제목과 문서의 created다. 기간은 ' + window14[window14.length - 1] + '부터 ' + today + '까지.',
-    evidence: active.map((day) => ({ text: day + ': ' + [byDay[day].has('changelog') ? 'changelog' : '', newDocs(day) ? '새 문서 ' + newDocs(day) + '개' : ''].filter(Boolean).join(', ') })),
+    target: ME_TARGETS.steadyDays + '일 모두', note: '기록은 작업 일지(날짜별 문서나 changelog의 날짜 제목)와 문서의 created다. 기간은 ' + window14[window14.length - 1] + '부터 ' + today + '까지.',
+    evidence: active.map((day) => ({ text: day + ': ' + [byDay[day].has('changelog') ? '작업 일지' : '', newDocs(day) ? '새 문서 ' + newDocs(day) + '개' : ''].filter(Boolean).join(', ') })),
   });
 
   // AI 길들이기
@@ -509,7 +515,12 @@ try {
 // 홈 뷰어 주소: 모양 3 프로젝트의 "나" 자리에 링크로 보인다. 홈 설정을 못 읽으면 url은 null
 const homeCfg = V3_PROJECT && USER.home ? loadConfig(USER.home) : null;
 const homeLink = V3_PROJECT ? { label: '홈', url: homeCfg ? 'http://127.0.0.1:' + homeCfg.port : null } : null;
+// 모양 4 자리 폴더(lib/layout.mjs slotFolders): 그래프가 문서가 없는 자리도 빈 클러스터로 그린다. README.md는 세지 않는다
+const slots = slotFolders(CFG).filter((f) => fs.existsSync(path.join(DOCS, ...f.split('/'))))
+  .map((f) => ({ folder: f, count: docs.filter((d) => d.path.startsWith(f + '/') && !/(^|\/)README\.md$/i.test(d.path)).length }));
+
 const data = {
+  slots,
   builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits,
   mode: CFG.mode || 'project', schema: CFG.schema ?? null, home: homeLink, externals: [...externals.values()], extEdges,
 };

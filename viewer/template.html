@@ -244,6 +244,11 @@ select:hover{border-color:var(--faint)}
 /* 폴더 이름표는 확대하면 같이 커지되, 그래프 판이 화면에 맞춰 줄어든 만큼(--fk)은 되돌려 좁은 화면에서도 읽히게 한다 */
 .hlab text{font-size:calc(13px * var(--fk,1));font-weight:700;fill:var(--ink);stroke:var(--surface);stroke-width:calc(6px * var(--fk,1));stroke-linejoin:round;paint-order:stroke;cursor:grab}
 .hull circle{cursor:grab}
+/* 비어 있는 자리(모양 4): README만 있으면 흐리게, 점이 없으면 빈 점선 원 */
+.hull.hlow circle{fill-opacity:.03;stroke-opacity:.3}
+.hlab.hlow text,.hlab.hempty text{fill:var(--faint);font-weight:600}
+.hull.hempty circle{fill:none;stroke:var(--line);stroke-width:1.2;stroke-dasharray:3 5;cursor:default}
+.hlab.hempty text{cursor:help}
 #gsvg.hdrag,#gsvg.hdrag .hull circle,#gsvg.hdrag .hlab text{cursor:grabbing}
 .nd.arch{opacity:.35}
 .nd.ext{opacity:.45}
@@ -1535,11 +1540,25 @@ function viewGraph(carry) {
     }
     nodes.forEach(n => clampIn(n, 14));
   }
+  // 모양 4 자리 폴더(D.slots): 문서가 README뿐이거나 하나도 없어도 자리가 보이게 한다.
+  // README만 있는 자리는 원을 흐리게, 그래프에 점이 하나도 없는 자리(README를 필터로 숨긴 때 등)는 빈 원을 비어 있는 곳에 놓는다
+  const slotSet = new Set((D.slots || []).map(s => s.folder));
+  const isReadme = n => /(^|\/)README\.md$/i.test(n.id);
+  const emptyTip = '비어 있는 자리. 무엇을 넣는지는 이 폴더의 README.md에 있습니다';
   for (const [f, h] of hulls) {
     if (h.r0 == null) h.r0 = h.r; // 점을 밖으로 끌어 늘어난 원이 놓은 뒤 돌아갈 크기
-    const cnt = nodes.filter(n => n.d.folder === f).length;
-    decor += '<g class="hull" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle></g>';
-    hullLabels += '<g class="hull hlab" data-f="' + esc(f) + '"><text x="' + h.cx.toFixed(1) + '" y="' + (h.cy - h.r - 8).toFixed(1) + '" text-anchor="middle">' + esc(f) + ' ' + cnt + '</text></g>';
+    const cnt = nodes.filter(n => n.d.folder === f && !(slotSet.has(f) && isReadme(n))).length;
+    const low = slotSet.has(f) && !cnt;
+    decor += '<g class="hull' + (low ? ' hlow' : '') + '" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle></g>';
+    hullLabels += '<g class="hull hlab' + (low ? ' hlow' : '') + '" data-f="' + esc(f) + '"' + (low ? ' data-tip="' + esc(emptyTip) + '"' : '') + '><text x="' + h.cx.toFixed(1) + '" y="' + (h.cy - h.r - 8).toFixed(1) + '" text-anchor="middle">' + esc(f) + ' ' + cnt + '</text></g>';
+  }
+  const emptySlots = new Map();
+  for (const s of D.slots || []) {
+    if (hulls.has(s.folder) || GS.hidden.has(s.folder)) continue;
+    const c = freeCircle(new Map([...hulls, ...emptySlots]), W / 2, H / 2, 34);
+    emptySlots.set(s.folder, c);
+    decor += '<g class="hull hempty"><circle cx="' + c.cx.toFixed(1) + '" cy="' + c.cy.toFixed(1) + '" r="' + c.r.toFixed(1) + '"></circle></g>';
+    hullLabels += '<g class="hlab hempty" data-tip="' + esc(emptyTip) + '"><text x="' + c.cx.toFixed(1) + '" y="' + (c.cy - c.r - 8).toFixed(1) + '" text-anchor="middle">' + esc(s.folder) + ' 0</text></g>';
   }
   // 이번에 새로 나타난 점과 선 (실시간 갱신 때만)
   const linkKey = l => [nodes[l.a].id, nodes[l.b].id].sort().join('|');
