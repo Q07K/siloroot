@@ -34,6 +34,7 @@ description: SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘�
    3-1. 올리기로 한 마이그레이션의 `plan.decisions`를 하나씩 묻는다. `question`, `why`, 고를 값(`options`), 기본값(`default`)을 보여 준다. 사용자가 "기본값으로"라고 하면 그 값을 답으로 쓴다. `free: true`인 질문(홈 위치 같은 경로)은 고를 값이 없고 사용자가 적은 값을 그대로 답으로 쓴다.
 
    3-2. `plan.placements`가 있으면(문서를 다른 자리로 나누는 마이그레이션, 예: 002) 갈 곳 목록을 한 번 승인받는다.
+   - 003에서는 아이디어 폴더 안의 결정, 설계, 계획 문서를 제자리(`shared/decisions/`, `shared/design/`, `shared/plans/`)로 옮기는 목록이다. 그대로 두려면 갈 곳에 옛 경로를 적는다. 갈 곳은 `shared/…`나 `private/…`의 `.md`만 된다.
    - `review`가 true인 문서만 Claude가 읽고 갈 곳을 제안한다. 002에서는 아이디어 문서다. 이 프로젝트의 제품 아이디어면 기본값(`shared/ideas/…`), 사람 개인의 아이디어면 `home:ideas/<이름>.md`를 제안하고 까닭을 한 줄 붙인다.
    - 그다음 목록 전체를 한 번 보여 준다. 폴더별로 묶어 "옛 경로 → 갈 곳"을 보이고, `review`인 줄과 Claude가 바꾸자고 제안한 줄에 표시를 단다. 아이디어 옆의 결정 문서와 그림은 아이디어를 따라가므로 따로 묻지 않는다고 알린다.
    - `plan.notes`에 있는 "커밋하지 않는다"는 줄을 함께 보여 준다. `shared/`에 놓인 문서를 팀 저장소에 올릴지는 커밋할 때 사용자가 고른다.
@@ -63,17 +64,17 @@ description: SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘�
 
 7. 결과를 알린다: 백업 이름(`backup`, 없으면 파일을 바꾸지 않은 것), 마이그레이션 결과, 만든 파일과 고친 파일(`refresh`), 알릴 것(`refresh.notes`, `refresh.warnings`), 점검 결과(`check.warnings` 속성 경고 수, `check.broken` 끊어진 `related`), 되돌리는 법("되돌려 줘"라고 하면 된다). 감싼 배치로 옮겼으면 규칙은 `CLAUDE.local.md`가 불러오므로 다음 세션부터 적용된다고 알린다.
 
-8. 작업 기록 자리의 `changelog.md`에 한 줄을 남긴다. 예: `SiloRoot 업데이트: 모양 1 → 2, 플러그인 0.4.0 (백업 <이름>)`. 모양 3으로 옮긴 뒤 작업 기록 자리는 `private/log/`다.
+8. 작업 기록에 한 줄을 남긴다. 예: `SiloRoot 업데이트: 모양 3 → 4, 플러그인 0.8.0 (백업 <이름>)`. 모양 4는 그날 작업 일지(`private/worklog/YYYY-MM-DD.md`, 홈은 `worklog/`), 모양 3은 `private/log/changelog.md`, 그 전은 작업 기록 폴더(`config.json`의 `dirs.log`)의 `changelog.md`다.
 
 9. `more`였으면 1단계부터 다시 미리 본다.
 
-10. 홈 맞추기: 모양 3 프로젝트면(옮긴 직후 포함) 홈도 같은 스크립트로 맞춘다. 홈 위치는 `~/.siloroot/user.json`의 `home`이다(관리 블록에도 적혀 있다).
+10. 홈 맞추기: 모양 3 이상 프로젝트면(옮긴 직후 포함) 홈도 같은 스크립트로 맞춘다. 홈 위치는 `~/.siloroot/user.json`의 `home`이다(관리 블록에도 적혀 있다).
 
     ```bash
     node "${CLAUDE_PLUGIN_ROOT}/scripts/update.mjs" "<홈 폴더>" --plan
     ```
 
-    `upToDate`이고 `pluginFrom`과 `pluginTo`가 같으면 넘어간다. 아니면 1~7단계를 홈에 대해 한다. 홈의 백업은 홈의 `.siloroot/state/backups/`에 따로 쌓인다. 기록은 홈의 `log/changelog.md`에 남긴다.
+    `upToDate`이고 `pluginFrom`과 `pluginTo`가 같으면 넘어간다. 아니면 1~7단계를 홈에 대해 한다. 홈의 백업은 홈의 `.siloroot/state/backups/`에 따로 쌓인다. 기록은 홈의 작업 일지(모양 4는 `worklog/YYYY-MM-DD.md`, 모양 3은 `log/changelog.md`)에 남긴다.
 
 11. 002로 옮긴 뒤: `plan.notes`에 "안내 문서(index, guide)에 … 옛 폴더 이름이 남습니다"가 있었으면, 그 문서들의 옛 폴더 이름(번호 붙은 옛 아이디어 폴더 등)을 관리 블록 자리 표의 새 자리로 고칠지 묻고 승인한 것만 고친다. 기록(log)과 설계·결정 문서의 옛 폴더 이름은 그때의 이야기라 고치지 않는다.
 
@@ -95,8 +96,8 @@ description: SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘�
    node "${CLAUDE_PLUGIN_ROOT}/scripts/update.mjs" "<프로젝트 폴더>" --restore "<백업 이름>"
    ```
 
-3. `conflicts`가 비어 있지 않으면 아무것도 되돌리지 않은 것이다. 업데이트 뒤 고쳤거나 새로 만든 파일 목록이니 보여 주고 묻는다. 모양을 바꾼 업데이트 뒤에는 올리기 8단계에서 쓴 `changelog.md` 한 줄도 여기에 나온다. 사용자가 "그래도 되돌림"을 고르면 `--force`를 붙여 다시 돌린다. 그 파일들은 `keptAfter` 폴더에 따로 남는다고 알린다.
+3. `conflicts`가 비어 있지 않으면 아무것도 되돌리지 않은 것이다. 업데이트 뒤 고쳤거나 새로 만든 파일 목록이니 보여 주고 묻는다. 모양을 바꾼 업데이트 뒤에는 올리기 8단계에서 쓴 작업 기록 한 줄도 여기에 나온다. 사용자가 "그래도 되돌림"을 고르면 `--force`를 붙여 다시 돌린다. 그 파일들은 `keptAfter` 폴더에 따로 남는다고 알린다.
 4. `error`가 `not-latest`면 `latest`가 최신 백업이다. 그것부터 되돌리라고 알린다.
-5. 되돌린 파일(`restored`)과 지운 파일(`removed`)을 알리고, `changelog.md`에 한 줄을 남긴다.
+5. 되돌린 파일(`restored`)과 지운 파일(`removed`)을 알리고, 작업 기록에 한 줄을 남긴다.
 
 옮길 때 문서를 git에 계속 올리기로 했다면(`git mv`로 옮긴 경우) 되돌린 뒤 `git status`에 옮김이 남아 있을 수 있다. 그때는 `git restore --staged`로 정리할 수 있다고 알린다.

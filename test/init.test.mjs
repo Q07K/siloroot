@@ -18,10 +18,13 @@ const HOME = () => path.join(userDir(), 'siloroot-home');
 const resetUser = () => fs.rmSync(path.join(userDir(), '.siloroot'), { recursive: true, force: true });
 const initV3 = (root, opts = {}) => initProject(root, { home: HOME(), ...opts });
 
-// 새 프로젝트(모양 3): 문서는 .siloroot/ 안의 shared/와 private/, 맨 위에는 규칙을 불러오는 파일과 검색용 .ignore
-const DOCS = ['CLAUDE.md', 'metadata-guide.md', 'shared/README.md', 'private/README.md', 'private/log/changelog.md', 'private/log/open-questions.md'];
-const DIRS = ['shared/issues/', 'shared/ideas/', 'shared/decisions/', 'shared/conventions/', 'shared/design/', 'shared/roadmap/',
-  'private/feedback/', 'private/notes/', 'private/discussions/', 'private/sources/'];
+// 새 프로젝트(모양 4): 문서는 .siloroot/ 안의 shared/와 private/, 자리마다 README. 맨 위에는 규칙을 불러오는 파일과 검색용 .ignore
+const SLOTS = ['shared/requirements', 'shared/ideas', 'shared/decisions', 'shared/design', 'shared/plans', 'shared/issues', 'shared/conventions',
+  'private/worklog', 'private/sources', 'private/notes', 'private/discussions', 'private/feedback'];
+const DOCS = ['CLAUDE.md', 'metadata-guide.md', 'shared/README.md', 'private/README.md', 'shared/roadmap.md', 'shared/architecture.md',
+  'private/open-questions.md', ...SLOTS.map((d) => d + '/README.md')];
+const DIRS = [];
+const SHARED_DOCS = DOCS.filter((d) => d.startsWith('shared/')).map((d) => '.siloroot/' + d).sort();
 const EXPECTED = [...DOCS, ...DIRS].map((r) => '.siloroot/' + r).concat(['.siloroot/config.json', 'CLAUDE.local.md', '.ignore']);
 const EXPECTED_FILES = EXPECTED.filter((r) => !r.endsWith('/'));
 // 예전 배치(flat, 모양 1): 문서를 맨 위에 바로 둔다
@@ -53,7 +56,7 @@ test('첫 프로젝트는 홈과 프로젝트를 만들고 user.json에 적는�
   const res = await initProject(root, { home });
   assert.equal(res.homeCreated, true); assert.equal(res.name, '앱'); assert.equal(res.homeAccess, 'not-asked');
   assert.equal(loadConfig(home).mode, 'home'); assert.equal(loadConfig(home).layout, 'flat');
-  assert.equal(loadConfig(root).mode, 'project'); assert.equal(loadConfig(root).schema, 3);
+  assert.equal(loadConfig(root).mode, 'project'); assert.equal(loadConfig(root).schema, 4);
   assert.ok(fs.existsSync(path.join(home, 'profile.md'))); assert.ok(fs.existsSync(path.join(root, '.siloroot', 'shared', 'issues')));
   assert.ok(!fs.existsSync(path.join(root, '.siloroot', '01-log')));
   assert.equal(readUser().home, home.split(path.sep).join('/'));
@@ -65,7 +68,7 @@ test('새로 init한 프로젝트와 홈은 업데이트할 것이 없다', asyn
   const root = makeProject(); await initV3(root);
   for (const r of [root, HOME()]) {
     const p = planUpdate(r);
-    assert.equal(p.upToDate, true, r); assert.deepEqual(p.migrations, []); assert.equal(p.to, 3);
+    assert.equal(p.upToDate, true, r); assert.deepEqual(p.migrations, []); assert.equal(p.to, 4);
   }
 });
 
@@ -124,7 +127,7 @@ test('git 저장소에서는 팀 .gitignore를 그대로 두고 제외 목록에
   await initV3(root);
   assert.equal(read(root, '.gitignore'), gitignore);
   const st = git(root, ['status', '--porcelain', '--untracked-files=all']).split('\n').filter(Boolean).map((l) => l.slice(3).replace(/^"|"$/g, ''));
-  assert.deepEqual(st, ['.siloroot/shared/README.md'], '바깥 저장소에는 shared/ 아래만 보인다');
+  assert.deepEqual(st.sort(), SHARED_DOCS, '바깥 저장소에는 shared/ 아래만 보인다');
   const exclude = read(root, '.git/info/exclude');
   for (const line of ['.siloroot/*', '!.siloroot/shared/', '.ignore', 'CLAUDE.local.md']) assert.equal(exclude.split(/\r?\n/).filter((l) => l === line).length, 1, line);
   assert.ok(res.updated.includes('.git/info/exclude') || res.created.includes('.git/info/exclude'));
@@ -167,7 +170,7 @@ test('팀원이 받은 shared/만 있는 저장소에서는 shared 문서를 건
   assert.equal(read(root, '.siloroot/shared/README.md'), '# 우리 팀 공유 폴더\n');
   assert.equal(fs.readFileSync(idea, 'utf8'), '---\ntype: idea\nstatus: 아이디어\n---\n\n# x\n');
   assert.deepEqual(mtimes(root, ['.siloroot/shared/ideas/x.md', '.siloroot/shared/README.md']), before);
-  assert.ok(fs.existsSync(path.join(root, '.siloroot', 'private', 'log', 'changelog.md')));
+  assert.ok(fs.existsSync(path.join(root, '.siloroot', 'private', 'worklog', 'README.md')));
 });
 
 test('--home-access add는 홈을 additionalDirectories에 더한다', async () => {
@@ -336,7 +339,7 @@ test('세 스킬이 감싼 배치의 문서 위치를 알린다', () => {
 test('새 init은 schema, mode, plugin을 적는다', async () => {
   const root = makeProject(); await initV3(root);
   const c = loadConfig(root);
-  assert.equal(c.schema, 3); assert.equal(c.mode, 'project'); assert.equal(c.plugin, pluginVersion());
+  assert.equal(c.schema, 4); assert.equal(c.mode, 'project'); assert.equal(c.plugin, pluginVersion());
 });
 
 test('flat 작업 공간에서 init을 다시 돌리면 옮기지 않고 업데이트를 안내하며 plugin은 그대로', async () => {

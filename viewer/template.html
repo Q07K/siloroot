@@ -248,6 +248,11 @@ select:hover{border-color:var(--faint)}
 /* 폴더 이름표는 확대하면 같이 커지되, 그래프 판이 화면에 맞춰 줄어든 만큼(--fk)은 되돌려 좁은 화면에서도 읽히게 한다 */
 .hlab text{font-size:13px;font-weight:700;fill:var(--ink);stroke:var(--surface);stroke-width:6px;stroke-linejoin:round;paint-order:stroke;cursor:grab}
 .hull circle{cursor:grab}
+/* 비어 있는 자리(모양 4): README만 있으면 흐리게, 점이 없으면 빈 점선 원 */
+.hull.hlow circle{fill-opacity:.03;stroke-opacity:.3}
+.hlab.hlow text,.hlab.hempty text{fill:var(--faint);font-weight:600}
+.hull.hempty circle{fill:none;stroke:var(--line);stroke-width:1.2;stroke-dasharray:3 5;cursor:default}
+.hlab.hempty text{cursor:help}
 #gsvg.hdrag,#gsvg.hdrag .hull circle,#gsvg.hdrag .hlab text{cursor:grabbing}
 /* 클러스터 이름 옆 문서 수: 경로의 한 단계로 읽히지 않게 알약 배지로. 흔적 번호(색이 찬 배지)와 다르게 바탕은 판 색, 테두리만 */
 .hlab .hpill{fill:var(--surface);stroke:var(--line);stroke-width:1;cursor:grab}
@@ -255,7 +260,7 @@ select:hover{border-color:var(--faint)}
 .hlab.hl1 .hchip{fill:var(--surface);stroke:var(--line);stroke-width:1;cursor:grab}
 .hlab.hl1 text.hname{stroke:none;dominant-baseline:central}
 .hlab.hl3 .hpill3b{fill:var(--surface)}
-.hlab.hla .hcnta,.hlab.hlc .hcnta,.hlab.hld .hcnta{font-size:.85em;font-weight:600}
+.hlab.hla .hcnta,.hlab.hlc .hcnta,.hlab.hld .hcnta,.hlab.hlow .hcnta,.hlab.hempty .hcnta{font-size:.85em;font-weight:600}
 .hlab.hlb text.hname{stroke:none;dominant-baseline:central}
 .hlab.hlb text.hcntb{font-size:10.5px;font-weight:700;stroke:none;dominant-baseline:central}
 .hlab.hl3 text.hcnt3{font-size:10.5px;font-weight:700;stroke:none;dominant-baseline:central;filter:brightness(.7)}
@@ -659,9 +664,13 @@ const hullLabelPos = h => 'translate(' + (h._ldx != null ? h.cx + h._ldx : h.cx)
 const LP = new URLSearchParams(location.search).get('lp') || '3';   // 기본: 3안(사용자가 고름, 2026-11-25)
 // [시안] 이름표 모양: ?hl=1 이름과 수를 한 알약에(범례 칩과 같은 모양), ?hl=3 이름은 그대로 두고 수만 폴더 색 배지. 없으면 테두리 배지
 const HL = new URLSearchParams(location.search).get('hl') || 'c';   // 기본: C안(사용자가 고름, 2026-11-25)
-function hullLabelSvg(f, h, cnt) {
+// tip이 있으면 비어 있는 자리(README만 있는 자리 폴더): 흐리게 그리고 마우스를 올리면 tip을 보인다
+function hullLabelSvg(f, h, cnt, tip) {
   const name = hullName(f), wN = textW(name, 700, 13), wC = textW(String(cnt), 600, 10.5), pw = Math.max(18, wC + 12), gap = 5, x0 = -(wN + gap + pw) / 2, px = x0 + wN + gap;
-  const open = '<g class="hull hlab' + (HL ? ' hl' + HL : '') + '" data-f="' + esc(f) + '" style="transform:' + hullLabelPos(h) + '">';
+  const open = '<g class="hull hlab' + (HL ? ' hl' + HL : '') + (tip ? ' hlow' : '') + '" data-f="' + esc(f) + '"' + (tip ? ' data-tip="' + esc(tip) + '"' : '') + ' style="transform:' + hullLabelPos(h) + '">';
+  // 글자만 쓰는 이름표: 이름, 띄움 6, 수(0.85배 글자)를 합친 폭의 가운데가 원 가운데에 오게
+  const xt = -(wN + 6 + textW(String(cnt), 600, 13 * 0.85)) / 2;
+  if (tip) return open + '<text x="' + xt.toFixed(1) + '" y="0">' + esc(name) + '<tspan class="hcnta" dx="6">' + cnt + '</tspan></text></g>';
   if (HL === '1') {
     // 알약 하나: 왼쪽 여백 11, 이름, 사이 7, 수, 오른쪽 여백 10. 높이 22, 가운데는 글자 기준선 위 5
     const w = 11 + wN + 7 + wC + 10, l = -w / 2;
@@ -676,7 +685,7 @@ function hullLabelSvg(f, h, cnt) {
   if (HL === 'c' || HL === 'd') {
     const c = color(f), ink = 'color-mix(in srgb, ' + c + ' 62%, var(--ink))', a = areaOf(f);
     const halo = HL === 'd' ? 'stroke:none' : 'stroke:' + (AREA_C[a] ? 'color-mix(in srgb, ' + AREA_C[a] + ' 14%, var(--surface))' : 'var(--surface)');
-    return open + '<text x="' + x0.toFixed(1) + '" y="0" style="fill:' + ink + ';' + halo + '">' + esc(name) +
+    return open + '<text x="' + xt.toFixed(1) + '" y="0" style="fill:' + ink + ';' + halo + '">' + esc(name) +
       '<tspan class="hcnta" dx="6" style="fill:' + c + '">' + cnt + '</tspan></text></g>';
   }
   if (HL === 'a' || HL === 'b') {
@@ -2227,6 +2236,11 @@ function viewGraph(carry) {
     }
     nodes.forEach(n => clampIn(n, 14));
   }
+  // 모양 4 자리 폴더(D.slots): 문서가 README뿐이거나 하나도 없어도 자리가 보이게 한다.
+  // README만 있는 자리는 원을 흐리게, 그래프에 점이 하나도 없는 자리(README를 필터로 숨긴 때 등)는 빈 원을 비어 있는 곳에 놓는다
+  const slotSet = new Set((D.slots || []).map(s => s.folder));
+  const isReadme = n => /(^|\/)README\.md$/i.test(n.id);
+  const emptyTip = '비어 있는 자리. 무엇을 넣는지는 이 폴더의 README.md에 있습니다';
   // [시안] 영역 테두리(1안 큰 원, 2안 판)와 영역 바로 밑 문서(README)의 자리
   const AREAS = areaShapes(hulls, nodes);
   for (const s of AREAS) {
@@ -2236,9 +2250,21 @@ function viewGraph(carry) {
   }
   for (const [f, h] of hulls) {
     if (h.r0 == null) h.r0 = h.r; // 점을 밖으로 끌어 늘어난 원이 놓은 뒤 돌아갈 크기
-    const cnt = nodes.filter(n => n.d.folder === f).length;
-    decor += '<g class="hull" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle></g>';
-    hullLabels += hullLabelSvg(f, h, cnt);
+    const cnt = nodes.filter(n => n.d.folder === f && !(slotSet.has(f) && isReadme(n))).length;
+    const low = slotSet.has(f) && !cnt;
+    decor += '<g class="hull' + (low ? ' hlow' : '') + '" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle></g>';
+    hullLabels += hullLabelSvg(f, h, cnt, low ? emptyTip : '');
+  }
+  const emptySlots = new Map();
+  for (const s of D.slots || []) {
+    if (hulls.has(s.folder) || GS.hidden.has(s.folder)) continue;
+    // 같은 영토 클러스터들의 가운데에서부터 빈 곳을 찾는다
+    const mates = [...hulls.values()].filter(h => areaOf(h.f) === areaOf(s.folder));
+    const sx = mates.length ? mates.reduce((t, h) => t + h.cx, 0) / mates.length : W / 2, sy = mates.length ? mates.reduce((t, h) => t + h.cy, 0) / mates.length : H / 2;
+    const c = freeCircle(new Map([...hulls, ...emptySlots]), sx, sy, 34);
+    emptySlots.set(s.folder, c);
+    decor += '<g class="hull hempty"><circle cx="' + c.cx.toFixed(1) + '" cy="' + c.cy.toFixed(1) + '" r="' + c.r.toFixed(1) + '"></circle></g>';
+    hullLabels += '<g class="hlab hempty" data-tip="' + esc(emptyTip) + '" style="transform:translate(' + c.cx.toFixed(1) + 'px,' + (c.cy - c.r - 8).toFixed(1) + 'px) scale(var(--fk,1))"><text x="0" y="0" text-anchor="middle">' + esc(hullName(s.folder)) + '<tspan class="hcnta" dx="6">0</tspan></text></g>';
   }
   // 이번에 새로 나타난 점과 선 (실시간 갱신 때만)
   const linkKey = l => [nodes[l.a].id, nodes[l.b].id].sort().join('|');
@@ -2968,8 +2994,10 @@ function viewGraph(carry) {
       if (!moved) break;
     }
   }
+  // 움직인 것이 있으면 true
   function pushHulls(fixed) {
     const fs = [...hulls.keys()];
+    let any = false;
     for (let it = 0; it < 120; it++) {
       let moved = false;
       for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
@@ -2998,8 +3026,22 @@ function viewGraph(carry) {
         else if (fs[i] === fixed) moveHull(fs[j], ux * over, uy * over);
         else { moveHull(fs[i], -ux * over / 2, -uy * over / 2); moveHull(fs[j], ux * over / 2, uy * over / 2); }
       }
+      // 이름표끼리 겹치면 덜 겹친 쪽 축(가로나 세로)으로 두 클러스터를 벌린다
+      if (LP === '3') for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
+        const A = hulls.get(fs[i]), B = hulls.get(fs[j]), a = labelBox(A), b = labelBox(B); if (!a || !b) continue;
+        const ox = Math.min(a[2], b[2]) - Math.max(a[0], b[0]) + 6, oy = Math.min(a[3], b[3]) - Math.max(a[1], b[1]) + 4;
+        if (ox <= 0.5 || oy <= 0.5) continue;
+        moved = true;
+        const byX = ox < oy, s = byX ? Math.sign((b[0] + b[2]) - (a[0] + a[2])) || 1 : Math.sign(B.cy - A.cy) || 1, over = byX ? ox : oy;
+        const mx = byX ? s * over : 0, my = byX ? 0 : s * over;
+        if (fs[i] === fixed) moveHull(fs[j], mx, my);
+        else if (fs[j] === fixed) moveHull(fs[i], -mx, -my);
+        else { moveHull(fs[i], -mx / 2, -my / 2); moveHull(fs[j], mx / 2, my / 2); }
+      }
       if (!moved) break;
+      any = true;
     }
+    return any;
   }
   // [시안] 늘 보이는 이름표(홈 노트)가 가로로 겹치면 아래쪽 이름표를 한 줄(18px)씩 내린다. 점은 그대로 둔다
   // [시안] 늘 보이는 이름표(홈 노트)가 가로로 겹치면, 아래쪽 노드를 이름표와 함께 내린다(이름표 높이 + 6).
@@ -3042,7 +3084,6 @@ function viewGraph(carry) {
   function outOfLabels(n) {
     let moved = false;
     for (const [f, h] of hulls) {
-      if (f === n.d.folder) continue;
       const b = labelBox(h); if (!b) continue;
       const m = rad(n) + 3, x0 = b[0] - m, y0 = b[1] - m, x1 = b[2] + m, y1 = b[3] + m;
       if (n.x <= x0 || n.x >= x1 || n.y <= y0 || n.y >= y1) continue;
@@ -3055,7 +3096,8 @@ function viewGraph(carry) {
   function clearLabelSpots() {
     if (LP !== '3' || !hulls || SHAPE !== 'land') return;
     const moved = new Set();
-    nodes.forEach((n, k) => { if (!visibleNode(k)) return; if (outOfLabels(n)) { keepInLand(n); n.hx = n.x; n.hy = n.y; place(k); moved.add(k); } });
+    // 울타리(keepInLand)가 노드를 이름표 쪽으로 되돌릴 수 있어 세 번까지 되풀이한다
+    nodes.forEach((n, k) => { if (!visibleNode(k)) return; let hit = false; for (let r = 0; r < 3 && outOfLabels(n); r++) { keepInLand(n); hit = true; } if (hit) { n.hx = n.x; n.hy = n.y; place(k); moved.add(k); } });
     if (moved.size) { sigTick++; links.forEach((l, i) => { if ((moved.has(l.a) || moved.has(l.b)) && visibleLink(l)) setD(i, edgeD(l)); }); trailPlace(); }
   }
   function placeHullLabels() {
@@ -3259,7 +3301,7 @@ function viewGraph(carry) {
     nodes.forEach((n, k) => { if (visibleNode(k)) { const r = rad(n) + 4; add(n.x - r, n.y - r, n.x + r, n.y + r); } });
     if (hulls) for (const [f, h] of hulls) if (!GS.hidden.has(f)) add(h.cx - h.r, h.cy - h.r - 26, h.cx + h.r, h.cy + h.r);
     // 영토 땅과 영토 이름표도 넣는다(그려진 모양의 상자, 그래프 좌표)
-    svgEl.querySelectorAll('#gd .area, #ghl .alab').forEach(el => { try { const b = el.getBBox(); if (b.width) add(b.x, b.y, b.x + b.width, b.y + b.height); } catch (e) { /* 안 그려진 것은 건너뛴다 */ } });
+    svgEl.querySelectorAll('#gd .area, #ghl .alab, #gd .hempty').forEach(el => { try { const b = el.getBBox(); if (b.width) add(b.x, b.y, b.x + b.width, b.y + b.height); } catch (e) { /* 안 그려진 것은 건너뛴다 */ } });
     if (!isFinite(x1)) { GS.k = 1; GS.x = 0; GS.y = 0; apply(); return; }
     // 빈 곳 후보: 그래프 판에서 시작해, 판 위에 떠 있는 상자마다 그 상자를 피하는 위·아래·왼쪽·오른쪽 조각으로 나눈다.
     // 후보마다 그래프가 들어가는 배율을 구해 가장 크게 보이는 곳을 고른다(같으면 넓은 곳)
@@ -3460,6 +3502,17 @@ function viewGraph(carry) {
   apply();
   if (LP === '1') vp.insertBefore($('#ghl'), $('#gn'));
   placeHullLabels();
+  // 이름표는 그려 봐야 크기를 안다. 이름표가 다른 클러스터나 이름표에 걸치면 원을 벌리고, 노드를 새 자리로 옮겨 다시 그린다
+  if (LP === '3' && hulls) {
+    let pushed = false;
+    for (let r = 0; r < 3 && pushHulls(null); r++) { pushed = true; pushAreas(null); placeHullLabels(); }
+    if (pushed) {
+      movingF.clear(); links.forEach(l => { delete l.loose; });
+      nodes.forEach((n, k) => { n.x = n.hx; n.y = n.hy; keepInLand(n); n.hx = n.x; n.hy = n.y; place(k); });
+      sigTick++; links.forEach((l, i) => { if (visibleLink(l)) setD(i, edgeD(l)); });
+      drawHulls();
+    }
+  }
   clearLabelSpots();
   links.forEach((l, i) => noteLink(i));
   for (const h of hulls ? hulls.values() : []) { h._px = h.cx; h._py = h.cy; h._pr = h.r; }

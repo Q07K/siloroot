@@ -61,7 +61,7 @@ tags: [CSS]
 | `guide` | 작업 규칙 | 사용 중, 보관 |
 | `index` | 폴더 안내와 목차 | 사용 중, 보관 |
 | `ledger` | 객체 여러 개를 모은 장부 | 사용 중, 보관 |
-| `log` | 시간순 기록 | 사용 중, 끝남 |
+| `log` | 시간순 기록. 작업 일지는 그날이 지나면 `끝남` | 사용 중, 끝남 |
 | `note` | 메모 | 사용 중, 보관 |
 
 쓰는 법:
@@ -80,14 +80,15 @@ tags: [CSS]
 | `study/` | `study` | `status`는 이해도다. `study/README.md` 주제 목록의 이해도와 같게 맞춘다. `tags`에 분야를 하나 이상 단다 |
 | `ideas/` | `idea`, `decision`, `design`, `roadmap` | 아이디어 하나에 파일 하나. 만들기 시작하면 `status`만 `진행 중`으로 바꾸고 옮기지 않는다. 결정, 설계, 계획은 `<아이디어 이름>-<종류>-<내용>.md`로 옆에 둔다 |
 | `feedback/` | `feedback`, `rule`, `trait` | 형식은 `feedback/README.md`와 `/siloroot:feedback`을 따른다 |
-| `log/` | 기록은 `log`, `open-questions.md`는 `ledger` | |
+| `worklog/` | `log` | 하루에 한 문서 `YYYY-MM-DD.md` |
+| `open-questions.md` | `ledger` | |
 | 맨 위 | 규칙은 `guide`, `profile.md`는 `ledger`, `ai-comment.md`는 `note` | `profile.md`에는 승인된 사용자 정보만 둔다. `ai-comment.md`는 뷰어 "나" 화면에 보이는 AI의 의견이라 승인을 거치지 않고, 대화에 불러오지 않는다 |
 
 ## 4. 장부 안의 객체
 
 | 파일 | 객체 | 지켜야 할 형식 |
 | --- | --- | --- |
-| `log/open-questions.md` | 미해결 질문 | `## 구분` 아래 `- [ ] **제목**: 내용`. 끝내면 `[x]`로 바꾸거나 줄을 지운다 |
+| `open-questions.md` | 미해결 질문 | `## 구분` 아래 `- [ ] **제목**: 내용`. 끝내면 `[x]`로 바꾸거나 줄을 지운다 |
 | `profile.md` | 승인된 사용자 정보 | `## 구분`(작업 방식, 소통, 공부) 아래 표(항목, 내용, 근거, 승인). 근거 칸은 후보 파일 경로 |
 
 ## 5. AI가 할 일

@@ -237,7 +237,7 @@ test('빌드와 알림 훅이 걸린 시간을 남기고, 기록을 못 남겨�
   const root = makeProject('스크립트 시간');
   // 업데이트 알림이 붙지 않는 작업 공간(모양 2에 머물기로 함, 알림 글자 수 0을 본다)
   writeConfig(root, { port: 4180, layout: 'wrapped', plugin: pluginVersion() });
-  updateConfig(root, { hold: 3 });
+  updateConfig(root, { hold: 4 });
   write(root, '.siloroot/CLAUDE.md', '# 규칙\n');
   write(root, '.siloroot/02-study/a.md', '---\ntype: study\nstatus: 이해함\n---\n\n# ' + MARK + '\n');
   const env = { ...process.env, CLAUDE_PROJECT_DIR: root, SILOROOT_METRICS: '' };

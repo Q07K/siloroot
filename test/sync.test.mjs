@@ -86,14 +86,15 @@ test('모양 3 홈 맞추기는 홈 뼈대를 만들고 줄 목록은 없다', (
   assert.match(fs.readFileSync(path.join(home, 'CLAUDE.md'), 'utf8'), /^@profile\.md$/m);
 });
 
-test('모양 3 블록의 자리 표는 placesOf의 모든 자리를 적는다', () => {
+test('모양 3·4 블록의 자리 표는 placesOf의 모든 자리를 적는다', () => {
   resetUser(); setHome(path.join(userDir(), 'siloroot-home'));
-  for (const mode of ['project', 'home']) {
-    const block = blockOf(v3(mode)), rows = block.split('\n').filter((l) => l.startsWith('|'));
-    for (const [role, place] of Object.entries(placesOf(v3(mode)))) {
+  for (const n of [3, 4]) for (const mode of ['project', 'home']) {
+    const cfg = { ...v3(mode), schema: n };
+    const block = blockOf(cfg), rows = block.split('\n').filter((l) => l.startsWith('|'));
+    for (const [role, place] of Object.entries(placesOf(cfg))) {
       if (!place) continue;
       const shown = '`' + place + (place.endsWith('.md') ? '' : '/') + '`';
-      assert.ok(rows.some((l) => l.includes(ROLE_LABELS[role]) && l.includes(shown)), mode + ' ' + role);
+      assert.ok(rows.some((l) => l.includes(ROLE_LABELS[role]) && l.includes(shown)), n + ' ' + mode + ' ' + role);
     }
   }
 });
@@ -107,22 +108,50 @@ test('프로젝트 블록은 홈 사용자 정보를 ~/ 꼴로 불러오고, 홈
   assert.doesNotMatch(blockOf(v3('project')), /^@/m); assert.match(blockOf(v3('project')), /\/siloroot:init/);
 });
 
-test('모양 3 metadata-guide 3절은 folderRules의 모든 폴더와 type을 적는다', () => {
-  for (const mode of ['project', 'home']) {
-    const text = fs.readFileSync(path.join(REPO, 'templates', mode, 'metadata-guide.md'), 'utf8');
+test('모양 3·4 metadata-guide 3절은 folderRules의 모든 폴더와 type을 적는다', () => {
+  for (const n of [3, 4]) for (const mode of ['project', 'home']) {
+    const cfg = { ...v3(mode), schema: n };
+    const text = fs.readFileSync(path.join(REPO, 'templates', ...(n === 3 ? ['v3'] : []), mode, 'metadata-guide.md'), 'utf8');
     const sec = text.slice(text.indexOf('## 3.'), text.indexOf('## 4.')).split('\n').filter((l) => l.startsWith('|'));
-    for (const r of folderRules(v3(mode))) {
+    for (const r of folderRules(cfg)) {
       const row = sec.find((l) => l.includes('`' + r.prefix + '`'));
-      assert.ok(row, mode + ' ' + r.prefix);
-      for (const t of r.types) assert.ok(row.includes('`' + t + '`'), mode + ' ' + r.prefix + ' ' + t);
+      assert.ok(row, n + ' ' + mode + ' ' + r.prefix);
+      for (const t of r.types) assert.ok(row.includes('`' + t + '`'), n + ' ' + mode + ' ' + r.prefix + ' ' + t);
     }
-    // 2절 type 표에 VOCAB 값이 같은지
-    for (const t of new Set(folderRules(v3(mode)).flatMap((r) => r.types))) {
+    // 2절 type 표에 VOCAB 값이 같은지(모양 3 가이드는 그때 값이라 모양 4에서 바뀐 이슈 상태는 견주지 않는다)
+    for (const t of new Set(folderRules(cfg).flatMap((r) => r.types))) {
       const row = text.split('\n').find((l) => l.startsWith('| `' + t + '` |'));
-      assert.ok(row, mode + ' type ' + t);
-      assert.ok(row.endsWith('| ' + VOCAB[t].join(', ') + ' |'), mode + ' status ' + t);
+      assert.ok(row, n + ' ' + mode + ' type ' + t);
+      if (n === 3 && t === 'issue') continue;
+      // roadmap은 모양 4 프로젝트에서 한 장('사용 중')이고 모양 3과 홈에서는 계획 문서라, VOCAB에는 둘의 값이 함께 있다
+      if (t === 'roadmap') continue;
+      assert.ok(row.endsWith('| ' + VOCAB[t].join(', ') + ' |'), n + ' ' + mode + ' status ' + t);
     }
   }
+});
+
+test('모양 4 프로젝트 맞추기는 자리마다 README, 로드맵 한 장, 작업 일지 자리를 만들고 log/는 만들지 않는다', () => {
+  resetUser();
+  const root = makeProject(); setHome(path.join(userDir(), 'siloroot-home'));
+  const v4 = { ...v3('project'), schema: 4 };
+  const r = applyRefresh(root, v4);
+  for (const f of ['shared/roadmap.md', 'shared/architecture.md', 'shared/requirements/README.md', 'shared/plans/README.md', 'shared/decisions/README.md',
+    'shared/issues/README.md', 'private/worklog/README.md', 'private/open-questions.md', 'private/discussions/README.md']) assert.ok(r.created.includes('.siloroot/' + f), f);
+  assert.ok(!fs.existsSync(path.join(root, '.siloroot', 'private', 'log')));
+  assert.ok(!fs.existsSync(path.join(root, '.siloroot', 'shared', 'roadmap')));
+  const again = planRefresh(root, v4);
+  assert.deepEqual(again.missingFiles, []); assert.ok(again.blocks.every((b) => b.state === 'skipped'));
+  const block = fs.readFileSync(path.join(root, '.siloroot', 'CLAUDE.md'), 'utf8');
+  assert.match(block, /private\/worklog\/YYYY-MM-DD\.md/);
+  assert.doesNotMatch(block, /changelog\.md/);
+});
+
+test('모양 4 홈 맞추기는 ideas/README, 작업 일지 자리, 확인할 것 한 장을 만든다', () => {
+  resetUser();
+  const home = makeProject('홈');
+  const r = applyRefresh(home, { ...v3('home'), schema: 4 });
+  for (const f of ['ideas/README.md', 'worklog/README.md', 'open-questions.md', 'study/README.md']) assert.ok(r.created.includes(f), f);
+  assert.ok(!fs.existsSync(path.join(home, 'log')));
 });
 
 test('모양 2 작업 공간의 맞추기 계획은 그대로다', () => {
