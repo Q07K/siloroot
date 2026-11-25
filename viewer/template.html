@@ -1946,8 +1946,9 @@ function viewGraph(carry) {
   }
   if (keep && carry.hulls) {
     W = carry.W; H = carry.H;
-    hulls = new Map([...carry.hulls].filter(([f]) => foldersHere.includes(f)).map(([f, h]) => [f, Object.assign({}, h)]));
-    for (const f of foldersHere) if (!hulls.has(f)) hulls.set(f, freeCircle(hulls, W / 2, H / 2, 70));
+    // 원마다 폴더 이름(f)을 둔다. 영토(areaShapes)가 f로 원을 영토에 나눈다
+    hulls = new Map([...carry.hulls].filter(([f]) => foldersHere.includes(f)).map(([f, h]) => [f, Object.assign({}, h, { f })]));
+    for (const f of foldersHere) if (!hulls.has(f)) hulls.set(f, Object.assign(freeCircle(hulls, W / 2, H / 2, 70), { f }));
     nodes.forEach(n => { const p = carry.pos.get(n.id); if (p) { n.x = p.x; n.y = p.y; clampIn(n, 14); } });
     placeCarried(G, new Map(nodes.filter(n => carry.pos.has(n.id)).map(n => [n.id, { x: n.x, y: n.y }])), W, H, null, hulls);
   } else {
@@ -3216,7 +3217,7 @@ function viewGraph(carry) {
         ghostNodes: new Map(vis.map(k => [nodes[k].id, { x: nodes[k].x, y: nodes[k].y, r: rad(nodes[k]), fill: color(nodes[k].d.folder) }])),
         ghostLinks: new Map(links.filter(visibleLink).map(l => [linkKey(l), edgeD(l)])),
         // 폴더 원과 그림 크기도 이어 간다. 그림 크기가 바뀌면 확대와 이동이 어긋난다
-        hulls: hulls ? new Map([...hulls].map(([f, h]) => [f, { cx: h.cx, cy: h.cy, r: h.r }])) : null,
+        hulls: hulls ? new Map([...hulls].map(([f, h]) => [f, { f, cx: h.cx, cy: h.cy, r: h.r }])) : null,
         W, H,
       };
     },
@@ -3324,7 +3325,10 @@ async function graphLiveUpdate(offer) {
     if (LIVE && LIVE.dragging()) { graphWaiting = true; return; }
     applyLiveData(next);
   } catch (e) {
-    if (offer) offer(); // 서버가 예전 판이라 /data가 없으면 예전처럼 새로 고침 알림만 띄운다
+    // 서버가 예전 판이라 /data가 없으면 예전처럼 새로 고침 알림만 띄운다.
+    // 그리다 난 오류도 같은 알림으로 넘어가므로, 조용히 묻히지 않게 콘솔에 남긴다
+    console.error('연결 그래프 실시간 반영 실패:', e);
+    if (offer) offer();
   } finally {
     liveRunning = false;
     if (liveAgain) { liveAgain = false; graphLiveUpdate(offer); }
