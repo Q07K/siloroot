@@ -33,7 +33,7 @@ const DOCS = CFG.docsRoot;
 const HTML = path.join(CFG.stateDir, 'viewer-private.html');
 const EDIT_LOG = path.join(CFG.stateDir, 'web-edits.jsonl');
 // 뷰어 댓글 자리(lib/layout.mjs). 모양 3 프로젝트는 private/feedback
-// 서버가 켜져 있는 동안 /siloroot:update가 모양을 바꿀 수 있어 쓸 때마다 설정을 다시 읽는다(옛 폴더를 되살리지 않게)
+// 서버가 켜져 있는 동안 /siloroot:migrate가 모양을 바꿀 수 있어 쓸 때마다 설정을 다시 읽는다(옛 폴더를 되살리지 않게)
 const fbRel = () => localPlace(placesOf(loadConfig(ROOT) || CFG).feedback);
 const inDocs = (full) => full.startsWith(DOCS + path.sep) && !(full + path.sep).startsWith(CFG.stateDir + path.sep);
 const PORT = Number(argOf('--port') || (loadConfig(ROOT) ? CFG.port : process.env.PORT) || 4180);

@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from '../lib/config.mjs';
 import { timeScript, appendMetrics } from '../lib/metrics.mjs';
-import { updateNotice } from '../lib/update-check.mjs';
+import { checkUpdate, stampPlugin } from '../lib/update-check.mjs';
 import { AI_COMMENT_HOUR, lastSlot, commentDue } from '../lib/me-schedule.mjs';
 import { placesOf, localPlace } from '../lib/layout.mjs';
 import { readUser } from '../lib/user.mjs';
@@ -110,8 +110,15 @@ try { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(S
 // 업데이트 안내는 처리 절차가 달라 할 일과 섞지 않고 앞에 따로 붙인다. 메시지 알림에는 붙이지 않는다(토큰을 계속 쓰지 않게)
 const parts = [];
 let updateLines = [];
-if (SESSION) { try { updateLines = updateNotice(cfg); } catch { updateLines = []; } }
-if (updateLines.length) parts.push('[SiloRoot] 업데이트할 것이 있습니다. /siloroot:update로 미리 보고 올릴 수 있습니다.\n' + updateLines.map((l) => '- ' + l).join('\n'));
+if (SESSION) {
+  try {
+    const u = checkUpdate(cfg);
+    updateLines = u.lines;
+    // 맞출 것 없이 플러그인 번호만 옛것인 작업 공간은 알리지 않고 번호만 올려 적는다(lib/update-check.mjs)
+    for (const r of u.stamp) { try { stampPlugin(r); } catch { /* 못 적어도 다음 세션에 다시 본다 */ } }
+  } catch { updateLines = []; }
+}
+if (updateLines.length) parts.push('[SiloRoot] 업데이트할 것이 있습니다. 줄 끝의 명령으로 미리 보고 올릴 수 있습니다.\n' + updateLines.map((l) => '- ' + l).join('\n'));
 if (show.length) parts.push('[SiloRoot] 처리할 일이 있습니다. /siloroot:feedback 절차를 따릅니다.\n' + show.map((x) => '- ' + x.text).join('\n'));
 
 if (parts.length) {
