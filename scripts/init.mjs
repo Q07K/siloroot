@@ -4,7 +4,7 @@
 // - 두 번 실행해도 결과가 같다.
 // - 작업 공간은 두 가지다(lib/layout.mjs). 프로젝트는 문서를 .siloroot/ 안에 두고 shared/와 private/로 나눈다.
 //   홈은 사람마다 하나이고, 공부 노트와 사용자 정보를 둔다. 홈 없는 프로젝트는 없어서, 새 프로젝트는 홈이 없으면 홈도 만든다.
-// - 이미 초기화된 폴더는 그 모양(schema)과 배치를 그대로 따르고 맞추기만 한다. 옮기는 것은 /siloroot:update에 맡긴다.
+// - 이미 초기화된 폴더는 그 모양(schema)과 배치를 그대로 따르고 맞추기만 한다. 옮기는 것은 /siloroot:migrate에 맡긴다.
 // - 홈 위치와 프로젝트 목록은 사용자 단위 설정(~/.siloroot/user.json, lib/user.mjs)에 적는다.
 // 실행: node scripts/init.mjs <폴더> [--mode project|home] [--home <홈 경로>] [--home-access add|skip]
 //   표준 출력에 결과 JSON. 사람 답이 필요하거나 멈추면 { error, ... }를 쓰고 종료 코드 2
@@ -95,8 +95,8 @@ export async function initProject(rootArg, { home, homeAccess } = {}) {
     }
     const { created, updated, skipped, warnings, notes } = applyRefresh(root, existing);
     skipped.push(rel(cfgFile));
-    // init은 옮기지 않는다. 옮기는 것은 /siloroot:update가 한다(scripts/update.mjs).
-    if (pendingMigrations(existing.schema, SCHEMA).length) warnings.push(`작업 공간 모양이 예전 버전입니다(모양 ${existing.schema}). /siloroot:update로 올리세요.`);
+    // init은 옮기지 않는다. 옮기는 것은 /siloroot:migrate가 한다(scripts/update.mjs).
+    if (pendingMigrations(existing.schema, SCHEMA).length) warnings.push(`작업 공간 모양이 예전 버전입니다(모양 ${existing.schema}). /siloroot:migrate로 옮기세요.`);
     // 홈을 모르거나 user.json이 깨졌다는 알림은 맞추기(applyRefresh)가 낸다
     const res = { mode: existing.mode, layout: existing.layout, created, updated, skipped, warnings, notes, port: existing.port, url: urlOf(existing) };
     if (v3project && u.home) res.homeAccess = grantHomeAccess(root, u.home, homeAccess);

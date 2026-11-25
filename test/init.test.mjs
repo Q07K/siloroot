@@ -201,7 +201,7 @@ test('user.json이 깨졌으면 init은 멈추고 파일을 그대로 둔다', a
 test('모양 2 작업 공간에서 다시 실행하면 옮기지 않고 맞추기만 하며 업데이트를 안내한다', async () => {
   const root = makeProject(); writeConfig(root, { port: 4197, layout: 'wrapped' });
   const res = await initV3(root);
-  assert.ok(res.warnings.some((w) => w.includes('/siloroot:update')));
+  assert.ok(res.warnings.some((w) => w.includes('/siloroot:migrate')));
   assert.ok(!fs.existsSync(path.join(root, '.siloroot', 'shared')));
   assert.ok(fs.existsSync(path.join(root, '.siloroot', '02-study', 'README.md')));
   assert.equal(loadConfig(root).schema, 2);
@@ -347,7 +347,7 @@ test('flat 작업 공간에서 init을 다시 돌리면 옮기지 않고 업데�
   write(root, '02-study/a.md', '---\ntype: study\nstatus: 검증 전\ntags: [x]\n---\n\n# a\n');
   const res = await initProject(root);
   assert.ok(fs.existsSync(path.join(root, '02-study', 'a.md')));
-  assert.ok(res.warnings.some((w) => w.includes('/siloroot:update') && w.includes('모양 1')));
+  assert.ok(res.warnings.some((w) => w.includes('/siloroot:migrate') && w.includes('모양 1')));
   assert.equal(loadConfig(root).plugin, null);
 });
 

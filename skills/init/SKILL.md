@@ -27,7 +27,7 @@ description: 지금 프로젝트 폴더를 SiloRoot 작업 공간으로 초기�
 
 `shared/`는 `git status`에 보인다. 올릴지는 사용자가 커밋할 때 고른다. 팀이 같이 쓰는 `.gitignore`와 `CLAUDE.md`는 고치지 않는다. 팀원이 받은 저장소에 `shared/`가 이미 있으면 그대로 쓰고 나머지만 만든다.
 
-이미 초기화된 폴더는 그 모양을 그대로 따르고 맞추기만 한다. 예전 모양을 옮기는 것은 `/siloroot:update`가 한다. init은 옮기지 않는다. 출력의 `warnings`에 업데이트 안내가 있으면 `/siloroot:update`를 권한다.
+이미 초기화된 폴더는 그 모양을 그대로 따르고 맞추기만 한다. 예전 모양을 옮기는 것은 `/siloroot:migrate`가 한다. init은 옮기지 않는다. 출력의 `warnings`에 모양 안내가 있으면 `/siloroot:migrate`를 권한다.
 
 ## 순서
 

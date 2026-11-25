@@ -317,6 +317,8 @@ test('홈이 등록된 다른 프로젝트 이름과 겹치지 않게 프로젝�
   const root = v2Project('앱');
   const p = planUpdate(root);
   assert.ok(p.migrations[0].plan.notes.length);
+  // 옮긴 뒤 Claude가 할 일(공부 노트의 사건 나누기)은 /siloroot:migrate가 계획의 after에서 읽는다
+  assert.ok(p.migrations[0].plan.after.some((a) => a.includes("shared/issues/")));
   const res = applyUpdate(root, answersFor(root));
   assert.equal(res.stoppedAt, null, JSON.stringify(res));
   assert.match(read(HOME(), 'study/a.md'), /앱-2:shared\/ideas\/app\.md/);

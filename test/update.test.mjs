@@ -267,7 +267,12 @@ test('모양 3 프로젝트의 알림은 뒤처진 홈도 함께 알린다', asy
   const root = makeProject();
   await initProject(root, { home });
   assert.deepEqual(updateNotice(loadConfig(root)), []);
+  // 번호만 옛것이고 맞출 것이 없으면 알리지 않는다(세션 시작 훅이 번호만 올려 적는다. test/update-light.test.mjs)
   updateConfig(home, { plugin: '0.0.1' });
+  assert.deepEqual(updateNotice(loadConfig(root)), []);
+  // 홈 관리 블록이 옛것이면 알린다
+  const hc = path.join(home, 'CLAUDE.md');
+  fs.writeFileSync(hc, fs.readFileSync(hc, 'utf8').replace('<!-- siloroot:end -->', '옛 줄\n<!-- siloroot:end -->'));
   const lines = updateNotice(loadConfig(root));
   assert.equal(lines.length, 1);
   assert.match(lines[0], /^홈\(.+\): 규칙 블록과 안내 문서를/);

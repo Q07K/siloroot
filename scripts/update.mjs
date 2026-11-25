@@ -1,9 +1,14 @@
 #!/usr/bin/env node
-// SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘다. /siloroot:update 스킬이 실행한다.
-// - 작업 공간 모양(schema)이 플러그인(SCHEMA)보다 낮으면 마이그레이션(lib/migrations/)을 순서대로 돌린다.
-// - 그 뒤 관리 블록, 빠진 파일, 빠진 줄을 맞춘다(lib/workspace-sync.mjs). 이미 있는 안내 문서는 덮어쓰지 않는다.
-// - 파일을 바꾸기 전에 백업하고(lib/backup.mjs), 되돌릴 수 있다.
-// 실행:
+// SiloRoot 작업 공간을 설치된 플러그인 버전에 맞춘다. 스킬 둘이 실행한다.
+// /siloroot:update(가벼움, 버전이 오를 때마다): 새 버전 확인, 관리 블록 맞추기, 뷰어 서버 바꾸기, 바뀐 것 보이기. 마이그레이션은 돌리지 않는다.
+//   node scripts/update.mjs <프로젝트 폴더> --versions          설치 목록과 마켓플레이스 목록(state/의 plugin-list.json, plugin-markets.json)으로 이 프로젝트의 설치 버전과 최신 버전
+//   node scripts/update.mjs <폴더> --refresh-plan               맞출 것을 미리 본다. 옮길 모양이 있으면 migration에 적는다
+//   node scripts/update.mjs <폴더> --refresh [--answers <파일>] 마이그레이션 없이 맞춘다. 그 폴더가 더 새 플러그인으로 맞춰져 있으면 건너뛴다
+//   node scripts/update.mjs <프로젝트 폴더> --servers           프로젝트와 홈의 뷰어 서버를 이 플러그인 버전으로 바꾼다(옛 버전일 때만)
+//   node scripts/update.mjs <폴더> --changes <옛 버전>          CHANGELOG.md에서 옛 버전 다음부터 이 버전까지의 항목
+// /siloroot:migrate(무거움, 모양이 바뀔 때만): 작업 공간 모양(schema)이 플러그인(SCHEMA)보다 낮으면 마이그레이션(lib/migrations/)을 돌리고,
+// 그 뒤 관리 블록, 빠진 파일, 빠진 줄을 맞춘다(lib/workspace-sync.mjs). 이미 있는 안내 문서는 덮어쓰지 않는다.
+// 파일을 바꾸기 전에 백업하고(lib/backup.mjs), 되돌릴 수 있다.
 //   node scripts/update.mjs <프로젝트 폴더> --plan                         바뀔 것을 미리 본다. 파일을 바꾸지 않는다
 //   node scripts/update.mjs <프로젝트 폴더> --apply [--answers <json 파일>]  적용한다
 //   node scripts/update.mjs <프로젝트 폴더> --restore <백업 이름> [--force]  최신 백업을 되돌린다
@@ -22,9 +27,13 @@ import { pendingMigrations } from '../lib/migrations/index.mjs';
 import { planRefresh, applyRefresh } from '../lib/workspace-sync.mjs';
 import { createBackup, sealBackup, listBackups, restoreBackup, pruneBackups } from '../lib/backup.mjs';
 import { timeScript } from '../lib/metrics.mjs';
+import { isOlder, ensureServer } from '../lib/servers.mjs';
+import { readUser } from '../lib/user.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUILD = path.join(here, '..', 'viewer', 'build.mjs');
+const SERVE = path.join(here, '..', 'viewer', 'serve.mjs');
+const CHANGELOG = path.join(here, '..', 'CHANGELOG.md');
 const DECLINED = 'update-declined.json';
 
 // 사용자가 더하지 않겠다고 한 안내 문서 표 항목. 다음 업데이트에서 다시 묻지 않는다.
@@ -175,13 +184,144 @@ export function applyUpdate(rootArg, answersArg = {}) {
   return out;
 }
 
+// ---------- /siloroot:update(가벼운 길) ----------
+
+const norm = (p) => path.resolve(String(p || '')).split(path.sep).join('/').toLowerCase();
+// 이 스크립트가 플러그인 설치 폴더(~/.claude/plugins/cache) 밖에서 돌면 --plugin-dir로 불러온 개발 플러그인이다
+export const isDevCopy = (dir = here) => !/[\\/]\.claude[\\/]plugins[\\/]cache[\\/]/i.test(dir);
+
+// claude plugin list --json 결과에서 이 프로젝트에 깔린 siloroot. 프로젝트 범위 설치가 먼저, 없으면 사용자 범위
+export function pickInstall(list, root) {
+  const all = (Array.isArray(list) ? list : (list && list.plugins) || []).filter((p) => p && typeof p.id === 'string' && p.id.split('@')[0] === 'siloroot');
+  return all.find((p) => p.projectPath && norm(p.projectPath) === norm(root)) || all.find((p) => p.scope === 'user') || null;
+}
+
+// claude plugin marketplace list --json 결과와 마켓플레이스 이름으로, 그 마켓플레이스가 받아 둔 siloroot의 버전. 모르면 null
+export function latestIn(markets, name) {
+  const m = (Array.isArray(markets) ? markets : (markets && markets.marketplaces) || []).find((x) => x && x.name === name);
+  if (!m || !m.installLocation) return null;
+  try {
+    const cat = JSON.parse(fs.readFileSync(path.join(m.installLocation, '.claude-plugin', 'marketplace.json'), 'utf8').replace(/^﻿/, ''));
+    const entry = (cat.plugins || []).find((p) => p.name === 'siloroot');
+    if (!entry) return null;
+    if (typeof entry.source !== 'string') return entry.version || null;
+    const pj = JSON.parse(fs.readFileSync(path.join(m.installLocation, entry.source, '.claude-plugin', 'plugin.json'), 'utf8').replace(/^﻿/, ''));
+    return pj.version || null;
+  } catch { return null; }
+}
+
+export function versionsOf(rootArg) {
+  const o = open(rootArg);
+  if (o.error) return o;
+  const { root, cfg } = o;
+  const read = (f) => { try { return JSON.parse(fs.readFileSync(path.join(cfg.stateDir, f), 'utf8').replace(/^﻿/, '')); } catch { return null; } };
+  const running = pluginVersion();
+  if (isDevCopy()) return { dev: true, running, note: '저장소에서 불러온 개발 플러그인이라 플러그인을 올리지 않습니다.' };
+  const list = read('plugin-list.json'), markets = read('plugin-markets.json');
+  if (!list) return { error: 'no-plugin-list', detail: 'claude plugin list --json 결과를 ' + path.join(cfg.stateDir, 'plugin-list.json') + '에 먼저 저장하세요.' };
+  const inst = pickInstall(list, root);
+  if (!inst) return { error: 'not-installed', running };
+  const market = inst.id.split('@')[1] || null;
+  const latest = markets ? latestIn(markets, market) : null;
+  return {
+    running, installed: inst.version, id: inst.id, scope: inst.scope, installPath: inst.installPath, market, latest,
+    newer: !!(latest && isOlder(inst.version, latest)),
+  };
+}
+
+// 다음에 옮길 모양(있으면). 머물기로 한 모양이면 held
+function nextMigration(cfg) {
+  const m = nextOf(cfg)[0];
+  return m ? { id: m.id, title: m.title, from: m.from, to: m.to, held: heldBy(cfg) } : null;
+}
+// 그 폴더가 이 플러그인보다 새 버전으로 맞춰져 있으면 맞추지 않는다(홈은 여러 프로젝트가 같이 쓰고 프로젝트마다 버전이 다를 수 있다)
+const newerThanMe = (cfg) => !!(cfg.plugin && isOlder(pluginVersion(), cfg.plugin));
+
+export function planRefreshOnly(rootArg) {
+  const o = open(rootArg);
+  if (o.error) return o;
+  const { root, cfg } = o;
+  if (newerThanMe(cfg)) return { skipped: 'newer', plugin: cfg.plugin, pluginTo: pluginVersion() };
+  const refresh = planRefresh(root, cfg, { declined: readDeclined(cfg) });
+  return { schema: cfg.schema, pluginFrom: cfg.plugin, pluginTo: pluginVersion(), refresh, upToDate: refreshClean(refresh) && !refresh.guideGaps.length, migration: nextMigration(cfg) };
+}
+
+// 마이그레이션 없이 맞추기만 한다. hold를 적지 않는다(옮길지는 /siloroot:migrate에서 정한다)
+export function applyRefreshOnly(rootArg, answersArg = {}) {
+  const o = open(rootArg);
+  if (o.error) return o;
+  const { root, cfg } = o;
+  if (newerThanMe(cfg)) return { skipped: 'newer', plugin: cfg.plugin, pluginTo: pluginVersion() };
+  const declined = saveDeclined(cfg, (answersArg && answersArg.declined) || {});
+  const plan = planRefresh(root, cfg, { declined });
+  let backup = null;
+  if (!refreshClean(plan)) backup = createBackup(root, { from: cfg.schema, to: cfg.schema, files: ['.siloroot/config.json', ...refreshChanges(plan)], creates: [] }).name;
+  let refresh = null, refreshError = null;
+  try {
+    refresh = applyRefresh(root, cfg, { declined });
+    updateConfig(root, { plugin: pluginVersion() });
+  } catch (e) {
+    refreshError = e.message;
+  } finally {
+    if (backup) { sealBackup(root, backup); pruneBackups(root); }
+  }
+  const out = { backup, refresh, check: check(root), plugin: loadConfig(root).plugin, migration: nextMigration(loadConfig(root)) };
+  if (refreshError) out.refreshError = refreshError;
+  return out;
+}
+
+// 프로젝트(와 모양 3 이상이면 홈)의 뷰어 서버를 이 플러그인 버전으로. 옛 버전일 때만 바꾸고 브라우저는 열지 않는다
+export async function swapServers(rootArg) {
+  const o = open(rootArg);
+  if (o.error) return o;
+  const { cfg } = o;
+  const version = pluginVersion();
+  const one = async (c, label) => {
+    const h = await ensureServer(c, { serve: SERVE, version });
+    return { label, port: c.port, state: h.state, version: h.version || null, was: h.was, replaced: h.replaced, started: h.wasDown && !h.replaced, stopFailed: h.stopFailed };
+  };
+  const out = [await one(cfg, 'project')];
+  // 개발 플러그인(--plugin-dir)은 홈 서버를 건드리지 않는다. 홈 서버는 다른 프로젝트도 같이 쓴다
+  if (isDevCopy()) return { version, servers: out, homeSkipped: 'dev' };
+  if ((cfg.schema ?? 0) >= 3 && cfg.mode !== 'home') {
+    try {
+      const u = readUser();
+      const hc = !u.invalid && u.home ? loadConfig(u.home) : null;
+      if (hc && hc.mode === 'home') out.push(await one(hc, 'home'));
+    } catch { /* 홈을 못 찾으면 프로젝트만 */ }
+  }
+  return { version, servers: out };
+}
+
+// CHANGELOG.md의 "## <버전>" 절 가운데 from보다 새것이고 to(기본: 이 플러그인)보다 새것이 아닌 것. 새것이 앞
+export function changesBetween(from, to = pluginVersion(), file = CHANGELOG) {
+  let text;
+  try { text = fs.readFileSync(file, 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n'); } catch { return []; }
+  const out = [];
+  for (const part of text.split(/^## /m).slice(1)) {
+    const nl = part.indexOf('\n'), head = (nl < 0 ? part : part.slice(0, nl)).trim(), body = nl < 0 ? '' : part.slice(nl + 1).trim();
+    const v = (head.match(/^(\d+\.\d+\.\d+)/) || [])[1];
+    if (!v) continue;
+    if ((from && !isOlder(from, v)) || isOlder(to, v)) continue;
+    out.push({ version: v, body });
+  }
+  return out;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const [target = process.cwd(), ...args] = process.argv.slice(2);
   const flag = (name) => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1]; };
   timeScript(target, 'script', 'script:update');
   let res;
   try {
-    if (args.includes('--plan')) res = planUpdate(target);
+    if (args.includes('--versions')) res = versionsOf(target);
+    else if (args.includes('--refresh-plan')) res = planRefreshOnly(target);
+    else if (args.includes('--refresh')) {
+      const file = flag('--answers');
+      res = applyRefreshOnly(target, file ? JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')) : {});
+    } else if (args.includes('--servers')) res = await swapServers(target);
+    else if (args.includes('--changes')) res = { from: flag('--changes') || null, to: pluginVersion(), changes: changesBetween(flag('--changes') || null) };
+    else if (args.includes('--plan')) res = planUpdate(target);
     else if (args.includes('--apply')) {
       const file = flag('--answers');
       res = applyUpdate(target, file ? JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')) : {});
@@ -191,7 +331,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
         res = { error: 'not-latest', latest: (listBackups(target)[0] || {}).name || null };
       }
     } else if (args.includes('--backups')) res = listBackups(target);
-    else res = { error: 'usage', usage: 'update.mjs <프로젝트 폴더> --plan | --apply [--answers <파일>] | --restore <이름> [--force] | --backups' };
+    else res = { error: 'usage', usage: 'update.mjs <폴더> --versions | --refresh-plan | --refresh [--answers <파일>] | --servers | --changes <옛 버전> | --plan | --apply [--answers <파일>] | --restore <이름> [--force] | --backups' };
   } catch (e) {
     console.error('업데이트하지 못했습니다: ' + e.message);
     process.exit(1);
