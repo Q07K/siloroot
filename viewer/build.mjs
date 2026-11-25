@@ -239,6 +239,22 @@ if (V3_PROJECT) {
   }
 }
 
+// 바깥 문서 제목: 가리킨 문서만 제목을 읽는다(그 작업 공간의 다른 문서는 읽지 않는다). 못 읽으면 null
+const extTitles = {};
+for (const e of extEdges) {
+  if (e.target in extTitles) continue;
+  extTitles[e.target] = null;
+  const i = e.target.indexOf(':'), name = e.target.slice(0, i), rel = e.target.slice(i + 1).split('#')[0];
+  const r = wsRootOf(name), c = r ? loadConfig(r) : null;
+  if (!c || !/\.(md|markdown)$/i.test(rel)) continue;
+  const full = path.resolve(c.docsRoot, rel);
+  if (path.relative(c.docsRoot, full).startsWith('..')) continue;
+  try {
+    const text = fs.readFileSync(full, 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n');
+    extTitles[e.target] = titleOf(text, rel, parseFrontmatter(text));
+  } catch { /* 없는 문서는 파일 이름으로 보인다 */ }
+}
+
 // ---------- 4. 객체 모으기 ----------
 // 문서 안에 흩어진 질문, 주장, 아이디어를 종류별로 꺼낸다. 객체는 문서와 1:1이 아니다.
 const get = (p) => docs.find((d) => d.path === p);
@@ -522,7 +538,7 @@ const slots = slotFolders(CFG).filter((f) => fs.existsSync(path.join(DOCS, ...f.
 const data = {
   slots,
   builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits,
-  mode: CFG.mode || 'project', schema: CFG.schema ?? null, home: homeLink, externals: [...externals.values()], extEdges,
+  mode: CFG.mode || 'project', schema: CFG.schema ?? null, home: homeLink, externals: [...externals.values()], extEdges, extTitles,
 };
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
 fs.mkdirSync(OUT_DIR, { recursive: true });
