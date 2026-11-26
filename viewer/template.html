@@ -2570,6 +2570,8 @@ function viewGraph(carry) {
   h += '<div class="gwrap"><canvas id="glc" aria-hidden="true"></canvas>' + svg + '<div class="ginfo" id="ginfo" hidden></div><div class="ginfo" id="gtrailbox" hidden></div><div class="gzoom" id="gzoom"></div>' + legend + panel +
     (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 오른쪽 위 "필터"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
   $('#view').innerHTML = h;
+  // 그래프를 다시 그려도(실시간 반영, 필터) 열려 있던 옆 패널은 다시 연다. 그 점이 사라졌으면 닫는다
+  if (XP.id) { const k = ix.get(XP.id); if (k != null && nodes[k].ext) openXPanel(nodes[k], [...adj[k]].map(j => nodes[j]).filter(m => !m.ext)); else closeXPanel(); }
 
   const svgEl = $('#gsvg'), vp = $('#vp');
   const nEls = [...svgEl.querySelectorAll('.nd')], lEls = [...svgEl.querySelectorAll('#gl path')];
@@ -3140,6 +3142,8 @@ function viewGraph(carry) {
   const relayout = () => { GS.sel = null; saveGS(); viewGraph(); };
   document.querySelectorAll('#gf .fchip').forEach(b => b.addEventListener('click', () => {
     const f = b.dataset.f; if (GS.hidden.has(f)) GS.hidden.delete(f); else GS.hidden.add(f);
+    // 옆 패널로 보던 문서의 묶음을 끄면 패널도 닫는다
+    if (XP.n && GS.hidden.has(XP.n.d.folder)) closeXPanel();
     b.classList.toggle('off', GS.hidden.has(f)); b.setAttribute('aria-pressed', String(!GS.hidden.has(f))); refresh();
   }));
   document.querySelectorAll('.gk').forEach(b => b.addEventListener('click', () => { const k = b.dataset.kind; GS.kinds[k] = GS.kinds[k] === false; relayout(); }));
@@ -3372,6 +3376,8 @@ function route() {
   window.scrollTo(0, 0);
   // 문서 하나를 볼 때만 페이지가 스크롤된다. 나머지 화면은 창 높이에 맞추고 안쪽 칸만 스크롤한다
   document.body.classList.toggle('fit', !h.startsWith('doc/'));
+  // 연결 화면을 떠나면 옆 패널을 닫는다(돌아와도 다시 열지 않는다)
+  if (h !== 'graph') closeXPanel();
   if (h.startsWith('doc/')) { setNav('docs'); viewDoc(h.slice(4)); return; }
   if (h === 'objects' || h.startsWith('objects/')) { setNav('objects'); viewObjects(h.split('/')[1] || 'questions'); return; }
   if (h === 'docs') { setNav('docs'); viewDocs($('#q').value); return; }
