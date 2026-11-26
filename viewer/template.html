@@ -1398,6 +1398,8 @@ function openDocPanel(p, o) {
     g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
   });
   g.addEventListener('dblclick', () => xpSetWidth(box, XW_DEF, true));
+  // 쓰던 패널을 다른 문서로 바꿨으면 그동안 미뤄 둔 반영을 한다
+  if (graphWaiting) setTimeout(graphCatchUp, 0);
   g.addEventListener('keydown', e => {
     const w = box.getBoundingClientRect().width;
     if (e.key === 'ArrowLeft') { xpSetWidth(box, w + 24, true); e.preventDefault(); } else if (e.key === 'ArrowRight') { xpSetWidth(box, w - 24, true); e.preventDefault(); }
@@ -3627,6 +3629,8 @@ async function graphLiveUpdate(offer) {
     // 받는 사이에 다른 화면으로 갔으면 알림만, 끌기나 쓰기를 시작했으면 미룬다
     if (!onGraph()) { if (offer) offer(); return; }
     if ((LIVE && LIVE.dragging()) || busy()) { graphWaiting = true; return; }
+    // 최신 데이터를 그리므로 미뤄 둔 반영도 이것으로 끝난다
+    graphWaiting = false;
     applyLiveData(next);
   } catch (e) {
     // 서버가 예전 판이라 /data가 없으면 예전처럼 새로 고침 알림만 띄운다.
