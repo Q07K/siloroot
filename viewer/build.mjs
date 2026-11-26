@@ -239,11 +239,12 @@ if (V3_PROJECT) {
   }
 }
 
-// 바깥 문서 제목: 가리킨 문서만 제목을 읽는다(그 작업 공간의 다른 문서는 읽지 않는다). 못 읽으면 null
-const extTitles = {};
+// 바깥 문서 제목과 본문: 가리킨 문서만 읽는다(그 작업 공간의 다른 문서는 읽지 않는다). 못 읽으면 null.
+// 본문(extTexts)은 연결 그래프의 옆 패널이 상대 뷰어 없이 보이는 데 쓴다
+const extTitles = {}, extTexts = {};
 for (const e of extEdges) {
   if (e.target in extTitles) continue;
-  extTitles[e.target] = null;
+  extTitles[e.target] = null; extTexts[e.target] = null;
   const i = e.target.indexOf(':'), name = e.target.slice(0, i), rel = e.target.slice(i + 1).split('#')[0];
   const r = wsRootOf(name), c = r ? loadConfig(r) : null;
   if (!c || !/\.(md|markdown)$/i.test(rel)) continue;
@@ -252,6 +253,7 @@ for (const e of extEdges) {
   try {
     const text = fs.readFileSync(full, 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n');
     extTitles[e.target] = titleOf(text, rel, parseFrontmatter(text));
+    extTexts[e.target] = text;
   } catch { /* 없는 문서는 파일 이름으로 보인다 */ }
 }
 
@@ -538,7 +540,7 @@ const slots = slotFolders(CFG).filter((f) => fs.existsSync(path.join(DOCS, ...f.
 const data = {
   slots,
   builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits,
-  mode: CFG.mode || 'project', schema: CFG.schema ?? null, home: homeLink, externals: [...externals.values()], extEdges, extTitles,
+  mode: CFG.mode || 'project', schema: CFG.schema ?? null, home: homeLink, externals: [...externals.values()], extEdges, extTitles, extTexts,
 };
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
 fs.mkdirSync(OUT_DIR, { recursive: true });

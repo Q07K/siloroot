@@ -217,6 +217,18 @@ test('바깥 문서 제목은 가리킨 문서만 읽고, 없는 문서는 null'
   assert.ok(!('home:study/c.md' in t));
 });
 
+test('바깥 문서 본문은 가리킨 문서만 싣고, 없는 문서는 null', async () => {
+  const root = await freshV3();
+  write(HOME(), 'study/a.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# 캔버스 겹\n');
+  write(HOME(), 'study/c.md', '# 가리키지 않은 노트\n');
+  write(root, '.siloroot/private/notes/n.md', '---\ntype: note\nstatus: 사용 중\nrelated: [home:study/a.md]\n---\n\n# n\n\n`home:study/b.md`\n');
+  build(root);
+  const x = dataOf(root).extTexts;
+  assert.match(x['home:study/a.md'], /# 캔버스 겹/);
+  assert.equal(x['home:study/b.md'], null);
+  assert.ok(!('home:study/c.md' in x));
+});
+
 test('등록 안 된 이름은 related에서만 경고하고 C:/와 https://는 경로로 읽지 않는다', async () => {
   const root = await freshV3();
   write(root, '.siloroot/private/notes/n.md', '---\ntype: note\nstatus: 사용 중\nrelated: [foo:a.md]\n---\n\n# n\n\n`C:/x.md` `https://a.md` `foo:b.md`\n');
