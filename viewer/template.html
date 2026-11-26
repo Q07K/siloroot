@@ -693,6 +693,14 @@ const freeRects = (w, h, obstacles, min) => {
 // 바깥 연결(다른 작업 공간을 가리킨 것)도 점과 선이 되므로 넣는다
 const graphSig = data => data.docs.map(d => [d.path, d.title, d.folder, d.fm && d.fm.type, d.fm && d.fm.status].join('\u0001')).join('\n') + '\n#\n' + data.edges.map(e => e.from + '|' + e.to + '|' + e.kind).join('\n') +
   '\n#\n' + (data.extEdges || []).map(e => e.from + '|' + e.target + '|' + e.kind).join('\n');
+// 좁은 문서 뷰의 위 단추 줄: 오른쪽 칸 카드 종류({ k, n })로 단추를 정한다. 있는 종류만, 정한 순서로, 같은 종류의 개수는 더한다.
+// 연결은 "가리키는 문서" 두 카드라 n을 더한다. 목차와 댓글은 개수를 달지 않는다
+const DOC_BAR = [['toc', '목차'], ['cmt', '댓글'], ['link', '연결'], ['fb', '피드백']];
+const docBarItems = cards => DOC_BAR.filter(([k]) => cards.some(c => c.k === k)).map(([k, label]) => ({
+  k, label, n: k === 'link' || k === 'fb' ? cards.filter(c => c.k === k).reduce((s, c) => s + c.n, 0) : 0,
+}));
+// 펼친 상자의 최대 높이: 그릇(패널 몸통이나 창) 아래끝을 8px 남기고 넘지 않게, 160~460px
+const docPopMax = (bottom, top) => Math.max(160, Math.min(bottom - top - 8, 460));
 // @areas-end
 // 글자 폭(px): 클러스터 이름표를 가운데에 놓는 데 쓴다. 이름표는 고정 글자 크기로 그리고 그룹째 --fk만큼 키우므로 한 번 재면 된다
 let textWCtx = null;
