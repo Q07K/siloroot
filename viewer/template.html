@@ -674,6 +674,10 @@ const areaViewerUrl = a => {
 };
 // 옆 패널 너비: 320px 이상, 그래프 판의 80% 이하(좁은 판에서는 최소가 먼저. CSS가 판 안에 가둔다)
 const xpClamp = (w, boardW) => Math.round(Math.max(320, Math.min(boardW * 0.8, w)));
+// 그래프에 보이는 것만 모은 지문. 본문만 고친 경우는 지문이 같아 그래프를 건드리지 않는다.
+// 바깥 연결(다른 작업 공간을 가리킨 것)도 점과 선이 되므로 넣는다
+const graphSig = data => data.docs.map(d => [d.path, d.title, d.folder, d.fm && d.fm.type, d.fm && d.fm.status].join('\u0001')).join('\n') + '\n#\n' + data.edges.map(e => e.from + '|' + e.to + '|' + e.kind).join('\n') +
+  '\n#\n' + (data.extEdges || []).map(e => e.from + '|' + e.target + '|' + e.kind).join('\n');
 // @areas-end
 // 글자 폭(px): 클러스터 이름표를 가운데에 놓는 데 쓴다. 이름표는 고정 글자 크기로 그리고 그룹째 --fk만큼 키우므로 한 번 재면 된다
 let textWCtx = null;
@@ -3456,8 +3460,6 @@ async function graphLiveUpdate(offer) {
     if (liveAgain) { liveAgain = false; graphLiveUpdate(offer); }
   }
 }
-// 그래프에 보이는 것만 모은 지문. 본문만 고친 경우는 지문이 같아 그래프를 건드리지 않는다
-const graphSig = data => data.docs.map(d => [d.path, d.title, d.folder, d.fm && d.fm.type, d.fm && d.fm.status].join('\u0001')).join('\n') + '\n#\n' + data.edges.map(e => e.from + '|' + e.to + '|' + e.kind).join('\n');
 function applyLiveData(next) {
   const same = graphSig(D) === graphSig(next);
   const before = new Set(D.docs.map(d => d.path));

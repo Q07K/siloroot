@@ -19,7 +19,7 @@ function areas(mode, externals = []) {
     D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, graphSig })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -80,4 +80,14 @@ test('옆 패널 너비는 320px 이상, 그래프 판의 80% 이하', () => {
   assert.equal(A.xpClamp(500, 1000), 500);
   assert.equal(A.xpClamp(500.4, 1000), 500);
   assert.equal(A.xpClamp(500, 300), 320);
+});
+
+test('바깥 연결만 바뀌어도 그래프 지문이 바뀐다(실시간 반영이 다시 그린다)', () => {
+  const A = areas('home');
+  const base = { docs: [{ path: 'study/a.md', title: 'a', folder: 'study', fm: {} }], edges: [], extEdges: [{ from: 'study/a.md', to: '@siloroot', target: 'siloroot:shared/x.md', kind: 'code' }] };
+  const noRef = Object.assign({}, base, { extEdges: [] });
+  const other = Object.assign({}, base, { extEdges: [{ from: 'study/a.md', to: '@siloroot', target: 'siloroot:shared/y.md', kind: 'code' }] });
+  assert.notEqual(A.graphSig(base), A.graphSig(noRef));
+  assert.notEqual(A.graphSig(base), A.graphSig(other));
+  assert.equal(A.graphSig(base), A.graphSig(JSON.parse(JSON.stringify(base))));
 });
