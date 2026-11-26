@@ -909,9 +909,14 @@ function viewRecent() {
   });
 }
 
-function viewDoc(p) {
+function viewDoc(p) { renderDocView($('#view'), p, { mode: 'page' }); }
+
+// host 안에 문서 뷰(본문, 편집, 댓글, 옆 카드, 목차)를 그린다. 요소는 모두 host 안에서 찾는다.
+// 저장, 취소, 댓글 뒤 동작은 opts 콜백으로 받고, 없으면 page 모드처럼 새로 고친다.
+function renderDocView(host, p, opts) {
+  opts = opts || {};
   const d = byPath.get(p);
-  if (!d) { $('#view').innerHTML = '<p class="empty">문서를 찾지 못했습니다: ' + esc(p) + '</p>'; return; }
+  if (!d) { host.innerHTML = '<p class="empty">문서를 찾지 못했습니다: ' + esc(p) + '</p>'; return false; }
   const group = (arr, key) => { const g = new Map(); for (const e of arr) { if (!g.has(e[key])) g.set(e[key], new Set()); g.get(e[key]).add(e.kind); } return [...g.entries()]; };
   const kinds = ks => [...ks].map(k => (k === 'code' ? '경로 글자' : k === 'prop' ? 'related' : '링크')).join(', ');
   const ins = group((back.get(p) || []).filter(e => e.from !== p), 'from');
@@ -933,11 +938,12 @@ function viewDoc(p) {
   h += '<div class="card"><h3>이 문서를 가리키는 문서 ' + ins.length + '</h3><ul>' + list(ins) + '</ul></div>';
   h += '<div class="card"><h3>이 문서가 가리키는 문서 ' + outs.length + '</h3><ul>' + list(outs) + '</ul></div>';
   h += '<div class="card" id="toc"><h3>목차</h3><ul></ul></div></aside></div>';
-  $('#view').innerHTML = h;
-  if (SERVED) wireDocTools(d);
-  const hs = [...document.querySelectorAll('.md h1, .md h2, .md h3')];
-  if (!hs.length) { $('#toc').remove(); return; }
-  const ul = $('#toc ul');
+  host.innerHTML = h;
+  if (SERVED) wireDocTools(host, d, opts);
+  const hs = [...host.querySelectorAll('.md h1, .md h2, .md h3')];
+  const toc = host.querySelector('#toc');
+  if (!hs.length) { toc.remove(); return true; }
+  const ul = toc.querySelector('ul');
   hs.forEach(el => {
     const li = document.createElement('li');
     li.style.paddingLeft = ((+el.tagName[1] - 1) * 10) + 'px';
@@ -946,6 +952,7 @@ function viewDoc(p) {
     b.addEventListener('click', () => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     li.appendChild(b); ul.appendChild(li);
   });
+  return true;
 }
 
 function snippet(t, q) {
@@ -1146,34 +1153,37 @@ function ruleItems() {
 }
 const feedbackFor = p => feedbackItems().filter(f => f.target === p);
 
-function wireDocTools(d) {
-  const art = $('#art'); let quote = '';
-  const showQuote = () => { const q = $('#cquote'); if (!q) return; q.hidden = !quote; q.innerHTML = quote ? '<span class="note">고른 부분</span><div>' + esc(cut(quote, 200)) + '</div><button type="button" class="gx" id="cqx" aria-label="고른 부분 지우기">' + ICON.x + '</button>' : ''; const x = $('#cqx'); if (x) x.addEventListener('click', () => { quote = ''; showQuote(); }); };
+function wireDocTools(host, d, opts) {
+  const q1 = id => host.querySelector(id);
+  const reload = () => location.reload();
+  const onSaved = opts.onSaved || reload, onCancel = opts.onCancel || reload, onCommented = opts.onCommented || reload;
+  const art = q1('#art'); let quote = '';
+  const showQuote = () => { const q = q1('#cquote'); if (!q) return; q.hidden = !quote; q.innerHTML = quote ? '<span class="note">고른 부분</span><div>' + esc(cut(quote, 200)) + '</div><button type="button" class="gx" id="cqx" aria-label="고른 부분 지우기">' + ICON.x + '</button>' : ''; const x = q1('#cqx'); if (x) x.addEventListener('click', () => { quote = ''; showQuote(); }); };
   art.addEventListener('mouseup', () => {
     const sel = window.getSelection(); const t = sel ? sel.toString().trim() : '';
     if (t && art.contains(sel.anchorNode)) { quote = t.slice(0, 600); showQuote(); }
   });
-  $('#csend').addEventListener('click', async () => {
-    const body = $('#ctext').value.trim(), msg = $('#cmsg');
-    if (!body) { msg.textContent = '댓글을 먼저 적어 주세요.'; msg.className = 'note err'; $('#ctext').focus(); return; }
+  q1('#csend').addEventListener('click', async () => {
+    const body = q1('#ctext').value.trim(), msg = q1('#cmsg');
+    if (!body) { msg.textContent = '댓글을 먼저 적어 주세요.'; msg.className = 'note err'; q1('#ctext').focus(); return; }
     msg.textContent = '보내는 중…'; msg.className = 'note';
-    try { await post('/api/feedback', { target: d.path, quote, body }); msg.textContent = '남겼어요. AI가 다음 대화에서 집어 갑니다.'; setTimeout(() => location.reload(), 600); }
+    try { await post('/api/feedback', { target: d.path, quote, body }); msg.textContent = '남겼어요. AI가 다음 대화에서 집어 갑니다.'; setTimeout(onCommented, 600); }
     catch (e) { msg.textContent = e.message; msg.className = 'note err'; }
   });
-  $('#ctext').addEventListener('input', () => { const m = $('#cmsg'); if (m.classList.contains('err')) { m.textContent = ''; m.className = 'note'; } });
-  $('#btnEdit').addEventListener('click', () => {
+  q1('#ctext').addEventListener('input', () => { const m = q1('#cmsg'); if (m.classList.contains('err')) { m.textContent = ''; m.className = 'note'; } });
+  q1('#btnEdit').addEventListener('click', () => {
     art.innerHTML = '<label class="elabel" for="etext">본문 (맨 위 속성까지 그대로 고칠 수 있습니다)</label><textarea id="etext" class="etext" spellcheck="false">' + esc(d.text) + '</textarea>' +
       '<div class="eform"><div><label class="elabel" for="ekind">무엇을 바꿨나요</label><select id="ekind"><option>표현</option><option>내용</option><option>구조</option><option>기타</option></select></div>' +
       '<div style="flex:1;min-width:240px"><label class="elabel" for="ereason">왜 바꿨나요 (선택. 글쓰기 규칙을 키우는 데 씁니다)</label><input id="ereason" type="text" placeholder="예: 대시보다 문장을 나누는 게 읽기 편해서"></div></div>' +
       '<div class="crow"><button type="button" class="pill on" id="esave">저장</button><button type="button" class="pill" id="ecancel">취소</button><span class="note" id="emsg"></span></div>';
-    $('#btnEdit').hidden = true;
-    $('#ecancel').addEventListener('click', () => location.reload());
-    $('#esave').addEventListener('click', async () => {
-      const msg = $('#emsg'); msg.textContent = '저장 중…'; msg.className = 'note';
+    q1('#btnEdit').hidden = true;
+    q1('#ecancel').addEventListener('click', onCancel);
+    q1('#esave').addEventListener('click', async () => {
+      const msg = q1('#emsg'); msg.textContent = '저장 중…'; msg.className = 'note';
       try {
-        const r = await post('/api/save', { path: d.path, text: $('#etext').value, hash: d.hash, kind: $('#ekind').value, reason: $('#ereason').value });
+        const r = await post('/api/save', { path: d.path, text: q1('#etext').value, hash: d.hash, kind: q1('#ekind').value, reason: q1('#ereason').value });
         msg.textContent = r.unchanged ? '바뀐 내용이 없습니다.' : '저장했어요.';
-        if (!r.unchanged) setTimeout(() => location.reload(), 500);
+        if (!r.unchanged) setTimeout(onSaved, 500);
       } catch (e) { msg.textContent = e.message; msg.className = 'note err'; }
     });
   });
