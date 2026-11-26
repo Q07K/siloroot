@@ -46,6 +46,8 @@ To test a local checkout, use its absolute path in place of the GitHub repositor
 
 If the viewer is stopped, run `node "<SiloRoot plugin folder>/viewer/serve.mjs" "<workspace folder>"`. A new message clears the current Codex session's trail.
 
+A Codex session in a layout 3 or later project also gets the project's conventions at session start, the same way as in Claude Code (see the hook notes under "Viewer"). Codex caps hook output at about 2,500 tokens, so above 3,000 characters it gets the list of convention documents instead of their text.
+
 ## Skills
 
 | Skill | When |
@@ -134,6 +136,8 @@ At session start a hook says so once if the layout is behind (`/siloroot:migrate
 
 The hooks run only in folders that contain `.siloroot/config.json`. On session start they launch the viewer server (and, in a layout 3 project, the home's viewer server too) and open the project viewer in the browser (unless a viewer tab is already open or the session restarted after compaction). If the viewer server already running for the folder is older than the installed plugin, they stop it and start the current one. An open viewer tab reloads itself when it reconnects to a server of another version; tabs served by 0.5.1 or older cannot, so Claude is told to ask you to refresh them; when you send a message they tell you if there is feedback to process. If the workspace is behind the installed plugin, the session-start hook also tells you an update is available. For the reading trail, two background hooks (`"async": true`, so Claude never waits for them) append the document path after each tool call and clear the session's trail when you send a message. They write to `.siloroot/state/trail/<session>.jsonl` and keep only the time, the document path, read or edit, and the subagent id; trail files of other sessions unused for 7 days are removed. In a 0.1.x-style folder (documents at the project root) that already had a `.gitignore`, add `.siloroot/state/` to it yourself.
 
+In a layout 3 or later project, another session-start hook puts the text of the conventions (`shared/conventions/`) into Claude's context, so Claude follows them without being told to read them first. It runs again after `/clear` and after compaction. Each document goes in with its path and without its properties; the folder guide (`README.md`) and documents whose `status` is `폐기` (dropped) or `바뀜` (replaced) are left out. Claude Code caps one hook output at 10,000 characters and shows only a preview of anything longer, so above 9,000 characters the hook puts in the list of documents and their paths and tells Claude to read them all before starting. The home has no conventions place, so nothing is added there.
+
 ## Usage log
 
 To find where SiloRoot is slow or uses many tokens, the plugin writes one JSON line per step to `.siloroot/state/metrics.jsonl`. It is on by default, stays on this machine, and is kept out of git with the rest of `state/`.
@@ -143,7 +147,7 @@ To find where SiloRoot is slow or uses many tokens, the plugin writes one JSON l
 | `turn:siloroot:<skill>` | A turn (one message and the whole response) that used a SiloRoot skill, by slash command or by Claude calling it |
 | `turn:siloroot-docs` | A turn that read or wrote workspace or home documents without a SiloRoot skill (the state folder and settings file do not count; commands that work on the documents folder do). If a SiloRoot skill was used earlier in the session, the summary groups it as `turn:siloroot-docs (siloroot:<skill> 뒤)`, so follow-up Q&A turns of `note` or `verify` stay visible |
 | `turn:other` | Any other turn in the workspace, as a baseline |
-| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | Hook run time, including Node startup. The notify hooks also record how many characters they added to Claude's context |
+| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:conventions`, `hook:metrics-turn` | Hook run time, including Node startup. The notify and conventions hooks also record how many characters they added to Claude's context |
 | `script:init`, `script:update`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | Script run time and document count |
 | `context:always-loaded` | At session start, the length in characters of `.siloroot/CLAUDE.md` and `profile.md`, which Claude loads on every turn |
 
