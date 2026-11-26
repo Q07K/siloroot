@@ -275,7 +275,8 @@ select:hover{border-color:var(--faint)}
 .glegend.closed{padding:2px}
 .glegend.closed .glbody{display:none}
 .glbody{display:contents}
-.nd.ext .lb{display:inline!important}
+.nd.ext:not(.extp) .lb{display:inline!important}
+.hull.hx{display:none}
 .lb .refs{font-weight:700;fill:var(--muted)}
 .nd.arch.dim{opacity:.12}
 /* 실시간 갱신: 새로 생긴 점은 커지며 나타나고 둘레가 퍼진다. 새 선은 그어지듯 나타난다. 지운 점과 선은 흐려지며 사라진다 */
@@ -573,7 +574,10 @@ for (const e of D.edges) {
   fwd.get(e.from).push(e);
 }
 const folders = [...new Set(D.docs.map(d => d.folder))].sort();
+// @areas-start: 영역 계산. test/graph-areas.test.mjs가 이 구역만 잘라 Node에서 돌린다(DOM에 손대지 않는다)
 const DARK = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+// 홈 뷰어(D.mode === 'home'): 홈 문서는 모두 home 영역, 바깥 문서는 프로젝트마다 영역 하나('p:<프로젝트 이름>')
+const HOME_MODE = D.mode === 'home';
 // 다른 작업 공간(홈, 다른 프로젝트)을 가리키는 "바깥 점"의 묶음 이름과 색. 폴더 색과 섞이지 않게 흐린 회색 하나를 쓴다
 const EXT_FOLDER = '(바깥)';
 // 연결 그래프는 문서를 shared, private, 홈 세 영토로 묶는다(2026-11-25에 고른 모양. 견주던 다른 모양은 지웠다)
@@ -583,7 +587,7 @@ const color = f => (EXTF.has(f) && areaOf(f) !== 'home' ? (DARK ? '#7D8794' : '#
 // 맨 위 문서(CLAUDE.md 등)는 git에서 빠지는 개인 문서라 private 영토에 넣는다
 const areaMemo = new Map();
 const areaOf = f => { let a = areaMemo.get(f); if (a === undefined) { a = areaCalc(f); areaMemo.set(f, a); } return a; };
-const areaCalc = f => (f === 'home' || f.startsWith('home/') ? 'home' : f === '(맨 위)' ? 'private' : EXTF.has(f) ? 'ext' : f === 'shared' || f.startsWith('shared/') ? 'shared' : f === 'private' || f.startsWith('private/') ? 'private' : 'top');
+const areaCalc = f => HOME_MODE ? (EXTF.has(f) ? 'p:' + f.split('/')[0] : 'home') : (f === 'home' || f.startsWith('home/') ? 'home' : f === '(맨 위)' ? 'private' : EXTF.has(f) ? 'ext' : f === 'shared' || f.startsWith('shared/') ? 'shared' : f === 'private' || f.startsWith('private/') ? 'private' : 'top');
 const AREA_NAME = { shared: '공유', private: '개인', home: '홈', top: '맨 위', ext: '바깥' };
 const AREA_SUB = { shared: '잠그지 않은 문서 · 프로젝트를 받는 사람도 봄', private: '나만 봄', home: '내 지식 · 모든 프로젝트가 같이 봄', top: '', ext: '' };
 const AREA_C = DARK ? { shared: '#E2C08F', private: '#8FB2C1', home: '#A9C4B6', top: '#AEB8C2', ext: '#7D8794' } : { shared: '#A0784F', private: '#3F6475', home: '#4F7A65', top: '#6B7785', ext: '#A3ACB6' };
@@ -593,7 +597,7 @@ const PPAL = DARK ? ['#C8D9E6', '#8FB2C1', '#A9C4B6', '#7FA3BE', '#AEB8C2', '#9F
 function areaColor(f) {
   const a = areaOf(f);
   if (a === 'top') return AREA_C.top;
-  if (f === a) return AREA_C[a];
+  if (f === a || (HOME_MODE && f === '(맨 위)')) return AREA_C[a];
   const list = [...new Set(folders.concat([...EXTF]))].filter(x => areaOf(x) === a && x !== a), pal = a === 'shared' ? SPAL : a === 'home' ? HPAL : PPAL;
   return pal[Math.max(0, list.indexOf(f)) % pal.length];
 }
@@ -623,7 +627,23 @@ const areaIcon = a => (AREA_ICON[a] ? '<svg class="aicon" viewBox="0 0 24 24" ar
 const areaTip = a => AREA_NAME[a] + (AREA_SUB[a] ? ' · ' + AREA_SUB[a] : '');
 // 그래프와 범례에 보일 폴더 이름: 문서 폴더 맨 위(.siloroot/ 바로 아래)는 '(맨 위)' 대신 경로로
 // 클러스터 이름은 모두 폴더 경로 꼴로, 끝에 /를 붙이지 않는다(shared/ideas, .siloroot, shared)
-const shownFolder = f => (f === '(맨 위)' ? '.siloroot' : f);
+const shownFolder = f => (f === '(맨 위)' ? (HOME_MODE ? 'home' : '.siloroot') : f);
+// 영역 바로 밑 문서(README)는 클러스터 없이 영토 안에 점 하나로 둔다. 홈 뷰어의 맨 위 문서(CLAUDE.md, profile.md 등)도 같다
+const rootless = f => f === 'shared' || f === 'private' || (HOME_MODE && f === '(맨 위)');
+// 영토로 그리는 영역. 홈 뷰어의 프로젝트 영역은 graphData가 바깥 점을 모으며 registerProjArea로 더한다
+const AREA_KEYS = HOME_MODE ? ['home'] : ['shared', 'private', 'home'];
+const isProjArea = a => a.startsWith('p:');
+const areaLabel = a => (isProjArea(a) ? a.slice(2) : a);
+// 프로젝트 영역: 회색 하나, 폴더 아이콘, 프로젝트 이름
+const PROJ_C = DARK ? '#AEB8C2' : '#6B7785';
+const FOLDER_ICON = '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
+function registerProjArea(name) {
+  const a = 'p:' + name;
+  if (AREA_KEYS.includes(a)) return;
+  AREA_KEYS.push(a);
+  AREA_C[a] = PROJ_C; AREA_ICON[a] = FOLDER_ICON; AREA_NAME[a] = name + ' 프로젝트'; AREA_SUB[a] = '홈 노트가 가리키는 문서 · 누르면 그 프로젝트 뷰어로';
+}
+// @areas-end
 // 글자 폭(px): 클러스터 이름표를 가운데에 놓는 데 쓴다. 이름표는 고정 글자 크기로 그리고 그룹째 --fk만큼 키우므로 한 번 재면 된다
 let textWCtx = null;
 function textW(s, weight, size) {
@@ -638,7 +658,7 @@ const hullLabelPos = h => 'translate(' + h.cx.toFixed(1) + 'px,' + (h.cy - h.r -
 // tip이 있으면 비어 있는 자리(README만 있는 자리 폴더): 흐리게 그리고 마우스를 올리면 tip을 보인다
 function hullLabelSvg(f, h, cnt, tip) {
   const name = shownFolder(f), xt = -(textW(name, 700, 13) + 6 + textW(String(cnt), 600, 13 * 0.85)) / 2;
-  const open = '<g class="hull hlab' + (tip ? ' hlow' : '') + '" data-f="' + esc(f) + '"' + (tip ? ' data-tip="' + esc(tip) + '"' : '') + ' style="transform:' + hullLabelPos(h) + '">';
+  const open = '<g class="hull hlab' + (tip ? ' hlow' : '') + (isProjArea(areaOf(f)) ? ' hx' : '') + '" data-f="' + esc(f) + '"' + (tip ? ' data-tip="' + esc(tip) + '"' : '') + ' style="transform:' + hullLabelPos(h) + '">';
   if (tip) return open + '<text x="' + xt.toFixed(1) + '" y="0">' + esc(name) + '<tspan class="hcnt" dx="6">' + cnt + '</tspan></text></g>';
   const c = color(f), a = areaOf(f), ink = 'color-mix(in srgb, ' + c + ' 62%, var(--ink))';
   const halo = AREA_C[a] ? 'color-mix(in srgb, ' + AREA_C[a] + ' 14%, var(--surface))' : 'var(--surface)';
@@ -1372,8 +1392,9 @@ function graphData() {
       if (seen.has(id)) continue;
       seen.add(id);
       const w = ws.get(e.to) || { label: e.to.slice(1), url: null }, rel = e.target.slice(e.target.indexOf(':') + 1);
-      const seg = rel.includes('/') ? rel.split('/')[0] : '', folder = (w.name === 'home' ? 'home' : w.label) + (seg ? '/' + seg : '');
+      const seg = rel.includes('/') ? rel.split('/')[0] : '', folder = HOME_MODE ? w.label : (w.name === 'home' ? 'home' : w.label) + (seg ? '/' + seg : '');
       EXTF.add(folder); areaMemo.clear();
+      if (HOME_MODE) registerProjArea(w.label);
       const title = (D.extTitles && D.extTitles[e.target]) || rel.split('/').pop().replace(/\.md$/i, '');
       nodes.push({ id, d: { path: e.target, title, folder, fm: {}, mtime: 0 }, ext: true, refs: refs.get(e.target).size, url: w.url, href: w.url ? w.url + '/#doc/' + encodeURIComponent(rel.split('#')[0]) : null, deg: 0, inc: 0, x: 0, y: 0, vx: 0, vy: 0 });
     }
@@ -1607,9 +1628,6 @@ function freeCircle(hulls, cx, cy, r) {
 // ---------- 영역 묶음(영토) ----------
 // 원 사이 여백: 다른 영역 원끼리 더 멀리
 const hullGap = (A, B) => (A.f && B.f ? (areaOf(A.f) === areaOf(B.f) ? 30 : 160) : HULL_GAP);
-// 영역 바로 밑 문서(README)는 클러스터 없이 영토 안에 점 하나로 둔다
-const rootless = f => f === 'shared' || f === 'private';
-const AREA_KEYS = ['shared', 'private', 'home'];
 const membersOf = (hulls, a) => [...hulls.values()].filter(h => areaOf(h.f) === a);
 // 폴더 원 여럿(과 그 이름표, 더 넣을 점)을 감싸는 가장 작은 원. 다발이 영토를 돌아갈 때 쓴다
 function circleOf(ms, pad, extra = []) {
@@ -1656,6 +1674,8 @@ function separateAreas(hulls, nodes) {
 }
 // 영토: 폴더 원 둘레로 이만큼까지가 그 영역 땅이다. 선 길 찾기도 다른 영역 땅을 이만큼 피한다
 const LAND_REACH = 90;
+// 홈 뷰어의 프로젝트 영토는 홈보다 눈에 띄지 않게 땅을 좁게 둔다
+const reachOf = a => (isProjArea(a) ? 40 : LAND_REACH);
 // 울타리 안으로: 점(x, y)을 반지름 m인 원으로 보고, 울타리 원들(x, y, R) 가운데 하나에 원 전체가 들어가면 그대로,
 // 아니면 가장 가까운 울타리 원 안쪽 가장자리로 옮긴다. 원 전체가 들어갈 수 없는 작은 울타리 원은 건너뛴다
 function fenceClamp(fence, x, y, m) {
@@ -1701,7 +1721,7 @@ function landSeeds(hulls, nodes) {
 // (멀리 있는 다른 영역 씨앗이 더 가깝다고 해서 땅을 깎지 않는다. 두 땅이 실제로 맞닿는 곳에서만 경계가 생긴다)
 function landAt(seeds, x, y) {
   let best = null, bd = LAND_REACH;
-  for (const q of seeds) { const d = Math.hypot(x - q.x, y - q.y) - q.r; if (d < bd) { bd = d; best = q; } }
+  for (const q of seeds) { const d = Math.hypot(x - q.x, y - q.y) - q.r; if (d < bd && d < reachOf(q.a)) { bd = d; best = q; } }
   return best ? best.a : null;
 }
 // 영토 모양: 같은 영토의 영토 원들을 반지름 R만큼 부풀렸다가 다시 R만큼 깎은 모양(닫힘). 크기 R인 공을 바깥에서 굴려 못 들어가는 곳을 메운다.
@@ -1861,11 +1881,11 @@ function areaSvg(s) {
   // 이름표: 영토 아이콘 + 영어 이름. 화면 배율과 상관없이 같은 크기로 보이게 그룹째 --fk만큼 키운다(글자 크기는 16px 고정).
   // 한국어 설명(공유 · 팀과 나눌 수 있음 등)은 그래프에 쓰지 않고, 이름표에 마우스를 올리면 뜬다(data-tip)
   const tag = (x, y) => {
-    const hasI = !!AREA_ICON[s.a], w = (hasI ? 24 : 0) + s.a.length * 10, x0 = 0;
+    const nm = areaLabel(s.a), hasI = !!AREA_ICON[s.a], w = (hasI ? 24 : 0) + nm.length * 10, x0 = 0;
     const ico = hasI ? '<g transform="translate(' + x0 + ',-16) scale(0.8)"><g class="aico halo">' + AREA_ICON[s.a] + '</g><g class="aico" style="stroke:' + c + '">' + AREA_ICON[s.a] + '</g></g>' : '';
     return '<g class="atag" style="transform:translate(' + f1(x) + 'px,' + f1(y) + 'px) scale(var(--fk,1))" data-tip="' + esc(areaTip(s.a)) + '">' +
       '<rect class="ahit" x="' + (x0 - 6) + '" y="-22" width="' + (w + 12) + '" height="30" rx="6"></rect>' + ico +
-      '<text x="' + (x0 + (hasI ? 24 : 0)) + '" y="0" style="fill:' + c + '">' + esc(s.a) + '</text></g>';
+      '<text x="' + (x0 + (hasI ? 24 : 0)) + '" y="0" style="fill:' + c + '">' + esc(nm) + '</text></g>';
   };
   return ['<g class="area" data-a="' + s.a + '"><path d="' + s.d + '"' + st + '></path></g>', '<g class="alab" data-a="' + s.a + '">' + tag(s.lx, s.ly) + '</g>'];
 }
@@ -1886,7 +1906,7 @@ function areaShapes(hulls, nodes, hide) {
   for (const a of AREA_KEYS) {
     const mine = seeds.filter(q => q.a === a);
     if (!mine.length) continue;
-    const cs = mine.filter(q => !(hide && hide.has(q.f))).map(q => ({ x: q.x, y: q.y, r: q.r + LAND_REACH }));
+    const cs = mine.filter(q => !(hide && hide.has(q.f))).map(q => ({ x: q.x, y: q.y, r: q.r + reachOf(q.a) }));
     if (!cs.length) { out.push({ a, off: true }); continue; }
     const b = { x: Math.min(...cs.map(c => c.x - c.r)), y: Math.min(...cs.map(c => c.y - c.r)) }; b.w = Math.max(...cs.map(c => c.x + c.r)) - b.x; b.h = Math.max(...cs.map(c => c.y + c.r)) - b.y;
     const top = cs.reduce((m, c) => (c.y - c.r < m.y - m.r ? c : m));
@@ -1938,10 +1958,13 @@ function viewGraph(carry) {
   const anchors = {};
   {
     // 영역마다 중심을 두고(공유 왼쪽 아래, 개인 오른쪽 아래, 홈 위), 그 영역 폴더는 영역 중심 둘레에 놓는다
-    const AC = { shared: { x: W * 0.22, y: H * 0.62 }, private: { x: W * 0.78, y: H * 0.62 }, home: { x: W * 0.5, y: H * 0.18 }, top: { x: W * 0.98, y: H * 0.02 }, ext: { x: W * 0.98, y: H * 0.98 } };
+    // 홈 뷰어: 홈은 왼쪽 가운데, 프로젝트 영역은 오른쪽에 위아래로 늘어놓는다
+    const PK = AREA_KEYS.filter(isProjArea);
+    const AC = HOME_MODE ? Object.assign({ home: { x: W * 0.36, y: H * 0.5 } }, Object.fromEntries(PK.map((a, i) => [a, { x: W * 0.86, y: H * (PK.length > 1 ? 0.2 + 0.6 * i / (PK.length - 1) : 0.5) }])))
+      : { shared: { x: W * 0.22, y: H * 0.62 }, private: { x: W * 0.78, y: H * 0.62 }, home: { x: W * 0.5, y: H * 0.18 }, top: { x: W * 0.98, y: H * 0.02 }, ext: { x: W * 0.98, y: H * 0.98 } };
     for (const a of Object.keys(AC)) {
       const fs = foldersHere.filter(f => areaOf(f) === a), c = AC[a];
-      fs.forEach((f, i) => { const t = i / fs.length * Math.PI * 2 - Math.PI / 2, rr = fs.length > 1 && f !== a ? W * 0.12 : 0; anchors[f] = { x: c.x + Math.cos(t) * rr, y: c.y + Math.sin(t) * rr }; });
+      fs.forEach((f, i) => { const t = i / fs.length * Math.PI * 2 - Math.PI / 2, rr = fs.length > 1 && f !== a && !rootless(f) ? W * 0.12 : 0; anchors[f] = { x: c.x + Math.cos(t) * rr, y: c.y + Math.sin(t) * rr }; });
     }
   }
   if (keep && carry.hulls) {
@@ -1977,7 +2000,7 @@ function viewGraph(carry) {
       const cx = ns.reduce((s, n) => s + n.x, 0) / ns.length, cy = ns.reduce((s, n) => s + n.y, 0) / ns.length;
       // 다른 폴더 쪽으로 끌려 나간 점 하나가 원을 키우지 않게 문서 수에 맞춘 상한을 둔다. 넘는 점은 원 안으로 들인다
       const far = Math.max(40, ...ns.map(n => Math.hypot(n.x - cx, n.y - cy)));
-      hulls.set(f, { f, cx, cy, r: Math.min(far, 50 + 30 * Math.sqrt(ns.length)) + 26 });
+      hulls.set(f, { f, cx, cy, r: isProjArea(areaOf(f)) ? Math.min(far, 30 + 16 * Math.sqrt(ns.length)) + 16 : Math.min(far, 50 + 30 * Math.sqrt(ns.length)) + 26 });
     }
     if (!keep) {
       // 같은 영역 폴더끼리는 가깝게, 다른 영역과는 멀게
@@ -2004,7 +2027,7 @@ function viewGraph(carry) {
     if (h.r0 == null) h.r0 = h.r; // 점을 밖으로 끌어 늘어난 원이 놓은 뒤 돌아갈 크기
     const cnt = nodes.filter(n => n.d.folder === f && !(slotSet.has(f) && isReadme(n))).length;
     const low = slotSet.has(f) && !cnt;
-    decor += '<g class="hull' + (low ? ' hlow' : '') + '" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle></g>';
+    decor += '<g class="hull' + (low ? ' hlow' : '') + (isProjArea(areaOf(f)) ? ' hx' : '') + '" data-f="' + esc(f) + '"><circle cx="' + h.cx.toFixed(1) + '" cy="' + h.cy.toFixed(1) + '" r="' + h.r.toFixed(1) + '" style="fill:' + color(f) + ';stroke:' + color(f) + '"></circle></g>';
     hullLabels += hullLabelSvg(f, h, cnt, low ? emptyTip : '');
   }
   const emptySlots = new Map();
@@ -2331,7 +2354,7 @@ function viewGraph(carry) {
   }
   const areaCircle = a => amemo('c' + a, () => circleOf(membersOf(hulls, a), 0));
   // 끝점 영역이 아닌 영역의 영토 원(+ 여백)
-  const areaObs = areas => amemo('o' + areas.slice().sort().join(','), () => landSeeds(hulls, nodes).filter(q => !areas.includes(q.a)).map(q => ({ x: q.x, y: q.y, r: q.r + LAND_REACH + 6 })));
+  const areaObs = areas => amemo('o' + areas.slice().sort().join(','), () => landSeeds(hulls, nodes).filter(q => !areas.includes(q.a)).map(q => ({ x: q.x, y: q.y, r: q.r + reachOf(q.a) + 6 })));
   const dot = P => ({ cx: P.x, cy: P.y, r: 1 });
   const unitV = (x, y) => { const m = Math.hypot(x, y) || 1; return { x: x / m, y: y / m }; };
   // 문: 영역 가운데에서 마주 보는 영역 쪽으로 나아가다 처음 땅을 벗어나기 직전 자리
@@ -2413,7 +2436,7 @@ function viewGraph(carry) {
     const f = color(n.d.leaf || n.d.folder), title = esc(n.d.title + ' (' + (n.ext ? n.d.path : n.id) + ')');
     const r = rad(n);
     const fill = f; // 점 색은 폴더 색
-    const cls = 'nd' + (isArch(n.d) ? ' arch' : '') + (n.ext ? (areaOf(n.d.folder) === 'home' ? ' extk' : ' ext') : '') + (born.has(k) ? ' born' : '');
+    const cls = 'nd' + (isArch(n.d) ? ' arch' : '') + (n.ext ? (areaOf(n.d.folder) === 'home' ? ' extk' : HOME_MODE ? ' ext extp' : ' ext') : '') + (born.has(k) ? ' born' : '');
     return '<g class="' + cls + '" data-k="' + k + '" transform="translate(' + n.x.toFixed(1) + ',' + n.y.toFixed(1) + ')">' +
       '<circle class="halo" r="' + (r + 5).toFixed(1) + '" fill="' + fill + '"></circle><circle class="dot" r="' + r.toFixed(1) + '" fill="' + fill + '" data-tip="' + title + '"></circle>' +
       '<text class="lb" x="' + r.toFixed(1) + '" y="0">' + esc(short(n.d.title)) + (n.refs ? '<tspan class="refs"> ← ' + n.refs + '</tspan>' : '') + '</text></g>';
@@ -2437,7 +2460,10 @@ function viewGraph(carry) {
     const head = AREA_KEYS.includes(a) ? '<div class="garea" style="color:' + AREA_C[a] + '" data-tip="' + esc(areaTip(a)) + '">' + areaIcon(a) + esc(a) + '</div>'
       : a === 'top' || !foldersHere.some(f => areaOf(f) === 'top') ? '<div class="garea" style="color:var(--muted)">other</div>' : '';
     return head + fs.map(f => chip(f, AREA_KEYS.includes(a) ? leafName(f) : shownFolder(f))).join('');
-  }).join('');
+  }).join('') + (() => {
+    const ps = foldersHere.filter(f => isProjArea(areaOf(f)));
+    return ps.length ? '<div class="garea" style="color:' + PROJ_C + '" data-tip="홈 노트가 가리키는 프로젝트 문서"><svg class="aicon" viewBox="0 0 24 24" aria-hidden="true">' + FOLDER_ICON + '</svg>projects</div>' + ps.map(f => chip(f, f)).join('') : '';
+  })();
   const sp = (cls, on, label, attr) => '<button type="button" class="pill sm' + (cls ? ' ' + cls : '') + (on ? ' on' : '') + '" ' + attr + ' aria-pressed="' + on + '">' + label + '</button>';
   const kindPills = sp('gk', GS.kinds.link !== false, '마크다운 링크 ' + kindN.link, 'data-kind="link"') + sp('gk', GS.kinds.prop !== false, 'related ' + kindN.prop, 'data-kind="prop"') + sp('gk', GS.kinds.code !== false, '경로 글자 ' + kindN.code, 'data-kind="code"');
   const docPills = sp('', GS.showCommon, '공통 문서 ' + commons.length, 'id="gcom"') + sp('', GS.showArch, '보관 문서 ' + archN, 'id="garch"') + sp('', !GS.hideIso, '연결 없는 문서 ' + iso, 'id="giso"');
@@ -2686,7 +2712,7 @@ function viewGraph(carry) {
   // 노드 규칙(모든 노드에 같게): 자기 영토(영토 원들 = 클러스터 원 + LAND_REACH) 밖으로 못 나가고, 다른 클러스터 원과 클러스터 이름표 자리에 못 들어간다
   function keepInLand(n) {
     if (!hulls) return;
-    const ar = areaOf(n.d.folder), fence = [...hulls].filter(([f]) => areaOf(f) === ar).map(([, h]) => ({ x: h.cx, y: h.cy, R: h.r + LAND_REACH }));
+    const ar = areaOf(n.d.folder), fence = [...hulls].filter(([f]) => areaOf(f) === ar).map(([, h]) => ({ x: h.cx, y: h.cy, R: h.r + reachOf(ar) }));
     for (let it = 0; it < 2; it++) {
       for (const [f, h] of hulls) { if (f === n.d.folder) continue; const dx = n.x - h.cx, dy = n.y - h.cy, d = Math.hypot(dx, dy) || 0.01, need = h.r + rad(n) + 4; if (d < need) { n.x = h.cx + dx / d * need; n.y = h.cy + dy / d * need; n.vx = 0; n.vy = 0; } }
       outOfLabels(n);
@@ -2714,7 +2740,7 @@ function viewGraph(carry) {
     };
     for (let it = 0; it < 40; it++) {
       const gs = AREA_KEYS.map(a => ({ a, fs: [...hulls.keys()].filter(f => areaOf(f) === a) })).filter(g => g.fs.length).map(g => {
-        const cs = g.fs.map(f => { const h = hulls.get(f).to || hulls.get(f); return { x: h.cx, y: h.cy, r: h.r + LAND_REACH }; });
+        const cs = g.fs.map(f => { const h = hulls.get(f).to || hulls.get(f); return { x: h.cx, y: h.cy, r: h.r + reachOf(g.a) }; });
         const rings = territoryRings(cs), w = cs.reduce((t, c) => t + c.r * c.r, 0);
         return Object.assign(g, { rings, box: boxOfRings(rings), cx: cs.reduce((t, c) => t + c.x * c.r * c.r, 0) / w, cy: cs.reduce((t, c) => t + c.y * c.r * c.r, 0) / w });
       });
