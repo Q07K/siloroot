@@ -1,11 +1,12 @@
 {
-  "description": "SiloRoot 폴더에서만 뷰어를 켜고 할 일을 알리고, 턴마다 걸린 시간과 토큰을 .siloroot/state/metrics.jsonl에 남긴다. 한 번 답하는 동안 읽고 고친 문서를 .siloroot/state/trail/에 순서대로 남기고(백그라운드), 새 메시지를 보내면 비운다. .siloroot/config.json이 없는 폴더에서는 아무것도 하지 않는다.",
+  "description": "SiloRoot 폴더에서만 뷰어를 켜고 할 일을 알리고, 세션을 시작하거나 대화를 압축한 뒤 컨벤션 내용을 맥락에 넣고,턴마다 걸린 시간과 토큰을 .siloroot/state/metrics.jsonl에 남긴다. 한 번 답하는 동안 읽고 고친 문서를 .siloroot/state/trail/에 순서대로 남기고(백그라운드), 새 메시지를 보내면 비운다. .siloroot/config.json이 없는 폴더에서는 아무것도 하지 않는다.",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/viewer/autostart.mjs"], "timeout": 15 },
-          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/viewer/notify.mjs", "--session"], "timeout": 10 }
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/viewer/notify.mjs", "--session"], "timeout": 10 },
+          { "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/conventions.mjs"], "timeout": 10 }
         ]
       }
     ],

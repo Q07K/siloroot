@@ -46,6 +46,8 @@ codex plugin add siloroot@siloroot
 
 뷰어가 꺼져 있으면 `node "<SiloRoot 플러그인 폴더>/viewer/serve.mjs" "<작업 공간 폴더>"`로 켠다. 파일 흔적은 현재 Codex 세션에서 새 메시지를 보내면 비워진다.
 
+모양 3 이상 프로젝트에서는 Codex 세션도 시작할 때 Claude Code와 같은 방식으로 프로젝트 컨벤션을 받는다(아래 "뷰어"의 훅 설명). Codex는 훅 출력을 약 2,500토큰으로 제한하므로, 3,000자를 넘으면 본문 대신 컨벤션 문서 목록을 넣는다.
+
 ## 스킬
 
 | 스킬 | 언제 |
@@ -134,6 +136,8 @@ SiloRoot의 작업 공간은 두 가지다(모양 4, 0.8.0부터).
 
 훅은 `.siloroot/config.json`이 있는 폴더에서만 동작한다. 세션을 시작하면 뷰어 서버(모양 3 프로젝트면 홈 뷰어 서버도)를 켜고 브라우저로 프로젝트 뷰어를 연다(뷰어 화면이 이미 열려 있거나 대화 압축으로 다시 시작한 세션이면 열지 않는다). 그 폴더에 떠 있는 뷰어 서버가 설치된 플러그인보다 옛 버전이면 끄고 지금 버전으로 다시 켠다. 열려 있던 뷰어 화면은 다른 버전 서버에 다시 붙으면 스스로 새로 읽는다. 0.5.1 이하 서버가 준 화면은 그러지 못해서, Claude가 새로고침하라고 알린다. 메시지를 보낼 때 처리할 피드백이 있으면 알린다. 작업 공간이 설치된 플러그인보다 뒤처졌으면 세션을 시작할 때 업데이트를 알린다. 읽는 문서 흔적은 백그라운드 훅 둘(`"async": true`, Claude가 기다리지 않는다)이 도구를 쓸 때마다 문서 경로를 붙이고, 메시지를 보내면 그 세션 흔적을 비운다. 남기는 곳은 `.siloroot/state/trail/<세션>.jsonl`이고, 시각, 문서 경로, 읽음과 고침, 서브에이전트 id만 남긴다. 7일 넘게 쓰지 않은 다른 세션의 흔적 파일은 지운다. 0.1.x 방식(문서를 맨 위에 두는 방식) 폴더에 이미 `.gitignore`가 있었다면 `.siloroot/state/`를 직접 더한다.
 
+모양 3 이상 프로젝트에서는 세션을 시작할 때 다른 훅 하나가 컨벤션(`shared/conventions/`) 본문을 Claude 맥락에 넣는다. 읽으라고 시키지 않아도 Claude가 컨벤션을 따른다. `/clear`와 대화 압축 뒤에도 다시 넣는다. 문서마다 경로를 붙이고 속성은 뗀다. 폴더 안내(`README.md`)와 `status`가 `폐기`, `바뀜`인 문서는 넣지 않는다. Claude Code는 훅 출력 하나를 10,000자로 제한하고 넘으면 앞부분만 보이므로, 9,000자를 넘으면 본문 대신 문서 목록과 경로를 넣고 모두 읽고 시작하라고 쓴다. 홈에는 컨벤션 자리가 없어 넣지 않는다.
+
 ## 사용 기록
 
 SiloRoot가 어디서 느리고 토큰을 많이 쓰는지 보려고, 플러그인이 단계마다 JSON 한 줄을 `.siloroot/state/metrics.jsonl`에 남긴다. 기본으로 켜져 있고, 이 PC에만 남으며, `state/`의 다른 파일처럼 git에서 빠진다.
@@ -143,7 +147,7 @@ SiloRoot가 어디서 느리고 토큰을 많이 쓰는지 보려고, 플러그�
 | `turn:siloroot:<스킬>` | SiloRoot 스킬을 쓴 턴(메시지 하나와 그 응답 전체). 슬래시 명령으로 불렀든 Claude가 불렀든 같다 |
 | `turn:siloroot-docs` | SiloRoot 스킬 없이 작업 공간이나 홈의 문서를 읽거나 고친 턴(상태 폴더와 설정 파일은 빼고, 문서 폴더를 다룬 명령은 넣는다). 그 세션에서 앞서 SiloRoot 스킬을 썼으면 요약에서 `turn:siloroot-docs (siloroot:<스킬> 뒤)`로 따로 묶어서, `note`나 `verify`의 이어지는 문답 턴을 볼 수 있다 |
 | `turn:other` | 작업 공간의 나머지 턴. 비교 기준이다 |
-| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:metrics-turn` | 훅 실행 시간(Node가 뜨는 시간 포함). 알림 훅은 Claude에게 덧붙인 글자 수도 남긴다 |
+| `hook:autostart`, `hook:notify-session`, `hook:notify-prompt`, `hook:conventions`, `hook:metrics-turn` | 훅 실행 시간(Node가 뜨는 시간 포함). 알림 훅과 컨벤션 훅은 Claude에게 덧붙인 글자 수도 남긴다 |
 | `script:init`, `script:update`, `script:build` (`:data-only`, `:seen`, `:seen-path`) | 스크립트 실행 시간과 문서 수 |
 | `context:always-loaded` | 세션을 시작할 때 잰, 매 턴 불러오는 `.siloroot/CLAUDE.md`와 `profile.md`의 글자 수 |
 

@@ -1,6 +1,17 @@
 {
-  "description": "SiloRoot 문서를 읽거나 패치한 흔적을 남기고, 새 메시지에서 현재 세션의 흔적을 비운다.",
+  "description": "세션을 시작하거나 대화를 압축한 뒤 SiloRoot 컨벤션 내용을 맥락에 넣고, SiloRoot 문서를 읽거나 패치한 흔적을 남기고, 새 메시지에서 현재 세션의 흔적을 비운다.",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"import(require('node:url').pathToFileURL(require('node:path').join(process.env.PLUGIN_ROOT, 'scripts', 'conventions.mjs')).href)\" -- --max-chars 3000",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
