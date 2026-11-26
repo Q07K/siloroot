@@ -191,6 +191,27 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .gx:hover{background:var(--code-bg);color:var(--ink)}
 .gx svg{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .ginfo .gx{margin:-4px -6px 0 0}
+/* 옆 패널: 다른 작업 공간 문서를 그래프 오른쪽에 덮어 보인다(그래프를 밀지 않는다). 너비는 왼쪽 손잡이로 바꾼다 */
+.xpanel{position:absolute;top:12px;right:12px;bottom:12px;width:min(var(--xw,440px),calc(100% - 24px));z-index:3;display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 20px var(--shadow)}
+.xpanel .xh{display:flex;gap:10px;align-items:flex-start;padding:14px 16px 10px 20px;border-bottom:1px solid var(--border)}
+.xpanel .gdot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex:none}
+.xpanel .xt{flex:1;min-width:0}
+.xpanel .xt strong{display:block;font-size:15px}
+.xpanel .path{font-size:12px;color:var(--muted);margin-top:2px;word-break:break-all}
+.xpanel .xws{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);background:var(--code-bg);border-radius:6px;padding:1px 6px;margin-right:6px}
+.xpanel .xws svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.xpanel .xb{overflow:auto;padding:4px 18px 12px 20px;flex:1 1 auto;min-height:0}
+.xpanel .xb .md{font-size:14px}
+.xpanel .xb .md h1{font-size:20px;margin-top:10px}
+.xpanel .xf{display:flex;gap:8px;align-items:center;padding:10px 16px 10px 20px;border-top:1px solid var(--border)}
+.xpanel .xf .note{flex:1;min-width:0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xpanel .xopen{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.xpanel .xopen:hover{background:var(--accent-strong)}
+.xpanel .xgrip{position:absolute;left:0;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:1;touch-action:none}
+.xpanel .xgrip::after{content:'';position:absolute;left:3px;top:50%;width:4px;height:44px;margin-top:-22px;border-radius:2px;background:var(--line);opacity:.55;transition:opacity .15s,background .15s}
+.xpanel .xgrip:hover::after,.xpanel .xgrip:focus-visible::after,.xpanel.resizing .xgrip::after{opacity:1;background:var(--accent)}
+.xpanel.resizing{user-select:none}
+.xpanel.resizing .xb{pointer-events:none}
 .ginfo .gstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
 .ginfo .gstats span{background:var(--code-bg);border-radius:8px;padding:6px 8px;font-size:11px;color:var(--muted)}
 .ginfo .gstats b{display:block;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -651,6 +672,8 @@ const areaViewerUrl = a => {
   const w = (D.externals || []).find(x => (HOME_MODE ? x.label === areaLabel(a) : x.name === 'home'));
   return (w && w.url) || (!HOME_MODE && a === 'home' && D.home && D.home.url) || null;
 };
+// 옆 패널 너비: 320px 이상, 그래프 판의 80% 이하(좁은 판에서는 최소가 먼저. CSS가 판 안에 가둔다)
+const xpClamp = (w, boardW) => Math.round(Math.max(320, Math.min(boardW * 0.8, w)));
 // @areas-end
 // 글자 폭(px): 클러스터 이름표를 가운데에 놓는 데 쓴다. 이름표는 고정 글자 크기로 그리고 그룹째 --fk만큼 키우므로 한 번 재면 된다
 let textWCtx = null;
@@ -1240,6 +1263,55 @@ async function openExternal(n) {
   if (w) w.opener = null;
   else toast('<a href="' + esc(to) + '" target="_blank" rel="noopener">' + esc(label) + ' 뷰어 열기</a>', 6000);
 }
+// ---------- 옆 패널: 다른 작업 공간 문서 ----------
+// 연결 그래프에서 바깥 점을 누르면 그 문서 본문(빌드가 실은 D.extTexts)을 그래프 오른쪽에 보인다. 읽기만 한다.
+// XP.id는 지금 연 점. 그래프를 다시 그려도(실시간 반영) viewGraph가 이것을 보고 다시 연다
+const XP = { id: null, n: null, mates: [] };
+const XW_KEY = 'fv-xpanel-w', XW_DEF = 440;
+const xpBoardW = () => { const g = $('.gwrap'); return g ? g.clientWidth : window.innerWidth; };
+function xpWidth() { let w = XW_DEF; try { w = Number(localStorage.getItem(XW_KEY)) || XW_DEF; } catch (e) { /* 저장소를 못 쓰면 기본 너비 */ } return xpClamp(w, xpBoardW()); }
+function xpSetWidth(box, w, save) {
+  const v = xpClamp(w, xpBoardW());
+  box.style.setProperty('--xw', v + 'px');
+  if (save) { try { localStorage.setItem(XW_KEY, String(v)); } catch (e) { /* 무시 */ } }
+  return v;
+}
+function closeXPanel() { const b = $('#xpanel'); if (b) b.remove(); XP.id = null; XP.n = null; XP.mates = []; }
+// n: 누른 바깥 점, mates: 그 점과 이어진 이 작업 공간 점들
+function openXPanel(n, mates) {
+  const wrap = $('.gwrap'); if (!wrap) return;
+  XP.id = n.id; XP.n = n; XP.mates = mates;
+  const i = n.d.path.indexOf(':'), rel = n.d.path.slice(i + 1), wsName = n.d.path.slice(0, i) === 'home' ? '홈' : n.d.path.slice(0, i);
+  const text = D.extTexts ? D.extTexts[n.d.path] : null;
+  let box = $('#xpanel');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'xpanel'; box.className = 'xpanel'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '다른 작업 공간 문서');
+    wrap.appendChild(box);
+  }
+  box.innerHTML = '<div class="xh"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div class="xt"><strong>' + esc(n.d.title) + '</strong><div class="path"><span class="xws"><svg viewBox="0 0 24 24" aria-hidden="true">' + FOLDER_ICON + '</svg>' + esc(wsName) + '</span>' + esc(rel) + '</div></div><button type="button" class="gx" id="xclose" aria-label="닫기">' + ICON.x + '</button></div>' +
+    '<div class="xb">' + (text ? '<div class="md">' + md(text, {}, '') + '</div>' : '<p class="note">본문을 읽지 못했습니다.</p>') + '</div>' +
+    '<div class="xf"><span class="note">' + (mates.length ? '가리키는 내 문서 ' + mates.length + '개' : '') + '</span><button type="button" class="xopen" id="xopen">' + esc(wsName) + ' 뷰어에서 열기</button></div>' +
+    '<div class="xgrip" role="separator" aria-orientation="vertical" aria-label="패널 너비" tabindex="0" data-tip="끌어서 너비 바꾸기 · 두 번 누르면 처음 너비"></div>';
+  xpSetWidth(box, xpWidth(), false);
+  $('#xclose').addEventListener('click', closeXPanel);
+  $('#xopen').addEventListener('click', () => openExternal(n));
+  const g = box.querySelector('.xgrip');
+  g.addEventListener('pointerdown', e => {
+    e.preventDefault(); g.setPointerCapture(e.pointerId); box.classList.add('resizing');
+    const x0 = e.clientX, w0 = box.getBoundingClientRect().width;
+    const mv = ev => xpSetWidth(box, w0 + (x0 - ev.clientX), false);
+    const up = ev => { box.classList.remove('resizing'); g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up); xpSetWidth(box, w0 + (x0 - ev.clientX), true); };
+    g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+  });
+  g.addEventListener('dblclick', () => xpSetWidth(box, XW_DEF, true));
+  g.addEventListener('keydown', e => {
+    const w = box.getBoundingClientRect().width;
+    if (e.key === 'ArrowLeft') { xpSetWidth(box, w + 24, true); e.preventDefault(); } else if (e.key === 'ArrowRight') { xpSetWidth(box, w - 24, true); e.preventDefault(); }
+  });
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && XP.id) closeXPanel(); });
+window.addEventListener('resize', () => { const b = $('#xpanel'); if (b) xpSetWidth(b, b.getBoundingClientRect().width, false); });
 // 모양 3 프로젝트의 "나": 사용자 정보는 홈에 있어서 홈 뷰어로 가는 링크만 둔다
 function viewMeHome() {
   const H = D.home;
@@ -2965,7 +3037,11 @@ function viewGraph(carry) {
     paint();
     placeTrailBox();
   }
-  function pick(k) { if (nodes[k] && nodes[k].ext) openExternal(nodes[k]); else select(k); }
+  // 바깥 점은 옆 패널로, 내 점은 패널을 닫고 정보 상자로
+  function pick(k) {
+    if (nodes[k] && nodes[k].ext) { select(null); openXPanel(nodes[k], [...adj[k]].map(j => nodes[j]).filter(m => !m.ext)); }
+    else { closeXPanel(); select(k); }
+  }
   svgEl.addEventListener('wheel', e => { e.preventDefault(); const p = toVB(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   svgEl.addEventListener('pointerdown', e => {
     const nd = e.target.closest('.nd'), hl = !nd && hulls ? e.target.closest('.hull') : null, p = toVB(e);

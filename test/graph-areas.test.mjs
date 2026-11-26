@@ -19,7 +19,7 @@ function areas(mode, externals = []) {
     D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -71,4 +71,13 @@ test('다른 작업 공간 영역: 프로젝트 뷰어는 home, 홈 뷰어는 �
   assert.equal(H.foreignArea('p:siloroot'), true);
   assert.equal(H.areaViewerUrl('p:siloroot'), 'http://127.0.0.1:4180');
   assert.equal(H.areaViewerUrl('p:없는-프로젝트'), null);
+});
+
+test('옆 패널 너비는 320px 이상, 그래프 판의 80% 이하', () => {
+  const A = areas('project');
+  assert.equal(A.xpClamp(100, 1000), 320);
+  assert.equal(A.xpClamp(900, 1000), 800);
+  assert.equal(A.xpClamp(500, 1000), 500);
+  assert.equal(A.xpClamp(500.4, 1000), 500);
+  assert.equal(A.xpClamp(500, 300), 320);
 });
