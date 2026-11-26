@@ -109,7 +109,7 @@ pre.diff .a{background:var(--add-bg);color:var(--add-ink)}pre.diff .d{background
   .dvwide{display:none}.dvnarrow{display:inline}
   .dv .doc{flex-direction:column;flex-wrap:nowrap;gap:12px;align-items:stretch}
   .dv .doc article{flex:none}
-  .dv aside.side{order:-1;flex:none;position:sticky;top:0;z-index:4;background:var(--bg)}
+  .dv aside.side{order:-1;flex:none;position:sticky;top:var(--dvtop,0px);z-index:4;background:var(--bg)}
   /* 패널에서는 몸통(.xb) 윗여백 10px까지 덮는다. 여백 사이로 본문이 비치지 않게 */
   .xpanel .dv aside.side{background:var(--surface);top:-10px;padding-top:10px;margin-top:-10px}
   .dvbar{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0}
@@ -119,7 +119,7 @@ pre.diff .a{background:var(--add-bg);color:var(--add-ink)}pre.diff .d{background
   .dvpop .card{display:none;border:0;border-radius:0;margin:0;background:none}
   .dvpop .card.on{display:block}
   .dvpop .card.on+.card.on{border-top:1px solid var(--border)}
-  .dv .md h1,.dv .md h2,.dv .md h3{scroll-margin-top:56px}
+  .dv .md h1,.dv .md h2,.dv .md h3{scroll-margin-top:calc(var(--dvtop,0px) + 56px)}
 }
 .md h1{font-size:24px;margin:0 0 12px}.md h2{font-size:19px;margin:28px 0 10px}.md h3{font-size:16px;margin:22px 0 8px}.md h4,.md h5,.md h6{font-size:15px;margin:18px 0 6px}
 .md p{margin:8px 0}
@@ -1019,8 +1019,9 @@ function wireDocBar(host) {
     '<button type="button" class="pill sm" data-k="' + b.k + '" aria-expanded="false">' + b.label + (b.n ? '<span class="nbadge">' + b.n + '</span>' : '') + '</button>').join('');
   let cur = null;
   const narrow = () => getComputedStyle(bar).display !== 'none';
+  const xbOf = () => host.closest('.xb');
   const fit = () => {
-    const xb = host.closest('.xb');
+    const xb = xbOf();
     pop.style.maxHeight = docPopMax(xb ? xb.getBoundingClientRect().bottom : innerHeight, pop.getBoundingClientRect().top) + 'px';
   };
   const show = k => {
@@ -1035,15 +1036,24 @@ function wireDocBar(host) {
   // 그릇 너비가 바뀌면(창 크기, 패널 너비 끌기): 넓으면 카드를 모두 보이고, 좁으면 연 카드가 없을 때 상자를 숨긴다
   const sync = () => {
     if (narrow()) { pop.hidden = !cur; if (cur) fit(); }
-    else { pop.hidden = false; pop.style.maxHeight = ''; dv.classList.remove('dvopen'); }
+    else { if (cur) show(null); pop.hidden = false; pop.style.maxHeight = ''; }
+    // 문서 화면이 좁은 창(760px 이하)이면 위쪽 막대(header)가 본문 위에 붙어 있다. 단추 줄은 그 아래에 붙인다.
+    // 넓은 창의 header는 왼쪽 칸이라 문서 뷰와 가로로 겹치지 않는다. 패널 안에서는 CSS가 따로 정한다
+    const hd = !xbOf() && document.querySelector('header');
+    const off = hd && getComputedStyle(hd).position === 'sticky' && hd.getBoundingClientRect().right > dv.getBoundingClientRect().left ? Math.round(hd.getBoundingClientRect().height) : 0;
+    dv.style.setProperty('--dvtop', off + 'px');
   };
   sync();
+  const scroller = xbOf() || window;
+  const refit = () => { if (!dv.isConnected) { scroller.removeEventListener('scroll', refit); window.removeEventListener('resize', refit); return; } if (cur && narrow()) fit(); };
+  scroller.addEventListener('scroll', refit, { passive: true });
+  window.addEventListener('resize', refit);
   if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!dv.isConnected) { ro.disconnect(); return; } sync(); }); ro.observe(dv); }
   bar.addEventListener('click', e => { const b = e.target.closest('.pill'); if (b) show(cur === b.dataset.k ? null : b.dataset.k); });
   // 문장을 고르면 댓글을 펼친다. 인용은 wireDocTools가 같은 mouseup에서 넣으므로 그 뒤에
   if (art && cards.some(c => c.dataset.k === 'cmt')) art.addEventListener('mouseup', () => setTimeout(() => {
     const sel = window.getSelection(), t = sel ? sel.toString().trim() : '';
-    if (narrow() && t && art.contains(sel.anchorNode) && cur !== 'cmt') show('cmt');
+    if (narrow() && t && art.contains(sel.anchorNode) && !art.querySelector('#etext') && cur !== 'cmt') show('cmt');
   }, 0));
   pop.addEventListener('click', e => { if (narrow() && e.target.closest('#toc .lnk')) show(null); });
   const onDown = e => {
