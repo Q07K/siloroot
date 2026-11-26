@@ -19,7 +19,7 @@ function areas(mode, externals = []) {
     D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, graphSig, freeRects })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, graphSig, freeRects, trailSpot })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -118,4 +118,12 @@ test('빈 곳 조각: 판에서 장애물을 피한 위·아래·왼쪽·오른�
   assert.ok(both.length > 0);
   for (const c of both) assert.ok(!hit(c, legend) && !hit(c, panel), JSON.stringify(c));
   assert.deepEqual(plain(A.freeRects(1000, 800, [{ x0: -10, y0: -10, x1: 1010, y1: 810 }], 80)), [{ x0: 0, y0: 0, x1: 1000, y1: 800 }]);
+});
+
+test('흔적 상자 자리: 패널이 없으면 단추 아래, 옆 패널이면 그 왼쪽, 아래·전체면 숨긴다', () => {
+  const A = areas('project');
+  assert.equal(A.trailSpot(null), 'under');
+  assert.equal(A.trailSpot('side'), 'left');
+  assert.equal(A.trailSpot('bottom'), 'hidden');
+  assert.equal(A.trailSpot('full'), 'hidden');
 });

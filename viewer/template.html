@@ -320,10 +320,11 @@ select:hover{border-color:var(--faint)}
 @keyframes fvtpop{from{opacity:0}to{opacity:1}}
 .nd.trail .lb{display:inline!important;font-weight:700}
 .nd.trail .halo{opacity:.22}
-/* 순서 목록: 떠 있는 상자(.ginfo) 모양으로 오른쪽 아래. 제목과 개수는 고정, 목록은 3줄(한 줄 28px) 높이로 고정해 스크롤한다.
-   아래 여백은 알림 상자(#toast)가 뜨는 자리보다 위로 잰다(placeTrailBox) */
-#gtrailbox{left:auto;top:auto;right:12px;bottom:34px;transition:bottom .2s ease}
-#gtrailbox ul{flex:none;height:84px;max-height:none;overflow-y:auto}
+/* 순서 목록: 떠 있는 상자(.ginfo) 모양으로 판 오른쪽 위, 흔적 단추 아래. 제목과 개수는 고정, 목록은 3줄(한 줄 28px) 높이로 스크롤한다.
+   옆 패널이 있으면 그 왼쪽으로 비키고, 아래나 전체 패널이면 숨긴다(placeTrailBox) */
+#gtrailbox{left:auto;top:8px;right:12px;bottom:auto;max-height:calc(100% - 16px);transition:right .2s ease}
+#gtrailbox.tb-off{display:none}
+#gtrailbox ul{flex:0 1 84px;min-height:0;max-height:none;overflow-y:auto}
 #gtrailbox li{height:28px;box-sizing:border-box;padding:0}
 #gtrailbox li.empty{font-size:13px;padding:4px 0}
 #gtrailbox li.tnew{animation:fvtpop .3s ease-out both}
@@ -660,6 +661,8 @@ const areaViewerUrl = a => {
 const xpClamp = (w, boardW) => Math.round(Math.max(320, Math.min(boardW * 0.8, w)));
 // 옆 패널 자리: 옆에 두고도 그래프가 360px 남으면 옆, 아니면 판 높이가 640px 이상일 때 아래, 그보다 낮으면 판 전체
 const panelLayout = (boardW, boardH, panelW) => (boardW - xpClamp(panelW, boardW) >= 360 ? 'side' : boardH >= 640 ? 'bottom' : 'full');
+// 흔적 상자 자리: 패널이 없으면 흔적 단추 아래(under), 옆 패널이면 그 왼쪽(left), 아래나 판 전체면 숨긴다(hidden)
+const trailSpot = lay => (lay === null ? 'under' : lay === 'side' ? 'left' : 'hidden');
 // 빈 곳 조각: 판(0,0,w,h)에서 시작해, 장애물마다 그 장애물을 피하는 위·아래·왼쪽·오른쪽 조각으로 나눈다.
 // 가로나 세로가 min 이하인 조각은 버리고, 다 버려지면 판 전체 하나로 돌아간다. 상자는 모두 { x0, y0, x1, y1 }.
 // 맞춤(fitView)과 누른 점 보이기(revealSel)가 쓴다. 장애물 둘레 여백은 부르는 쪽이 더한다
@@ -1319,6 +1322,7 @@ function xpLayout(box) {
   const m = panelLayout(g.clientWidth, g.clientHeight, xpWidth());
   box.classList.toggle('xp-bottom', m === 'bottom');
   box.classList.toggle('xp-full', m === 'full');
+  if (trailBoxPlace) trailBoxPlace(); // 패널 자리나 너비가 바뀌면 흔적 상자도 다시 둔다
 }
 function xpSetWidth(box, w, save) {
   const v = xpClamp(w, xpBoardW());
@@ -1329,7 +1333,7 @@ function xpSetWidth(box, w, save) {
 }
 // 패널을 열고 닫을 때 연결 그래프가 강조(GS.sel)를 패널 문서에 맞추게 viewGraph가 채운다(syncSel). 그래프가 사라지면 스스로 비운다
 let xpChanged = null;
-function closeDocPanel() { const b = $('#xpanel'); if (b) b.remove(); XP.path = null; XP.ext = false; XP.mates = []; XP.o = null; if (xpChanged) xpChanged(); }
+function closeDocPanel() { const b = $('#xpanel'); if (b) b.remove(); XP.path = null; XP.ext = false; XP.mates = []; XP.o = null; if (trailBoxPlace) trailBoxPlace(); if (xpChanged) xpChanged(); }
 // 지금 패널 문서의 지문: 내 문서는 hash, 바깥 문서는 본문. 문서가 없으면 null(실시간 반영에서 다시 그릴지, 닫을지 정한다)
 const xpSig = p => { const d = byPath.get(p); return d ? 'h' + d.hash : D.extTexts && Object.prototype.hasOwnProperty.call(D.extTexts, p) ? 'x' + D.extTexts[p] : null; };
 // 같은 문서를 다시 그린다(실시간 반영, 배치 다시 짜기). top: 다시 그리기 전 본문 스크롤 자리로, 읽던 자리를 지킨다
@@ -3378,20 +3382,17 @@ function viewGraph(carry) {
     }));
     placeTrailBox();
   }
-  // 목록 상자는 알림 상자(창 오른쪽 아래 16px에 고정)가 뜨는 자리보다 위에 둔다. 알림 상자 높이는 떠 있으면 재고, 아니면 한 줄(44px)로 본다.
-  // 좁은 화면에서 아래로 눕는 폴더 범례와 가로로 겹치면 범례 위로 올린다
+  // 목록 상자는 판 위 8px, 곧 흔적 단추 바로 아래에 둔다. 패널이 없으면 오른쪽 12px, 옆 패널이 있으면 그 왼쪽(패널 너비 + 24px)이고,
+  // 아래 패널이나 판 전체 패널이면 숨긴다(흔적 선과 번호, GS.trail은 그대로). 판보다 길면 목록(ul)이 스크롤된다
   function placeTrailBox() {
-    if (!trailBox.isConnected || trailBox.hidden) return;
-    const gw = trailBox.parentElement.getBoundingClientRect();
-    const t = $('#toast'), th = t && !t.hidden ? t.getBoundingClientRect().height : 0;
-    let b = Math.max(34, Math.ceil(gw.bottom - (innerHeight - (16 + Math.max(44, th) + 12))));
-    const lg = $('#gf');
-    if (lg) {
-      const r = lg.getBoundingClientRect(), left = gw.right - 12 - trailBox.offsetWidth;
-      if (r.width && r.right > left && r.left < gw.right - 12) b = Math.max(b, Math.ceil(gw.bottom - r.top) + 8);
-    }
-    b = Math.min(b, Math.max(34, gw.height - trailBox.offsetHeight - 12));
-    trailBox.style.bottom = b + 'px';
+    if (!trailBox.isConnected) return;
+    const xb = $('#xpanel');
+    const spot = trailSpot(!xb ? null : xb.classList.contains('xp-full') ? 'full' : xb.classList.contains('xp-bottom') ? 'bottom' : 'side');
+    const was = trailBox.classList.contains('tb-off');
+    trailBox.classList.toggle('tb-off', spot === 'hidden');
+    if (spot === 'hidden') return;
+    trailBox.style.right = (spot === 'left' && xb ? xb.offsetWidth + 24 : 12) + 'px';
+    if (was && !trailBox.hidden) { const ul = trailBox.querySelector('ul'); if (ul) ul.scrollTop = ul.scrollHeight; } // 숨겼다 보이면 목록 자리가 0이라 맨 아래로
   }
   if (trailBtn) trailBtn.addEventListener('click', () => {
     GS.trail = !GS.trail; saveGS();
@@ -3519,8 +3520,7 @@ function toast(html, ms) {
   let t = $('#toast');
   if (!t) { t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
   t.innerHTML = html; t.hidden = false;
-  clearTimeout(toast._t); if (ms) toast._t = setTimeout(() => { t.hidden = true; if (trailBoxPlace) trailBoxPlace(); }, ms);
-  if (trailBoxPlace) trailBoxPlace(); // 흔적 목록 상자를 알림 상자 위로
+  clearTimeout(toast._t); if (ms) toast._t = setTimeout(() => { t.hidden = true; }, ms);
   return t;
 }
 function busy() {
