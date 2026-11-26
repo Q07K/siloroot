@@ -70,7 +70,7 @@ async function main() {
   const seenIds = new Set(Array.isArray(prev.ids) ? prev.ids : []);
 
   const { entries, offset } = readNew(tp, Number(prev.offset) || 0);
-  const turns = splitTurns(entries, { seenIds, prevStage: prev.stage, prevEnd: prev.end, prevSkill: prev.skill });
+  const turns = splitTurns(entries, { seenIds, prevStage: prev.stage, prevEnd: prev.end, prevSkill: prev.skill, cfg });
 
   const records = [];
   for (const t of turns) {

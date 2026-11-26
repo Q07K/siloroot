@@ -24,12 +24,34 @@ const addTo = (a, b) => { if (b) for (const k of TK) a[k] += Number(b[k]) || 0; 
 const work = (t) => t.input + t.output + t.cacheWrite;
 const pct = (arr, p) => { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.ceil((p / 100) * s.length) - 1)]; };
 
+// 턴 나눔 (shared/decisions/metrics-count-by-slot.md). 참고 문서: 작업 일지, 폴더 안내, 규칙 문서, 글쓰기 규칙을 뺀 자리
+const NOT_REF = new Set(['worklog', 'log', 'index', 'rules', 'writingGuide'].flatMap((k) => [k, 'home:' + k]));
+export const USE_LABELS = {
+  use: '활용: 참고 문서를 읽고 코드를 고침',
+  codeOnly: '코드만: 참고 문서 없이 코드를 고침',
+  docWork: '문서 일: 참고 문서를 읽고 코드는 안 고침',
+  recordOnly: '기록만: 참고 문서 없이 문서만 고침',
+  script: '스크립트로 문서를 다룸(가르지 못함)',
+  none: '문서와 코드 모두 안 건드림',
+};
+const addMap = (a, b) => { for (const [k, v] of Object.entries(b || {})) if (Number.isFinite(v)) a[k] = (a[k] || 0) + v; };
+function useOf(t) {
+  const ref = Object.entries(t.reads).some(([k, v]) => v > 0 && !NOT_REF.has(k));
+  if (t.code && ref) return 'use';
+  if (t.code) return 'codeOnly';
+  if (ref) return 'docWork';
+  if (Object.values(t.edits).some((v) => v > 0)) return 'recordOnly';
+  if (t.scripts) return 'script';
+  return 'none';
+}
+
 export function aggregate(records, { days } = {}) {
   const since = days ? Date.now() - days * 86400000 : 0;
   const stages = {};
   let first = null; let last = null;
   const context = [];
   const seenTurns = new Set();
+  const useTurns = []; const lastTurn = new Map();
   for (const r of records) {
     if (!r || typeof r.stage !== 'string') continue;
     // 위치 파일을 잃어 같은 턴을 다시 남긴 경우를 대비해 세션과 시작 시각이 같은 턴은 한 번만 센다
@@ -41,6 +63,17 @@ export function aggregate(records, { days } = {}) {
     const at = Date.parse(r.end || r.start);
     if (since && !(at >= since)) continue;
     if (Number.isFinite(at)) { if (first === null || at < first) first = at; if (last === null || at > last) last = at; }
+    if (r.kind === 'turn') {
+      // 자리별 세기를 남긴 턴만 나눈다(codeEdits 칸이 있으면 새 기록). 위치를 잃고 이어진 줄(cont)은 같은 세션의 앞 턴에 더한다
+      const counted = Number.isFinite(r.codeEdits);
+      let u = r.cont ? lastTurn.get(r.session) : null;
+      if (!u) { u = { old: true, reads: {}, edits: {}, code: 0, scripts: 0 }; useTurns.push(u); if (r.session) lastTurn.set(r.session, u); }
+      if (counted) {
+        u.old = false;
+        addMap(u.reads, r.docReads); addMap(u.edits, r.docEdits);
+        u.code += r.codeEdits; u.scripts += Number(r.docScripts) || 0;
+      }
+    }
     if (r.kind === 'context') { if (Number.isFinite(r.chars)) context.push(r.chars); continue; }
     // 스킬을 부른 뒤 이어진 문답 턴(after)은 따로 묶는다. 예: turn:siloroot-docs (siloroot:note 뒤)
     const name = r.kind === 'turn' && r.after ? `${r.stage} (${r.after} 뒤)` : r.stage;
@@ -90,6 +123,14 @@ export function aggregate(records, { days } = {}) {
   const byTokens = [...turns].sort((a, b) => b.workTokens - a.workTokens)[0] || null;
   const byCost = turns[0] && turns[0].usd ? turns[0] : null;
   const allUsd = turns.reduce((n, x) => n + x.usd, 0);
+  const use = { ...Object.fromEntries(Object.keys(USE_LABELS).map((k) => [k, 0])), old: 0 };
+  const slots = {};
+  for (const u of useTurns) {
+    if (u.old) { use.old += 1; continue; }
+    use[useOf(u)] += 1;
+    for (const [k, v] of Object.entries(u.reads)) (slots[k] ||= { read: 0, edit: 0 }).read += v;
+    for (const [k, v] of Object.entries(u.edits)) (slots[k] ||= { read: 0, edit: 0 }).edit += v;
+  }
   const allRead = turns.reduce((n, x) => n + x.usd * x.readShare, 0);
   return {
     from: first !== null ? new Date(first).toISOString() : null,
@@ -101,6 +142,8 @@ export function aggregate(records, { days } = {}) {
     readShare: allUsd ? allRead / allUsd : 0,
     unpriced: turns.reduce((n, x) => n + x.unpriced, 0),
     alwaysLoadedChars: context.length ? context[context.length - 1] : null,
+    use,
+    slots,
   };
 }
 
@@ -139,6 +182,16 @@ export function render(agg) {
       agg.turns.map((x) => [x.stage, x.count, fmtMs(x.totalMs), fmtMs(x.avgMs), fmtMs(x.p90Ms), fmtUsd(x.usd), fmtUsd(x.avgUsd), fmtPct(x.readShare), fmtTk(x.workTokens), fmtTk(x.avgWorkTokens),
         fmtTk(x.tokens.output + x.sub.output), fmtTk(x.tokens.cacheRead + x.sub.cacheRead), x.tokens.calls + x.sub.calls, fmtTk(work(x.sub)), fmtTk(x.totalResultChars), fmtTk(x.docChars), topTools(x.toolMs), topChars(x.resultChars)]),
     ));
+  }
+  const counted = agg.use ? Object.keys(USE_LABELS).reduce((n, k) => n + agg.use[k], 0) : 0;
+  if (counted) {
+    out.push('', `턴 나눔 (자리별 문서 세기를 남긴 턴 ${counted}개${agg.use.old ? `, 그 전 기록 ${agg.use.old}개는 뺌` : ''}. 참고 문서 = 작업 일지, 폴더 안내, 규칙 문서, 글쓰기 규칙을 뺀 문서를 고치지 않고 읽음)`);
+    out.push(table(['턴', '수', '비율'], Object.entries(USE_LABELS).map(([k, label]) => [label, agg.use[k], fmtPct(agg.use[k] / counted)])));
+    const rows = Object.entries(agg.slots).sort((a, b) => (b[1].read + b[1].edit) - (a[1].read + a[1].edit));
+    if (rows.length) {
+      out.push('', '자리별 문서 수 (턴 안에서 같은 문서는 한 번. 읽음 = 그 턴에 고치지 않고 읽기만 함)');
+      out.push(table(['자리', '읽음', '고침'], rows.map(([k, v]) => [k, v.read, v.edit])));
+    }
   }
   if (agg.runs.length) {
     out.push('', '스크립트와 훅');
