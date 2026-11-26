@@ -1289,7 +1289,7 @@ function openXPanel(n, mates) {
     box.id = 'xpanel'; box.className = 'xpanel'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '다른 작업 공간 문서');
     wrap.appendChild(box);
   }
-  box.innerHTML = '<div class="xh"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div class="xt"><strong>' + esc(n.d.title) + '</strong><div class="path"><span class="xws"><svg viewBox="0 0 24 24" aria-hidden="true">' + FOLDER_ICON + '</svg>' + esc(wsName) + '</span>' + esc(rel) + '</div></div><button type="button" class="gx" id="xclose" aria-label="닫기">' + ICON.x + '</button></div>' +
+  box.innerHTML = '<div class="xh"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div class="xt"><strong>' + esc(n.d.title) + '</strong><div class="path"><span class="xws"><svg viewBox="0 0 24 24" aria-hidden="true">' + (wsName === '홈' ? AREA_ICON.home : FOLDER_ICON) + '</svg>' + esc(wsName) + '</span>' + esc(rel) + '</div></div><button type="button" class="gx" id="xclose" aria-label="닫기">' + ICON.x + '</button></div>' +
     '<div class="xb">' + (text ? '<div class="md">' + md(text, {}, '') + '</div>' : '<p class="note">본문을 읽지 못했습니다.</p>') + '</div>' +
     '<div class="xf"><span class="note">' + (mates.length ? '가리키는 내 문서 ' + mates.length + '개' : '') + '</span><button type="button" class="xopen" id="xopen">' + esc(wsName) + ' 뷰어에서 열기</button></div>' +
     '<div class="xgrip" role="separator" aria-orientation="vertical" aria-label="패널 너비" tabindex="0" data-tip="끌어서 너비 바꾸기 · 두 번 누르면 처음 너비"></div>';
