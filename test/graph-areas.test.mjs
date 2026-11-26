@@ -19,7 +19,7 @@ function areas(mode, externals = []) {
     D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, graphSig })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, graphSig })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -80,6 +80,18 @@ test('옆 패널 너비는 320px 이상, 그래프 판의 80% 이하', () => {
   assert.equal(A.xpClamp(500, 1000), 500);
   assert.equal(A.xpClamp(500.4, 1000), 500);
   assert.equal(A.xpClamp(500, 300), 320);
+});
+
+test('옆 패널 자리는 판 크기로 옆, 아래, 판 전체 중에 고른다', () => {
+  const A = areas('project');
+  assert.equal(A.panelLayout(1149, 793, 440), 'side');
+  assert.equal(A.panelLayout(989, 613, 440), 'side');
+  assert.equal(A.panelLayout(669, 933, 440), 'bottom');
+  assert.equal(A.panelLayout(598, 758, 440), 'bottom');
+  assert.equal(A.panelLayout(669, 413, 440), 'full');
+  assert.equal(A.panelLayout(800, 640, 440), 'side');
+  assert.equal(A.panelLayout(799, 640, 440), 'bottom');
+  assert.equal(A.panelLayout(799, 639, 440), 'full');
 });
 
 test('바깥 연결만 바뀌어도 그래프 지문이 바뀐다(실시간 반영이 다시 그린다)', () => {

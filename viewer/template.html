@@ -193,18 +193,11 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .ginfo .gx{margin:-4px -6px 0 0}
 /* 옆 패널: 다른 작업 공간 문서를 그래프 오른쪽에 덮어 보인다(그래프를 밀지 않는다). 너비는 왼쪽 손잡이로 바꾼다 */
 .xpanel{position:absolute;top:12px;right:12px;bottom:12px;width:min(var(--xw,440px),calc(100% - 24px));z-index:3;display:flex;flex-direction:column;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 20px var(--shadow)}
-.xpanel .xh{display:flex;gap:10px;align-items:flex-start;padding:14px 16px 10px 20px;border-bottom:1px solid var(--border)}
-.xpanel .gdot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex:none}
-.xpanel .xt{flex:1;min-width:0}
-.xpanel .xt strong{display:block;font-size:15px}
-.xpanel .path{font-size:12px;color:var(--muted);margin-top:2px;word-break:break-all}
-.xpanel .xws{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);background:var(--code-bg);border-radius:6px;padding:1px 6px;margin-right:6px}
-.xpanel .xws svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.xpanel .xb{overflow:auto;padding:4px 18px 12px 20px;flex:1 1 auto;min-height:0}
-.xpanel .xb .md{font-size:14px}
-.xpanel .xb .md h1{font-size:20px;margin-top:10px}
-.xpanel .xf{display:flex;gap:8px;align-items:center;padding:10px 16px 10px 20px;border-top:1px solid var(--border)}
-.xpanel .xf .note{flex:1;min-width:0;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xpanel .xh{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px 10px 20px;border-bottom:1px solid var(--border)}
+.xpanel .xb{overflow-y:auto;overflow-x:hidden;padding:10px 18px 12px 20px;flex:1 1 auto;min-height:0}
+.xpanel.xp-bottom{top:auto;left:12px;right:12px;width:auto;height:58%}
+.xpanel.xp-full{left:12px;width:auto}
+.xpanel.xp-bottom .xgrip,.xpanel.xp-full .xgrip{display:none}
 .xpanel .xopen{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
 .xpanel .xopen:hover{background:var(--accent-strong)}
 .xpanel .xgrip{position:absolute;left:0;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:1;touch-action:none}
@@ -674,6 +667,8 @@ const areaViewerUrl = a => {
 };
 // 옆 패널 너비: 320px 이상, 그래프 판의 80% 이하(좁은 판에서는 최소가 먼저. CSS가 판 안에 가둔다)
 const xpClamp = (w, boardW) => Math.round(Math.max(320, Math.min(boardW * 0.8, w)));
+// 옆 패널 자리: 옆에 두고도 그래프가 360px 남으면 옆, 아니면 판 높이가 640px 이상일 때 아래, 그보다 낮으면 판 전체
+const panelLayout = (boardW, boardH, panelW) => (boardW - xpClamp(panelW, boardW) >= 360 ? 'side' : boardH >= 640 ? 'bottom' : 'full');
 // 그래프에 보이는 것만 모은 지문. 본문만 고친 경우는 지문이 같아 그래프를 건드리지 않는다.
 // 바깥 연결(다른 작업 공간을 가리킨 것)도 점과 선이 되므로 넣는다
 const graphSig = data => data.docs.map(d => [d.path, d.title, d.folder, d.fm && d.fm.type, d.fm && d.fm.status].join('\u0001')).join('\n') + '\n#\n' + data.edges.map(e => e.from + '|' + e.to + '|' + e.kind).join('\n') +
@@ -1299,39 +1294,56 @@ async function openExternal(n) {
   if (w) w.opener = null;
   else toast('<a href="' + esc(to) + '" target="_blank" rel="noopener">' + esc(label) + ' 뷰어 열기</a>', 6000);
 }
-// ---------- 옆 패널: 다른 작업 공간 문서 ----------
-// 연결 그래프에서 바깥 점을 누르면 그 문서 본문(빌드가 실은 D.extTexts)을 그래프 오른쪽에 보인다. 읽기만 한다.
-// XP.id는 지금 연 점. 그래프를 다시 그려도(실시간 반영) viewGraph가 이것을 보고 다시 연다
-const XP = { id: null, n: null, mates: [] };
+// ---------- 옆 패널: 문서 뷰를 담는 틀 ----------
+// 연결 그래프에서 점을 누르면 그 문서를 같은 문서 뷰(renderDocView)로 그래프 위 패널에 보인다.
+// XP는 지금 연 문서. 그래프를 다시 그려도(실시간 반영) viewGraph가 이것을 보고 다시 연다.
+// o는 openDocPanel에 넘긴 옵션(url, href, title, mates, ext)으로, 다시 열 때 쓴다
+const XP = { path: null, ext: false, mates: [], o: null };
 const XW_KEY = 'fv-xpanel-w', XW_DEF = 440;
 const xpBoardW = () => { const g = $('.gwrap'); return g ? g.clientWidth : window.innerWidth; };
 function xpWidth() { let w = XW_DEF; try { w = Number(localStorage.getItem(XW_KEY)) || XW_DEF; } catch (e) { /* 저장소를 못 쓰면 기본 너비 */ } return xpClamp(w, xpBoardW()); }
+// 판 크기에 따라 옆, 아래, 판 전체 중 하나로 둔다
+function xpLayout(box) {
+  const g = $('.gwrap'); if (!g || !box) return;
+  const m = panelLayout(g.clientWidth, g.clientHeight, xpWidth());
+  box.classList.toggle('xp-bottom', m === 'bottom');
+  box.classList.toggle('xp-full', m === 'full');
+}
 function xpSetWidth(box, w, save) {
   const v = xpClamp(w, xpBoardW());
   box.style.setProperty('--xw', v + 'px');
   if (save) { try { localStorage.setItem(XW_KEY, String(v)); } catch (e) { /* 무시 */ } }
+  xpLayout(box);
   return v;
 }
-function closeXPanel() { const b = $('#xpanel'); if (b) b.remove(); XP.id = null; XP.n = null; XP.mates = []; }
-// n: 누른 바깥 점, mates: 그 점과 이어진 이 작업 공간 점들
-function openXPanel(n, mates) {
+function closeDocPanel() { const b = $('#xpanel'); if (b) b.remove(); XP.path = null; XP.ext = false; XP.mates = []; XP.o = null; }
+// p: 문서 경로. o.ext: 다른 작업 공간 문서, o.mates: 그 문서와 이어진 이 작업 공간 문서 경로들, o.url/href/title: 그 작업 공간 뷰어 열기용
+function openDocPanel(p, o) {
   const wrap = $('.gwrap'); if (!wrap) return;
-  XP.id = n.id; XP.n = n; XP.mates = mates;
-  const i = n.d.path.indexOf(':'), rel = n.d.path.slice(i + 1), wsName = n.d.path.slice(0, i) === 'home' ? '홈' : n.d.path.slice(0, i);
-  const text = D.extTexts ? D.extTexts[n.d.path] : null;
+  o = o || {};
+  const ext = !!o.ext, mates = o.mates || [];
+  XP.path = p; XP.ext = ext; XP.mates = mates; XP.o = o;
+  const wsName = ext ? (p.slice(0, p.indexOf(':')) === 'home' ? '홈' : p.slice(0, p.indexOf(':'))) : '';
   let box = $('#xpanel');
   if (!box) {
     box = document.createElement('div');
-    box.id = 'xpanel'; box.className = 'xpanel'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '다른 작업 공간 문서');
+    box.id = 'xpanel'; box.className = 'xpanel'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', ext ? '다른 작업 공간 문서' : '문서');
     wrap.appendChild(box);
   }
-  box.innerHTML = '<div class="xh"><span class="gdot" style="background:' + color(n.d.folder) + '"></span><div class="xt"><strong>' + esc(n.d.title) + '</strong><div class="path"><span class="xws"><svg viewBox="0 0 24 24" aria-hidden="true">' + (wsName === '홈' ? AREA_ICON.home : FOLDER_ICON) + '</svg>' + esc(wsName) + '</span>' + esc(rel) + '</div></div><button type="button" class="gx" id="xclose" aria-label="닫기">' + ICON.x + '</button></div>' +
-    '<div class="xb">' + (text ? '<div class="md">' + md(text, {}, '') + '</div>' : '<p class="note">본문을 읽지 못했습니다.</p>') + '</div>' +
-    '<div class="xf"><span class="note">' + (mates.length ? '가리키는 내 문서 ' + mates.length + '개' : '') + '</span><button type="button" class="xopen" id="xopen">' + esc(wsName) + ' 뷰어에서 열기</button></div>' +
+  box.innerHTML = '<div class="xh"><button type="button" class="xopen" id="xopen">' + (ext ? esc(wsName) + ' 뷰어에서 열기' : '문서 화면으로') + '</button><button type="button" class="gx" id="xclose" aria-label="닫기">' + ICON.x + '</button></div>' +
+    '<div class="xb" id="xbody"></div>' +
     '<div class="xgrip" role="separator" aria-orientation="vertical" aria-label="패널 너비" tabindex="0" data-tip="끌어서 너비 바꾸기 · 두 번 누르면 처음 너비"></div>';
+  const body = $('#xbody');
+  renderDocView(body, p, { mode: 'panel', mates, ext });
+  body.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a[href^="#doc/"]');
+    if (!a) return;
+    e.preventDefault();
+    openDocPanel(decodeURIComponent(a.getAttribute('href').slice(5)));
+  });
   xpSetWidth(box, xpWidth(), false);
-  $('#xclose').addEventListener('click', closeXPanel);
-  $('#xopen').addEventListener('click', () => openExternal(n));
+  $('#xclose').addEventListener('click', closeDocPanel);
+  $('#xopen').addEventListener('click', () => { if (ext) openExternal({ d: { title: o.title }, url: o.url, href: o.href }); else location.hash = 'doc/' + encodeURIComponent(p); });
   const g = box.querySelector('.xgrip');
   g.addEventListener('pointerdown', e => {
     e.preventDefault(); g.setPointerCapture(e.pointerId); box.classList.add('resizing');
@@ -1346,8 +1358,11 @@ function openXPanel(n, mates) {
     if (e.key === 'ArrowLeft') { xpSetWidth(box, w + 24, true); e.preventDefault(); } else if (e.key === 'ArrowRight') { xpSetWidth(box, w - 24, true); e.preventDefault(); }
   });
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && XP.id) closeXPanel(); });
-window.addEventListener('resize', () => { const b = $('#xpanel'); if (b) xpSetWidth(b, b.getBoundingClientRect().width, false); });
+document.addEventListener('keydown', e => {
+  const t = document.activeElement && document.activeElement.tagName;
+  if (e.key === 'Escape' && XP.path && t !== 'INPUT' && t !== 'TEXTAREA' && t !== 'SELECT') closeDocPanel();
+});
+window.addEventListener('resize', () => { const b = $('#xpanel'); if (b) xpSetWidth(b, xpWidth(), false); });
 // 모양 3 프로젝트의 "나": 사용자 정보는 홈에 있어서 홈 뷰어로 가는 링크만 둔다
 function viewMeHome() {
   const H = D.home;
@@ -2608,7 +2623,7 @@ function viewGraph(carry) {
     (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 오른쪽 위 "필터"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
   $('#view').innerHTML = h;
   // 그래프를 다시 그려도(실시간 반영, 필터) 열려 있던 옆 패널은 다시 연다. 그 점이 사라졌으면 닫는다
-  if (XP.id) { const k = ix.get(XP.id); if (k != null && nodes[k].ext) openXPanel(nodes[k], [...adj[k]].map(j => nodes[j]).filter(m => !m.ext)); else closeXPanel(); }
+  if (XP.path) { const k = ix.get('@' + XP.path); if (XP.ext && k != null && nodes[k].ext) openDocPanel(nodes[k].d.path, { ext: true, mates: [...adj[k]].map(j => nodes[j]).filter(m => !m.ext).map(m => m.d.path), url: nodes[k].url, href: nodes[k].href, title: nodes[k].d.title }); else closeDocPanel(); }
 
   const svgEl = $('#gsvg'), vp = $('#vp');
   const nEls = [...svgEl.querySelectorAll('.nd')], lEls = [...svgEl.querySelectorAll('#gl path')];
@@ -3078,8 +3093,8 @@ function viewGraph(carry) {
   }
   // 바깥 점은 옆 패널로, 내 점은 패널을 닫고 정보 상자로
   function pick(k) {
-    if (nodes[k] && nodes[k].ext) { select(null); openXPanel(nodes[k], [...adj[k]].map(j => nodes[j]).filter(m => !m.ext)); }
-    else { closeXPanel(); select(k); }
+    if (nodes[k] && nodes[k].ext) { select(null); openDocPanel(nodes[k].d.path, { ext: true, mates: [...adj[k]].map(j => nodes[j]).filter(m => !m.ext).map(m => m.d.path), url: nodes[k].url, href: nodes[k].href, title: nodes[k].d.title }); }
+    else { closeDocPanel(); select(k); }
   }
   svgEl.addEventListener('wheel', e => { e.preventDefault(); const p = toVB(e); zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   svgEl.addEventListener('pointerdown', e => {
@@ -3180,7 +3195,7 @@ function viewGraph(carry) {
   document.querySelectorAll('#gf .fchip').forEach(b => b.addEventListener('click', () => {
     const f = b.dataset.f; if (GS.hidden.has(f)) GS.hidden.delete(f); else GS.hidden.add(f);
     // 옆 패널로 보던 문서의 묶음을 끄면 패널도 닫는다
-    if (XP.n && GS.hidden.has(XP.n.d.folder)) closeXPanel();
+    { const xk = XP.path && XP.ext ? ix.get('@' + XP.path) : null; if (xk != null && GS.hidden.has(nodes[xk].d.folder)) closeDocPanel(); }
     b.classList.toggle('off', GS.hidden.has(f)); b.setAttribute('aria-pressed', String(!GS.hidden.has(f))); refresh();
   }));
   document.querySelectorAll('.gk').forEach(b => b.addEventListener('click', () => { const k = b.dataset.kind; GS.kinds[k] = GS.kinds[k] === false; relayout(); }));
@@ -3414,7 +3429,7 @@ function route() {
   // 문서 하나를 볼 때만 페이지가 스크롤된다. 나머지 화면은 창 높이에 맞추고 안쪽 칸만 스크롤한다
   document.body.classList.toggle('fit', !h.startsWith('doc/'));
   // 연결 화면을 떠나면 옆 패널을 닫는다(돌아와도 다시 열지 않는다)
-  if (h !== 'graph') closeXPanel();
+  if (h !== 'graph') closeDocPanel();
   if (h.startsWith('doc/')) { setNav('docs'); viewDoc(h.slice(4)); return; }
   if (h === 'objects' || h.startsWith('objects/')) { setNav('objects'); viewObjects(h.split('/')[1] || 'questions'); return; }
   if (h === 'docs') { setNav('docs'); viewDocs($('#q').value); return; }
