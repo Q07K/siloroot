@@ -669,6 +669,26 @@ const areaViewerUrl = a => {
 const xpClamp = (w, boardW) => Math.round(Math.max(320, Math.min(boardW * 0.8, w)));
 // 옆 패널 자리: 옆에 두고도 그래프가 360px 남으면 옆, 아니면 판 높이가 640px 이상일 때 아래, 그보다 낮으면 판 전체
 const panelLayout = (boardW, boardH, panelW) => (boardW - xpClamp(panelW, boardW) >= 360 ? 'side' : boardH >= 640 ? 'bottom' : 'full');
+// 빈 곳 조각: 판(0,0,w,h)에서 시작해, 장애물마다 그 장애물을 피하는 위·아래·왼쪽·오른쪽 조각으로 나눈다.
+// 가로나 세로가 min 이하인 조각은 버리고, 다 버려지면 판 전체 하나로 돌아간다. 상자는 모두 { x0, y0, x1, y1 }.
+// 맞춤(fitView)과 누른 점 보이기(revealSel)가 쓴다. 장애물 둘레 여백은 부르는 쪽이 더한다
+const freeRects = (w, h, obstacles, min) => {
+  const whole = () => [{ x0: 0, y0: 0, x1: w, y1: h }];
+  let free = whole();
+  for (const o of obstacles) {
+    const next = [];
+    for (const c of free) {
+      if (o.x1 <= c.x0 || o.x0 >= c.x1 || o.y1 <= c.y0 || o.y0 >= c.y1) { next.push(c); continue; }
+      if (o.x0 > c.x0) next.push({ ...c, x1: o.x0 });
+      if (o.x1 < c.x1) next.push({ ...c, x0: o.x1 });
+      if (o.y0 > c.y0) next.push({ ...c, y1: o.y0 });
+      if (o.y1 < c.y1) next.push({ ...c, y0: o.y1 });
+    }
+    free = next.filter(c => c.x1 - c.x0 > min && c.y1 - c.y0 > min);
+    if (!free.length) free = whole();
+  }
+  return free;
+};
 // 그래프에 보이는 것만 모은 지문. 본문만 고친 경우는 지문이 같아 그래프를 건드리지 않는다.
 // 바깥 연결(다른 작업 공간을 가리킨 것)도 점과 선이 되므로 넣는다
 const graphSig = data => data.docs.map(d => [d.path, d.title, d.folder, d.fm && d.fm.type, d.fm && d.fm.status].join('\u0001')).join('\n') + '\n#\n' + data.edges.map(e => e.from + '|' + e.to + '|' + e.kind).join('\n') +
@@ -3149,6 +3169,16 @@ function viewGraph(carry) {
     b.querySelector('.chev').innerHTML = GS.legendClosed ? ICON.up : ICON.down;
     placeTrailBox();
   });
+  // 판 위에 떠 있는 상자(범례, 흔적 상자, 필터, 옆 패널)를 판(sr) 기준 좌표로. m: 둘레 여백
+  function boardObstacles(sr, m) {
+    const out = [];
+    for (const el of ['#gf', '#gtrailbox', '#gpanel', '#xpanel'].map(q => $(q))) {
+      if (!el || el.hidden || !el.offsetWidth) continue;
+      const r = el.getBoundingClientRect();
+      out.push({ x0: r.left - sr.left - m, y0: r.top - sr.top - m, x1: r.right - sr.left + m, y1: r.bottom - sr.top + m });
+    }
+    return out;
+  }
   // 맞춤: 지금 보이는 점과 폴더 원(위의 이름 자리까지)이 모두 들어오게 배율과 위치를 정한다. 끌어서 넓혀 둔 뒤에도 맞는다.
   function fitView() {
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
@@ -3161,20 +3191,7 @@ function viewGraph(carry) {
     // 빈 곳 후보: 그래프 판에서 시작해, 판 위에 떠 있는 상자마다 그 상자를 피하는 위·아래·왼쪽·오른쪽 조각으로 나눈다.
     // 후보마다 그래프가 들어가는 배율을 구해 가장 크게 보이는 곳을 고른다(같으면 넓은 곳)
     const sr = svgEl.getBoundingClientRect(), sc = Math.min(sr.width / W, sr.height / H) || 1, ox = (sr.width - W * sc) / 2, oy = (sr.height - H * sc) / 2;
-    let free = [{ x0: 0, y0: 0, x1: sr.width, y1: sr.height }];
-    for (const el of ['#gf', '#gtrailbox', '#ginfo', '#gpanel'].map(q => $(q))) {
-      if (!el || el.hidden || !el.offsetWidth) continue;
-      const r = el.getBoundingClientRect(), o = { x0: r.left - sr.left - 8, y0: r.top - sr.top - 8, x1: r.right - sr.left + 8, y1: r.bottom - sr.top + 8 }, next = [];
-      for (const c of free) {
-        if (o.x1 <= c.x0 || o.x0 >= c.x1 || o.y1 <= c.y0 || o.y0 >= c.y1) { next.push(c); continue; }
-        if (o.x0 > c.x0) next.push({ ...c, x1: o.x0 });
-        if (o.x1 < c.x1) next.push({ ...c, x0: o.x1 });
-        if (o.y0 > c.y0) next.push({ ...c, y1: o.y0 });
-        if (o.y1 < c.y1) next.push({ ...c, y0: o.y1 });
-      }
-      free = next.filter(c => c.x1 - c.x0 > 80 && c.y1 - c.y0 > 80);
-      if (!free.length) free = [{ x0: 0, y0: 0, x1: sr.width, y1: sr.height }];
-    }
+    const free = freeRects(sr.width, sr.height, boardObstacles(sr, 8), 80);
     const pad = 30;
     let best = null;
     for (const c of free) {

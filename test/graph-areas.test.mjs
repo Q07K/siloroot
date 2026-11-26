@@ -19,7 +19,7 @@ function areas(mode, externals = []) {
     D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, graphSig })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, graphSig, freeRects })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -102,4 +102,20 @@ test('바깥 연결만 바뀌어도 그래프 지문이 바뀐다(실시간 반�
   assert.notEqual(A.graphSig(base), A.graphSig(noRef));
   assert.notEqual(A.graphSig(base), A.graphSig(other));
   assert.equal(A.graphSig(base), A.graphSig(JSON.parse(JSON.stringify(base))));
+});
+
+test('빈 곳 조각: 판에서 장애물을 피한 위·아래·왼쪽·오른쪽 조각', () => {
+  const A = areas('project');
+  const plain = (v) => JSON.parse(JSON.stringify(v));
+  const hit = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+  assert.deepEqual(plain(A.freeRects(1000, 800, [], 80)), [{ x0: 0, y0: 0, x1: 1000, y1: 800 }]);
+  const panel = { x0: 600, y0: 0, x1: 1000, y1: 800 };
+  const side = plain(A.freeRects(1000, 800, [panel], 80));
+  assert.ok(side.some((c) => c.x0 === 0 && c.y0 === 0 && c.x1 === 600 && c.y1 === 800), JSON.stringify(side));
+  assert.ok(!side.some((c) => c.x1 > 600), JSON.stringify(side));
+  const legend = { x0: 0, y0: 0, x1: 200, y1: 400 };
+  const both = plain(A.freeRects(1000, 800, [legend, panel], 80));
+  assert.ok(both.length > 0);
+  for (const c of both) assert.ok(!hit(c, legend) && !hit(c, panel), JSON.stringify(c));
+  assert.deepEqual(plain(A.freeRects(1000, 800, [{ x0: -10, y0: -10, x1: 1010, y1: 810 }], 80)), [{ x0: 0, y0: 0, x1: 1000, y1: 800 }]);
 });
