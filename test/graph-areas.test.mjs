@@ -19,7 +19,7 @@ function areas(mode, externals = []) {
     D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, panelSideWidth, graphSig, freeRects, trailSpot })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, panelSideWidth, graphSig, freeRects, trailSpot, docBarItems, docPopMax })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -135,4 +135,19 @@ test('흔적 상자 자리: 패널이 없으면 단추 아래, 옆 패널이면 
   assert.equal(A.trailSpot('side'), 'left');
   assert.equal(A.trailSpot('bottom'), 'hidden');
   assert.equal(A.trailSpot('full'), 'hidden');
+});
+
+test('좁은 문서 뷰 단추 목록은 있는 카드만 정한 순서로', () => {
+  const A = areas('project');
+  assert.deepEqual([...A.docBarItems([{ k: 'cmt', n: 0 }, { k: 'fb', n: 2 }, { k: 'link', n: 3 }, { k: 'link', n: 4 }, { k: 'toc', n: 0 }])].map(x => [x.k, x.label, x.n]),
+    [['toc', '목차', 0], ['cmt', '댓글', 0], ['link', '연결', 7], ['fb', '피드백', 2]]);
+  assert.deepEqual([...A.docBarItems([{ k: 'link', n: 0 }])].map(x => x.k), ['link']); // 다른 작업 공간 문서, 제목 없음
+  assert.deepEqual([...A.docBarItems([])], []); // vm에서 만든 배열이라 펼쳐 견준다
+});
+
+test('펼친 상자 높이는 그릇 아래끝을 넘지 않고 160~460', () => {
+  const A = areas('project');
+  assert.equal(A.docPopMax(1000, 300), 460);
+  assert.equal(A.docPopMax(600, 300), 292);
+  assert.equal(A.docPopMax(400, 300), 160);
 });
