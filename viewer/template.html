@@ -227,6 +227,9 @@ mark.hl{background:var(--accent-bg);color:inherit}
 .etext{width:100%;box-sizing:border-box;min-height:60vh;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:13px;line-height:1.6;resize:vertical}
 .elabel{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:10px 0 4px}
 .eform{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.eform .ewhy{flex:1;min-width:240px}
+/* 320px 옆 패널에서는 "왜 바꿨나요" 칸이 잘리지 않게 한 줄을 다 쓰고 줄어들 수 있게 한다 */
+.xpanel .eform .ewhy{flex:1 1 100%;min-width:0}
 select,#ekind{min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 select:hover{border-color:var(--faint)}
 .fcol{background:var(--code-bg);border-radius:12px;padding:12px}
@@ -659,8 +662,11 @@ const areaViewerUrl = a => {
 };
 // 옆 패널 너비: 320px 이상, 그래프 판의 80% 이하(좁은 판에서는 최소가 먼저. CSS가 판 안에 가둔다)
 const xpClamp = (w, boardW) => Math.round(Math.max(320, Math.min(boardW * 0.8, w)));
-// 옆 패널 자리: 옆에 두고도 그래프가 360px 남으면 옆, 아니면 판 높이가 640px 이상일 때 아래, 그보다 낮으면 판 전체
-const panelLayout = (boardW, boardH, panelW) => (boardW - xpClamp(panelW, boardW) >= 360 ? 'side' : boardH >= 640 ? 'bottom' : 'full');
+// 옆 패널 자리: 가장 좁은 패널(320px)을 옆에 두고도 그래프가 360px 남으면 옆, 아니면 판 높이가 640px 이상일 때 아래, 그보다 낮으면 판 전체.
+// 저장한 너비로 정하지 않는다(넓게 끌어 둔 너비 때문에 아래로 내려가면 손잡이가 숨어 되돌릴 수 없고, 작은 화면에서도 옆에 못 선다)
+const panelLayout = (boardW, boardH) => (boardW - 320 >= 360 ? 'side' : boardH >= 640 ? 'bottom' : 'full');
+// 옆에 둔 패널의 너비: 저장한 너비를 쓰되 그래프가 360px 남게 줄인다
+const panelSideWidth = (saved, boardW) => Math.min(xpClamp(saved, boardW), boardW - 360);
 // 흔적 상자 자리: 패널이 없으면 흔적 단추 아래(under), 옆 패널이면 그 왼쪽(left), 아래나 판 전체면 숨긴다(hidden)
 const trailSpot = lay => (lay === null ? 'under' : lay === 'side' ? 'left' : 'hidden');
 // 빈 곳 조각: 판(0,0,w,h)에서 시작해, 장애물마다 그 장애물을 피하는 위·아래·왼쪽·오른쪽 조각으로 나눈다.
@@ -920,6 +926,11 @@ function viewRecent() {
 
 function viewDoc(p) { renderDocView($('#view'), p, { mode: 'page' }); }
 
+// 문서 맨 위 속성(fmo)을 칩 줄로. relHtml이 있으면 related 칩에 그것을 넣는다(내 문서는 연결로, 다른 작업 공간 문서는 글자 그대로)
+const fmChips = (fmo, relHtml) => (fmo && Object.keys(fmo).length ? '<div class="pills">' + Object.entries(fmo).map(([k, v]) =>
+  k === 'related' && relHtml ? '<span class="chip acc">related: ' + relHtml + '</span>'
+    : '<span class="chip acc">' + esc(k) + ': ' + esc(Array.isArray(v) ? v.join(', ') : v) + '</span>').join('') + '</div>' : '');
+
 // host 안에 문서 뷰(본문, 편집, 댓글, 옆 카드, 목차)를 그린다. 요소는 모두 host 안에서 찾는다.
 // 저장, 취소, 댓글 뒤 동작은 opts 콜백으로 받고, 없으면 page 모드처럼 새로 고친다.
 function renderDocView(host, p, opts) {
@@ -932,11 +943,7 @@ function renderDocView(host, p, opts) {
   const ins = group((back.get(p) || []).filter(e => e.from !== p), 'from');
   const outs = group((fwd.get(p) || []).filter(e => e.to !== p), 'to');
   const list = (arr) => arr.length ? arr.map(([q, ks]) => '<li>' + docLink(q) + '<span class="kind">' + kinds(ks) + '</span></li>').join('') : '<li class="empty">없음</li>';
-  let fm = '';
-  if (d.fm && Object.keys(d.fm).length) fm = '<div class="pills">' + Object.entries(d.fm).map(([k, v]) => {
-    if (k === 'related' && d.related && d.related.length) return '<span class="chip acc">related: ' + d.related.map(r => docLink(r)).join(', ') + '</span>';
-    return '<span class="chip acc">' + esc(k) + ': ' + esc(Array.isArray(v) ? v.join(', ') : v) + '</span>';
-  }).join('') + '</div>';
+  const fm = fmChips(d.fm, d.related && d.related.length ? d.related.map(r => docLink(r)).join(', ') : '');
   let h = '<p class="path" style="margin:0 0 10px">' + esc(p.split('/').join(' / ')) + ' <span style="margin-left:8px">' + fmtTime(d.mtime) + ' 수정, ' + ago(d.mtime) + '</span></p>';
   const fbs = feedbackFor(p);
   h += '<div class="doctools">' + (SERVED
@@ -976,8 +983,7 @@ function renderExtDocView(host, p, opts) {
   const text = D.extTexts[p];
   const fmo = D.extFms && D.extFms[p];
   const mates = opts.mates || [];
-  let fm = '';
-  if (fmo && Object.keys(fmo).length) fm = '<div class="pills">' + Object.entries(fmo).map(([k, v]) => '<span class="chip acc">' + esc(k) + ': ' + esc(Array.isArray(v) ? v.join(', ') : v) + '</span>').join('') + '</div>';
+  const fm = fmChips(fmo, '');
   let h = '<p class="path" style="margin:0 0 10px">' + esc(wsName) + ' / ' + esc(p.slice(i + 1).split('/').join(' / ')) + '</p>';
   h += '<div class="doc"><article class="md" id="art">' + fm + (text ? md(text, {}, '') : '<p class="note">본문을 읽지 못했습니다.</p>') + '</article><aside class="side">';
   h += '<div class="card"><h3>이 문서를 가리키는 문서 ' + mates.length + '</h3><ul>' + (mates.length ? mates.map(q => '<li>' + docLink(q) + '</li>').join('') : '<li class="empty">없음</li>') + '</ul></div>';
@@ -1198,16 +1204,17 @@ function wireDocTools(host, d, opts) {
     const body = q1('#ctext').value.trim(), msg = q1('#cmsg');
     if (!body) { msg.textContent = '댓글을 먼저 적어 주세요.'; msg.className = 'note err'; q1('#ctext').focus(); return; }
     msg.textContent = '보내는 중…'; msg.className = 'note';
-    // onCommented에 댓글 칸을 비우는 함수를 넘긴다. 패널은 편집 중이면 다시 그리지 않고 댓글 칸만 비운다(page 모드는 새로 고치므로 쓰지 않는다)
+    // 패널은 보내자마자 댓글 칸을 비운다. 다시 그리기 전(600ms) 사이에 벗어나도 이미 보낸 글로 "쓰던 내용이 사라집니다"를 묻지 않게.
+    // 편집 중이면 패널을 다시 그리지 않으므로 이것으로 댓글 칸이 비워진다(page 모드는 새로 고치므로 그대로 둔다)
     const clear = () => { quote = ''; showQuote(); const t = q1('#ctext'); if (t) t.value = ''; };
-    try { await post('/api/feedback', { target: d.path, quote, body }); msg.textContent = '남겼어요. AI가 다음 대화에서 집어 갑니다.'; setTimeout(() => onCommented(clear), 600); }
+    try { await post('/api/feedback', { target: d.path, quote, body }); msg.textContent = '남겼어요. AI가 다음 대화에서 집어 갑니다.'; if (opts.mode === 'panel') clear(); setTimeout(() => onCommented(), 600); }
     catch (e) { msg.textContent = e.message; msg.className = 'note err'; }
   });
   q1('#ctext').addEventListener('input', () => { const m = q1('#cmsg'); if (m.classList.contains('err')) { m.textContent = ''; m.className = 'note'; } });
   q1('#btnEdit').addEventListener('click', () => {
     art.innerHTML = '<label class="elabel" for="etext">본문 (맨 위 속성까지 그대로 고칠 수 있습니다)</label><textarea id="etext" class="etext" spellcheck="false">' + esc(d.text) + '</textarea>' +
       '<div class="eform"><div><label class="elabel" for="ekind">무엇을 바꿨나요</label><select id="ekind"><option>표현</option><option>내용</option><option>구조</option><option>기타</option></select></div>' +
-      '<div style="flex:1;min-width:240px"><label class="elabel" for="ereason">왜 바꿨나요 (선택. 글쓰기 규칙을 키우는 데 씁니다)</label><input id="ereason" type="text" placeholder="예: 대시보다 문장을 나누는 게 읽기 편해서"></div></div>' +
+      '<div class="ewhy"><label class="elabel" for="ereason">왜 바꿨나요 (선택. 글쓰기 규칙을 키우는 데 씁니다)</label><input id="ereason" type="text" placeholder="예: 대시보다 문장을 나누는 게 읽기 편해서"></div></div>' +
       '<div class="crow"><button type="button" class="pill on" id="esave">저장</button><button type="button" class="pill" id="ecancel">취소</button><span class="note" id="emsg"></span></div>';
     q1('#btnEdit').hidden = true;
     q1('#ecancel').addEventListener('click', () => onCancel());
@@ -1316,23 +1323,25 @@ async function openExternal(n) {
 // o는 openDocPanel에 넘긴 옵션(url, href, title, mates, ext)으로, 다시 열 때 쓴다
 const XP = { path: null, ext: false, mates: [], o: null };
 const XW_KEY = 'fv-xpanel-w', XW_DEF = 440;
-const xpBoardW = () => { const g = $('.gwrap'); return g ? g.clientWidth : window.innerWidth; };
-function xpWidth() { let w = XW_DEF; try { w = Number(localStorage.getItem(XW_KEY)) || XW_DEF; } catch (e) { /* 저장소를 못 쓰면 기본 너비 */ } return xpClamp(w, xpBoardW()); }
-// 판 크기에 따라 옆, 아래, 판 전체 중 하나로 둔다
-function xpLayout(box) {
-  const g = $('.gwrap'); if (!g || !box) return;
-  const m = panelLayout(g.clientWidth, g.clientHeight, xpWidth());
+// 사용자가 고른 너비(저장한 값). 판에 맞춰 줄이는 일은 xpSetWidth가 한다
+function xpWidth() { let w = XW_DEF; try { w = Number(localStorage.getItem(XW_KEY)) || XW_DEF; } catch (e) { /* 저장소를 못 쓰면 기본 너비 */ } return w; }
+// 판 크기에 따라 옆, 아래, 판 전체 중 하나로 두고, 옆이면 너비 w를 그래프가 360px 남게 줄여 쓴다.
+// save는 사용자가 손잡이로 너비를 바꿨을 때만 켠다(창 크기 바뀜, 다시 열기는 저장한 너비를 덮지 않는다)
+function xpSetWidth(box, w, save) {
+  const g = $('.gwrap'); if (!g || !box) return 0;
+  const bw = g.clientWidth, m = panelLayout(bw, g.clientHeight);
   box.classList.toggle('xp-bottom', m === 'bottom');
   box.classList.toggle('xp-full', m === 'full');
+  const v = panelSideWidth(w, bw);
+  if (m === 'side') {
+    box.style.setProperty('--xw', v + 'px');
+    if (save) { try { localStorage.setItem(XW_KEY, String(v)); } catch (e) { /* 무시 */ } }
+  }
   if (trailBoxPlace) trailBoxPlace(); // 패널 자리나 너비가 바뀌면 흔적 상자도 다시 둔다
-}
-function xpSetWidth(box, w, save) {
-  const v = xpClamp(w, xpBoardW());
-  box.style.setProperty('--xw', v + 'px');
-  if (save) { try { localStorage.setItem(XW_KEY, String(v)); } catch (e) { /* 무시 */ } }
-  xpLayout(box);
   return v;
 }
+// 저장한 너비로 자리와 너비를 다시 정한다
+const xpLayout = box => xpSetWidth(box, xpWidth(), false);
 // 패널을 열고 닫을 때 연결 그래프가 강조(GS.sel)를 패널 문서에 맞추게 viewGraph가 채운다(syncSel). 그래프가 사라지면 스스로 비운다
 let xpChanged = null;
 // 닫는 일 자체는 묻지 않는다(취소 뒤 다시 그리기, 실시간 반영, 화면 옮기기도 부른다). 묻는 것은 사용자가 누른 자리에서 leavePanelOk로 한다.
@@ -1348,6 +1357,16 @@ function panelDirty() {
 function leavePanelOk() { return !panelDirty() || confirm('쓰던 내용이 사라집니다. 계속할까요?'); }
 // 패널을 p로 바꿔도 되는지: 지금 연 문서 그대로면 묻지 않는다
 const leavePanelTo = p => p === XP.path || leavePanelOk();
+// 연결 화면에 패널이 떠 있다
+const panelOpen = () => !!XP.path && !!$('#xpanel');
+// 연결 화면을 떠날 때 묻는 일은 route()가 한다(위 메뉴, 검색, 뒤로 가기). 누른 자리에서 이미 물었으면 xpAsked를 켜서 route()가 다시 묻지 않게 한다
+let xpAsked = false;
+// 패널에서 다른 화면으로 간다(문서 화면으로, 두 번 누르기, 패널 안의 화면 링크). 쓰던 글이 있으면 여기서 한 번 묻는다
+function graphLeave(hash) {
+  if (location.hash.slice(1) === hash) return;
+  if (panelOpen()) { if (!leavePanelOk()) return; xpAsked = true; }
+  location.hash = hash;
+}
 // 지금 패널 문서의 지문: 내 문서는 hash, 바깥 문서는 본문. 문서가 없으면 null(실시간 반영에서 다시 그릴지, 닫을지 정한다)
 const xpSig = p => { const d = byPath.get(p); return d ? 'h' + d.hash : D.extTexts && Object.prototype.hasOwnProperty.call(D.extTexts, p) ? 'x' + D.extTexts[p] : null; };
 // 같은 문서를 다시 그린다(실시간 반영, 배치 다시 짜기). top: 다시 그리기 전 본문 스크롤 자리로, 읽던 자리를 지킨다
@@ -1362,14 +1381,16 @@ function openDocPanel(p, o) {
   let box = $('#xpanel');
   if (!box) {
     box = document.createElement('div');
-    box.id = 'xpanel'; box.className = 'xpanel'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', ext ? '다른 작업 공간 문서' : '문서');
+    box.id = 'xpanel'; box.className = 'xpanel'; box.setAttribute('role', 'dialog');
     wrap.appendChild(box);
   }
+  // 내 문서와 다른 작업 공간 문서를 오가며 같은 패널을 다시 쓰므로 열 때마다 이름을 맞춘다
+  box.setAttribute('aria-label', ext ? '다른 작업 공간 문서' : '문서');
   box.innerHTML = '<div class="xh"><button type="button" class="xopen" id="xopen">' + (ext ? esc(wsName) + ' 뷰어에서 열기' : '문서 화면으로') + '</button><button type="button" class="gx" id="xclose" aria-label="닫기">' + ICON.x + '</button></div>' +
     '<div class="xb" id="xbody"></div>' +
     '<div class="xgrip" role="separator" aria-orientation="vertical" aria-label="패널 너비" tabindex="0" data-tip="끌어서 너비 바꾸기 · 두 번 누르면 처음 너비"></div>';
   const body = $('#xbody');
-  renderDocView(body, p, { mode: 'panel', mates, ext, onSaved: () => panelAfterWrite(p, '저장했어요'), onCommented: clear => panelCommented(p, clear), onCancel: () => panelCancel(p) });
+  renderDocView(body, p, { mode: 'panel', mates, ext, onSaved: () => panelAfterWrite(p, '저장했어요'), onCommented: () => panelCommented(p), onCancel: () => panelCancel(p) });
   body.addEventListener('click', e => {
     // ctrl, cmd, shift를 누르거나 왼쪽 단추가 아니면 브라우저에 맡긴다(새 탭, 새 창)
     if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -1377,8 +1398,8 @@ function openDocPanel(p, o) {
     if (!a) return;
     const href = a.getAttribute('href');
     if (!href.startsWith('#doc/')) {
-      // 패널 안의 다른 화면 링크(#feedback 같은)는 연결 화면을 떠나 패널을 닫는다. 새 탭으로 여는 바깥 링크는 그대로 둔다
-      if (href.startsWith('#') && !leavePanelOk()) e.preventDefault();
+      // 패널 안의 다른 화면 링크(#feedback 같은)는 연결 화면을 떠나 패널을 닫는다. 묻는 일은 graphLeave가 한 번만 한다. 새 탭으로 여는 바깥 링크는 그대로 둔다
+      if (href.startsWith('#')) { e.preventDefault(); graphLeave(href.slice(1)); }
       return;
     }
     e.preventDefault();
@@ -1388,7 +1409,7 @@ function openDocPanel(p, o) {
   });
   xpSetWidth(box, xpWidth(), false);
   $('#xclose').addEventListener('click', () => { if (leavePanelOk()) closeDocPanel(); });
-  $('#xopen').addEventListener('click', () => { if (ext) openExternal({ d: { title: o.title }, url: o.url, href: o.href }); else if (leavePanelOk()) location.hash = 'doc/' + encodeURIComponent(p); });
+  $('#xopen').addEventListener('click', () => { if (ext) openExternal({ d: { title: o.title }, url: o.url, href: o.href }); else graphLeave('doc/' + encodeURIComponent(p)); });
   const g = box.querySelector('.xgrip');
   g.addEventListener('pointerdown', e => {
     e.preventDefault(); g.setPointerCapture(e.pointerId); box.classList.add('resizing');
@@ -1414,23 +1435,32 @@ document.addEventListener('keydown', e => {
 // 먼저 패널을 읽기 화면으로 다시 그려 편집 칸과 댓글 칸을 걷고(남아 있으면 busy()라 반영하지 않는다), 최신 데이터를 받는다.
 // 받은 데이터로 그래프를 다시 그리거나(viewGraph가 패널을 다시 연다), 연결이 그대로면 applyLiveData가 패널만 다시 그린다.
 // 그 사이 다른 문서로 바꿨으면 패널은 두고 반영만 한다. 알림은 반영 뒤에 띄운다(새 문서 알림이 덮지 않게)
+// 저장 뒤 다시 그릴 때 댓글 칸에 쓰던 글(보내지 않은 것)은 지킨다. 다시 그리기 전에 꺼내 두고, 최신 데이터를 받아 그린 뒤에 되돌린다.
+// 먼저 되돌리면 busy()라 반영이 미뤄져 패널이 옛 본문(옛 hash)으로 남는다. 고른 부분(인용)은 버린다
 async function panelAfterWrite(p, msg) {
-  if (XP.path === p) { const b = $('#xbody'); reopenDocPanel(XP.o, b ? b.scrollTop : 0); }
+  let draft = '';
+  if (XP.path === p) { draft = ctextTake(); const b = $('#xbody'); reopenDocPanel(XP.o, b ? b.scrollTop : 0); }
   graphWaiting = false;
-  try { await graphLiveUpdate(); } finally { toast('<span>' + esc(msg) + '</span>', 2500); }
+  try { await graphLiveUpdate(); await liveSettled(); } finally { if (XP.path === p) ctextPut(draft); toast('<span>' + esc(msg) + '</span>', 2500); }
 }
-// 본문을 고치는 중에 댓글을 보냈으면 패널을 다시 그리지 않는다(고치던 본문이 사라진다). 댓글 칸만 비우고 반영은 편집이 끝날 때로 미룬다
-function panelCommented(p, clear) {
+// 본문을 고치는 중에 댓글을 보냈으면 패널을 다시 그리지 않는다(고치던 본문이 사라진다). 댓글 칸은 보낼 때 이미 비웠고, 반영은 편집이 끝날 때로 미룬다
+function panelCommented(p) {
   const b = $('#xbody');
-  if (XP.path === p && b && b.querySelector('#etext')) { clear(); graphWaiting = true; toast('<span>남겼어요</span>', 2500); return; }
+  if (XP.path === p && b && b.querySelector('#etext')) { graphWaiting = true; toast('<span>남겼어요</span>', 2500); return; }
   panelAfterWrite(p, '남겼어요');
 }
-// 편집 취소: 패널 문서 뷰만 다시 그리고, 쓰는 동안 미뤄 둔 반영이 있으면 한다
+// 편집 취소: 패널 문서 뷰만 다시 그리고(댓글 칸에 쓰던 글은 되돌린다), 쓰는 동안 미뤄 둔 반영이 있으면 한다.
+// 쓰던 댓글이 있으면 busy()라 반영은 그 글을 보내거나 지울 때까지 미뤄진다(바뀐 것이 없으니 다시 받을 것도 없다)
 function panelCancel(p) {
-  if (XP.path === p) { const b = $('#xbody'); reopenDocPanel(XP.o, b ? b.scrollTop : 0); }
+  if (XP.path === p) { const draft = ctextTake(), b = $('#xbody'); reopenDocPanel(XP.o, b ? b.scrollTop : 0); ctextPut(draft); }
   graphCatchUp();
 }
-window.addEventListener('resize', () => { const b = $('#xpanel'); if (b) xpSetWidth(b, xpWidth(), false); });
+// 패널 댓글 칸의 글을 꺼내고 되돌린다. 되돌릴 때 그 사이 새로 쓴 글이 있으면 덮지 않는다
+const ctextTake = () => { const t = $('#xbody #ctext'); return t ? t.value : ''; };
+const ctextPut = v => { const t = $('#xbody #ctext'); if (v && t && !t.value) t.value = v; };
+// 돌고 있는 실시간 반영(그 뒤에 잇는 것까지)이 끝나기를 기다린다. 길어도 5초에서 그친다
+const liveSettled = async () => { for (let i = 0; i < 100 && liveRunning; i++) await new Promise(r => setTimeout(r, 50)); };
+window.addEventListener('resize', () => { const b = $('#xpanel'); if (b) xpLayout(b); });
 // 모양 3 프로젝트의 "나": 사용자 정보는 홈에 있어서 홈 뷰어로 가는 링크만 둔다
 function viewMeHome() {
   const H = D.home;
@@ -3168,17 +3198,21 @@ function viewGraph(carry) {
   let lastTap = null;
   const recentTap = e => !!lastTap && performance.now() - lastTap.t < 500 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 8;
   // 빈 곳, 영토 덩어리를 누르면 패널과 강조를 함께 닫는다
-  function unpick() { if (!leavePanelOk()) return; closeDocPanel(); GS.sel = null; paint(); }
-  // 강조를 패널 문서에 맞춘다: 그 문서가 그래프에 보이는 점이면 그 점, 아니면(필터로 숨김, 그래프에 없음) 비운다
+  // 그래프를 옮기는 중인 revealSel의 번호. 올리면 남은 움직임이 멈춘다(맞춤, 닫기, 강조가 바뀔 때, 끌기와 확대)
+  let revealT = 0;
+  function unpick() { if (!leavePanelOk()) return; revealT++; closeDocPanel(); GS.sel = null; paint(); }
+  // 강조를 패널 문서에 맞춘다: 그 문서가 그래프에 보이는 점이면 그 점, 아니면(필터로 숨김, 그래프에 없음) 비운다.
+  // 강조가 바뀔 때만 옮기던 움직임을 멈춘다(실시간 반영처럼 그대로면 두어서 막 누른 점으로 옮기는 중인 것을 끊지 않는다)
   function syncSel() {
     const k = XP.path ? ix.get(XP.ext ? '@' + XP.path : XP.path) : null;
-    GS.sel = k != null && visibleNode(k) ? k : null;
+    const next = k != null && visibleNode(k) ? k : null;
+    if (next !== GS.sel) revealT++;
+    GS.sel = next;
     paint();
   }
   // 누른 점과 이웃이 빈 곳(판에서 범례, 필터, 흔적 상자, 옆 패널을 피한 조각, freeRects) 하나에 다 보이면 그대로 두고,
   // 아니면 가장 크게 들어가는 조각으로 360ms 동안 옮긴다. 줄이기만 하고 키우지 않는다(최소 배율 0.25).
   // 아래 패널이면 패널 위쪽 조각에 맞고, 판 전체 패널이면 옮기지 않는다. 옮기면 점 크기가 화면에서 달라지므로 한 번 더 잰다
-  let revealT = 0;
   function revealSel(k, pass = 0) {
     const box = $('#xpanel');
     if (!box || box.classList.contains('xp-full') || GS.sel !== k || !svgEl.isConnected) return;
@@ -3246,10 +3280,11 @@ function viewGraph(carry) {
     const d = drag; drag = null; svgEl.classList.remove('panning'); svgEl.classList.remove('hdrag');
     // 자리 잡는 움직임이 없으면 바로 정밀하게, 있으면 멈춘 뒤 loop가 정밀하게 다시 그린다
     if (coarseTrunk && !raf) { coarseTrunk = false; refineLinks(); }
-    if (d.hull) { if (d.moved < 3) unpick(); }
+    // 두 번 누르기의 두 번째: 그래프가 옮겨 가는 중이라 영토 덩어리, 영토 제목, 빈 곳에 떨어져도 무시한다(dblclick이 문서 화면으로 간다)
+    if (d.moved < 3 && recentTap(e)) { /* 무시 */ }
+    else if (d.hull) { if (d.moved < 3) unpick(); }
     else if (d.moved < 3) {
       if (d.pan && d.go) openArea(d.go.a);
-      else if (recentTap(e)) { /* 두 번 누르기의 두 번째: 그래프가 옮겨 가는 중이라 다른 곳에 떨어져도 무시한다 */ }
       else if (d.pan) unpick();
       else if (pick(d.k)) lastTap = { k: d.k, x: e.clientX, y: e.clientY, t: performance.now() };
     }
@@ -3268,7 +3303,7 @@ function viewGraph(carry) {
   // 같은 자리를 방금 눌렀으면 처음 누른 점으로 간다. 패널도 판(.gwrap) 안에 있어서 판에서 받는다
   $('.gwrap').addEventListener('dblclick', e => {
     const nd = e.target.closest && e.target.closest('#gsvg .nd'), k = recentTap(e) ? lastTap.k : nd ? +nd.dataset.k : null;
-    if (k != null && nodes[k] && !nodes[k].ext && leavePanelOk()) location.hash = 'doc/' + encodeURIComponent(nodes[k].id);
+    if (k != null && nodes[k] && !nodes[k].ext) graphLeave('doc/' + encodeURIComponent(nodes[k].id));
   });
   $('#gfold').addEventListener('click', () => {
     GS.legendClosed = !GS.legendClosed; saveGS();
@@ -3290,6 +3325,7 @@ function viewGraph(carry) {
   }
   // 맞춤: 지금 보이는 점과 폴더 원(위의 이름 자리까지)이 모두 들어오게 배율과 위치를 정한다. 끌어서 넓혀 둔 뒤에도 맞는다.
   function fitView() {
+    revealT++; // 점으로 옮기던 움직임이 남은 프레임으로 맞춤을 덮지 않게 멈춘다
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
     const add = (a, b, c, d) => { x1 = Math.min(x1, a); y1 = Math.min(y1, b); x2 = Math.max(x2, c); y2 = Math.max(y2, d); };
     nodes.forEach((n, k) => { if (visibleNode(k)) { const r = rad(n) + 4; add(n.x - r, n.y - r, n.x + r, n.y + r); } });
@@ -3313,8 +3349,9 @@ function viewGraph(carry) {
     apply();
   }
   $('#zfit').addEventListener('click', fitView);
-  // 창이나 칸 너비가 바뀌면 판이 화면에 맞춰지는 배율도 바뀌므로 이름표 크기를 다시 잡는다
-  if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!svgEl.isConnected) { ro.disconnect(); return; } apply(); placeTrailBox(); }); ro.observe(svgEl); }
+  // 창이나 칸 너비가 바뀌면 판이 화면에 맞춰지는 배율도 바뀌므로 이름표 크기를 다시 잡는다.
+  // 옆 막대를 접고 펴도 창 크기는 그대로라 resize가 오지 않으므로, 여기서 패널 자리와 너비도 다시 정한다
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!svgEl.isConnected) { ro.disconnect(); return; } apply(); const xb = $('#xpanel'); if (xb) xpLayout(xb); placeTrailBox(); }); ro.observe(svgEl); }
   // 폴더를 끄고 켜도 패널은 그대로 두고, 패널 문서가 숨으면 강조만 비운다(다시 켜면 되살린다)
   const refresh = () => { saveGS(); trailBuild(); if (hulls) drawAreas(); syncSel(); };
   // 줄 종류, 공통 문서, 보관 문서는 배치 자체가 바뀌므로 다시 그린다. 패널은 viewGraph가 다시 열고 강조를 맞춘다
@@ -3546,6 +3583,10 @@ function viewGraph(carry) {
 
 function route() {
   const h = decodeURIComponent(location.hash.slice(1) || 'recent');
+  // 연결 화면을 떠나는데(위 메뉴, 검색, 뒤로 가기) 패널에 쓰던 글이 있으면 묻는다. 그만두면 주소만 #graph로 되돌리고 그래프와 패널은 그대로 둔다.
+  // 누른 자리에서 이미 물었으면(graphLeave) 다시 묻지 않는다
+  const asked = xpAsked; xpAsked = false;
+  if (h !== 'graph' && !asked && panelOpen() && !leavePanelOk()) { history.replaceState(null, '', '#graph'); return; }
   window.scrollTo(0, 0);
   // 문서 하나를 볼 때만 페이지가 스크롤된다. 나머지 화면은 창 높이에 맞추고 안쪽 칸만 스크롤한다
   document.body.classList.toggle('fit', !h.startsWith('doc/'));
@@ -3564,8 +3605,17 @@ function route() {
   }
   setNav('recent'); viewRecent();
 }
+// 검색칸에 쓰기 시작하면 문서 화면으로 간다. 다른 화면에서 왔으면 route()를 거쳐 패널 닫기, 미뤄 둔 반영, 쓰던 글 묻기를 같게 한다.
+// 연결 화면의 패널에 쓰던 글이 있어 그만두면 검색칸을 쓰기 전 글로 되돌리고 연결 화면에 남는다
+let qLast = $('#q').value;
+$('#q').addEventListener('focus', e => { qLast = e.target.value; });
 $('#q').addEventListener('input', e => {
-  if (location.hash !== '#docs') history.replaceState(null, '', '#docs');
+  if (location.hash !== '#docs') {
+    if (panelOpen() && !leavePanelOk()) { e.target.value = qLast; return; }
+    qLast = e.target.value; xpAsked = true;
+    history.replaceState(null, '', '#docs'); route(); return;
+  }
+  qLast = e.target.value;
   setNav('docs'); viewDocs(e.target.value);
 });
 window.addEventListener('hashchange', route);

@@ -19,7 +19,7 @@ function areas(mode, externals = []) {
     D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, graphSig, freeRects, trailSpot })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl, xpClamp, panelLayout, panelSideWidth, graphSig, freeRects, trailSpot })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -82,16 +82,25 @@ test('옆 패널 너비는 320px 이상, 그래프 판의 80% 이하', () => {
   assert.equal(A.xpClamp(500, 300), 320);
 });
 
-test('옆 패널 자리는 판 크기로 옆, 아래, 판 전체 중에 고른다', () => {
+test('옆 패널 자리는 판 크기로 옆, 아래, 판 전체 중에 고른다(저장한 너비와 상관없이 최소 너비로 정한다)', () => {
   const A = areas('project');
-  assert.equal(A.panelLayout(1149, 793, 440), 'side');
-  assert.equal(A.panelLayout(989, 613, 440), 'side');
-  assert.equal(A.panelLayout(669, 933, 440), 'bottom');
-  assert.equal(A.panelLayout(598, 758, 440), 'bottom');
-  assert.equal(A.panelLayout(669, 413, 440), 'full');
-  assert.equal(A.panelLayout(800, 640, 440), 'side');
-  assert.equal(A.panelLayout(799, 640, 440), 'bottom');
-  assert.equal(A.panelLayout(799, 639, 440), 'full');
+  assert.equal(A.panelLayout(1149, 793), 'side');
+  assert.equal(A.panelLayout(989, 613), 'side');
+  assert.equal(A.panelLayout(669, 933), 'bottom');
+  assert.equal(A.panelLayout(598, 758), 'bottom');
+  assert.equal(A.panelLayout(669, 413), 'full');
+  assert.equal(A.panelLayout(680, 640), 'side');
+  assert.equal(A.panelLayout(679, 640), 'bottom');
+  assert.equal(A.panelLayout(679, 639), 'full');
+});
+
+test('옆에 둔 패널은 저장한 너비를 쓰되 그래프가 360px 남게 줄인다', () => {
+  const A = areas('project');
+  assert.equal(A.panelSideWidth(440, 1149), 440);
+  assert.equal(A.panelSideWidth(900, 1149), 789);
+  assert.equal(A.panelSideWidth(900, 989), 629);
+  assert.equal(A.panelSideWidth(100, 989), 320);
+  assert.equal(A.panelSideWidth(440, 700), 340);
 });
 
 test('바깥 연결만 바뀌어도 그래프 지문이 바뀐다(실시간 반영이 다시 그린다)', () => {
