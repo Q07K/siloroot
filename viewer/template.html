@@ -1458,7 +1458,7 @@ const ARCHIVED = new Set(['보관', '끝남']);
 function graphData() {
   const keep = D.docs.filter(d => (GS.showCommon || !isCommon(d)) && (GS.showArch || !isArch(d)));
   const nodes = keep.map(d => ({ id: d.path, d, deg: 0, inc: 0, x: 0, y: 0, vx: 0, vy: 0 }));
-  // 바깥 점: 가리킨 작업 공간마다 하나. 그 작업 공간 문서는 읽지 않고, 누르면 그 뷰어를 새 탭으로 연다
+  // 바깥 점: 가리킨 문서마다 하나. 본문은 빌드가 그 문서만 읽어 싣고(D.extTexts), 누르면 옆 패널로 보인다
   let extEdges = D.extEdges || [];
   {
     // 바깥 점: 가리킨 문서마다 하나, 작업 공간 이름(홈 등)으로 묶는다. 제목은 빌드가 그 문서만 읽어 둔다(D.extTitles)
