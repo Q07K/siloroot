@@ -1,6 +1,6 @@
 {
   "name": "siloroot",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "Use a shared Markdown workspace and follow document activity in a local viewer.",
   "author": { "name": "Q07K", "url": "https://github.com/Q07K" },
   "repository": "https://github.com/Q07K/siloroot",
