@@ -915,6 +915,7 @@ function viewDoc(p) { renderDocView($('#view'), p, { mode: 'page' }); }
 // 저장, 취소, 댓글 뒤 동작은 opts 콜백으로 받고, 없으면 page 모드처럼 새로 고친다.
 function renderDocView(host, p, opts) {
   opts = opts || {};
+  if (p.includes(':') && D.extTexts && Object.prototype.hasOwnProperty.call(D.extTexts, p)) return renderExtDocView(host, p, opts);
   const d = byPath.get(p);
   if (!d) { host.innerHTML = '<p class="empty">문서를 찾지 못했습니다: ' + esc(p) + '</p>'; return false; }
   const group = (arr, key) => { const g = new Map(); for (const e of arr) { if (!g.has(e[key])) g.set(e[key], new Set()); g.get(e[key]).add(e.kind); } return [...g.entries()]; };
@@ -940,6 +941,11 @@ function renderDocView(host, p, opts) {
   h += '<div class="card" id="toc"><h3>목차</h3><ul></ul></div></aside></div>';
   host.innerHTML = h;
   if (SERVED) wireDocTools(host, d, opts);
+  return buildDocToc(host);
+}
+
+// 본문의 제목으로 오른쪽 목차 카드(#toc)를 채운다. 제목이 없으면 카드를 지운다.
+function buildDocToc(host) {
   const hs = [...host.querySelectorAll('.md h1, .md h2, .md h3')];
   const toc = host.querySelector('#toc');
   if (!hs.length) { toc.remove(); return true; }
@@ -953,6 +959,22 @@ function renderDocView(host, p, opts) {
     li.appendChild(b); ul.appendChild(li);
   });
   return true;
+}
+
+// 다른 작업 공간 문서(빌드가 D.extTexts에 실은 것)를 같은 문서 뷰로 그린다. 읽기만 한다.
+function renderExtDocView(host, p, opts) {
+  const i = p.indexOf(':'), ws = p.slice(0, i), wsName = ws === 'home' ? '홈' : ws;
+  const text = D.extTexts[p];
+  const fmo = D.extFms && D.extFms[p];
+  const mates = opts.mates || [];
+  let fm = '';
+  if (fmo && Object.keys(fmo).length) fm = '<div class="pills">' + Object.entries(fmo).map(([k, v]) => '<span class="chip acc">' + esc(k) + ': ' + esc(Array.isArray(v) ? v.join(', ') : v) + '</span>').join('') + '</div>';
+  let h = '<p class="path" style="margin:0 0 10px">' + esc(wsName) + ' / ' + esc(p.slice(i + 1).split('/').join(' / ')) + '</p>';
+  h += '<div class="doc"><article class="md" id="art">' + fm + (text ? md(text, {}, '') : '<p class="note">본문을 읽지 못했습니다.</p>') + '</article><aside class="side">';
+  h += '<div class="card"><h3>이 문서를 가리키는 문서 ' + mates.length + '</h3><ul>' + (mates.length ? mates.map(q => '<li>' + docLink(q) + '</li>').join('') : '<li class="empty">없음</li>') + '</ul></div>';
+  h += '<div class="card" id="toc"><h3>목차</h3><ul></ul></div></aside></div>';
+  host.innerHTML = h;
+  return buildDocToc(host);
 }
 
 function snippet(t, q) {
