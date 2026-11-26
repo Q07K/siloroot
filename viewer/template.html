@@ -1198,7 +1198,9 @@ function wireDocTools(host, d, opts) {
     const body = q1('#ctext').value.trim(), msg = q1('#cmsg');
     if (!body) { msg.textContent = '댓글을 먼저 적어 주세요.'; msg.className = 'note err'; q1('#ctext').focus(); return; }
     msg.textContent = '보내는 중…'; msg.className = 'note';
-    try { await post('/api/feedback', { target: d.path, quote, body }); msg.textContent = '남겼어요. AI가 다음 대화에서 집어 갑니다.'; setTimeout(onCommented, 600); }
+    // onCommented에 댓글 칸을 비우는 함수를 넘긴다. 패널은 편집 중이면 다시 그리지 않고 댓글 칸만 비운다(page 모드는 새로 고치므로 쓰지 않는다)
+    const clear = () => { quote = ''; showQuote(); const t = q1('#ctext'); if (t) t.value = ''; };
+    try { await post('/api/feedback', { target: d.path, quote, body }); msg.textContent = '남겼어요. AI가 다음 대화에서 집어 갑니다.'; setTimeout(() => onCommented(clear), 600); }
     catch (e) { msg.textContent = e.message; msg.className = 'note err'; }
   });
   q1('#ctext').addEventListener('input', () => { const m = q1('#cmsg'); if (m.classList.contains('err')) { m.textContent = ''; m.className = 'note'; } });
@@ -1208,13 +1210,13 @@ function wireDocTools(host, d, opts) {
       '<div style="flex:1;min-width:240px"><label class="elabel" for="ereason">왜 바꿨나요 (선택. 글쓰기 규칙을 키우는 데 씁니다)</label><input id="ereason" type="text" placeholder="예: 대시보다 문장을 나누는 게 읽기 편해서"></div></div>' +
       '<div class="crow"><button type="button" class="pill on" id="esave">저장</button><button type="button" class="pill" id="ecancel">취소</button><span class="note" id="emsg"></span></div>';
     q1('#btnEdit').hidden = true;
-    q1('#ecancel').addEventListener('click', onCancel);
+    q1('#ecancel').addEventListener('click', () => onCancel());
     q1('#esave').addEventListener('click', async () => {
       const msg = q1('#emsg'); msg.textContent = '저장 중…'; msg.className = 'note';
       try {
         const r = await post('/api/save', { path: d.path, text: q1('#etext').value, hash: d.hash, kind: q1('#ekind').value, reason: q1('#ereason').value });
         msg.textContent = r.unchanged ? '바뀐 내용이 없습니다.' : '저장했어요.';
-        if (!r.unchanged) setTimeout(onSaved, 500);
+        if (!r.unchanged) setTimeout(() => onSaved(), 500);
       } catch (e) { msg.textContent = e.message; msg.className = 'note err'; }
     });
   });
@@ -1333,7 +1335,19 @@ function xpSetWidth(box, w, save) {
 }
 // 패널을 열고 닫을 때 연결 그래프가 강조(GS.sel)를 패널 문서에 맞추게 viewGraph가 채운다(syncSel). 그래프가 사라지면 스스로 비운다
 let xpChanged = null;
-function closeDocPanel() { const b = $('#xpanel'); if (b) b.remove(); XP.path = null; XP.ext = false; XP.mates = []; XP.o = null; if (trailBoxPlace) trailBoxPlace(); if (xpChanged) xpChanged(); }
+// 닫는 일 자체는 묻지 않는다(취소 뒤 다시 그리기, 실시간 반영, 화면 옮기기도 부른다). 묻는 것은 사용자가 누른 자리에서 leavePanelOk로 한다.
+// 쓰는 동안 미뤄 둔 실시간 반영(graphWaiting)이 있으면 닫은 뒤 반영한다
+function closeDocPanel() { const b = $('#xpanel'); if (b) b.remove(); XP.path = null; XP.ext = false; XP.mates = []; XP.o = null; if (trailBoxPlace) trailBoxPlace(); if (xpChanged) xpChanged(); if (graphWaiting) setTimeout(graphCatchUp, 0); }
+// 패널에서 본문을 고치는 중이거나 댓글 칸에 글이 있다
+function panelDirty() {
+  const b = $('#xbody'); if (!b) return false;
+  const c = b.querySelector('#ctext');
+  return !!b.querySelector('#etext') || !!(c && c.value.trim());
+}
+// 패널을 닫거나 다른 문서로 바꾸기 전에 묻는다. 거절하면 부른 쪽은 아무것도 하지 않는다
+function leavePanelOk() { return !panelDirty() || confirm('쓰던 내용이 사라집니다. 계속할까요?'); }
+// 패널을 p로 바꿔도 되는지: 지금 연 문서 그대로면 묻지 않는다
+const leavePanelTo = p => p === XP.path || leavePanelOk();
 // 지금 패널 문서의 지문: 내 문서는 hash, 바깥 문서는 본문. 문서가 없으면 null(실시간 반영에서 다시 그릴지, 닫을지 정한다)
 const xpSig = p => { const d = byPath.get(p); return d ? 'h' + d.hash : D.extTexts && Object.prototype.hasOwnProperty.call(D.extTexts, p) ? 'x' + D.extTexts[p] : null; };
 // 같은 문서를 다시 그린다(실시간 반영, 배치 다시 짜기). top: 다시 그리기 전 본문 스크롤 자리로, 읽던 자리를 지킨다
@@ -1355,17 +1369,26 @@ function openDocPanel(p, o) {
     '<div class="xb" id="xbody"></div>' +
     '<div class="xgrip" role="separator" aria-orientation="vertical" aria-label="패널 너비" tabindex="0" data-tip="끌어서 너비 바꾸기 · 두 번 누르면 처음 너비"></div>';
   const body = $('#xbody');
-  renderDocView(body, p, { mode: 'panel', mates, ext });
+  renderDocView(body, p, { mode: 'panel', mates, ext, onSaved: () => panelAfterWrite(p, '저장했어요'), onCommented: clear => panelCommented(p, clear), onCancel: () => panelCancel(p) });
   body.addEventListener('click', e => {
-    const a = e.target.closest && e.target.closest('a[href^="#doc/"]');
     // ctrl, cmd, shift를 누르거나 왼쪽 단추가 아니면 브라우저에 맡긴다(새 탭, 새 창)
-    if (!a || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href.startsWith('#doc/')) {
+      // 패널 안의 다른 화면 링크(#feedback 같은)는 연결 화면을 떠나 패널을 닫는다. 새 탭으로 여는 바깥 링크는 그대로 둔다
+      if (href.startsWith('#') && !leavePanelOk()) e.preventDefault();
+      return;
+    }
     e.preventDefault();
-    openDocPanel(decodeURIComponent(a.getAttribute('href').slice(5)));
+    const to = decodeURIComponent(href.slice(5));
+    if (to === XP.path || !leavePanelOk()) return;
+    openDocPanel(to);
   });
   xpSetWidth(box, xpWidth(), false);
-  $('#xclose').addEventListener('click', closeDocPanel);
-  $('#xopen').addEventListener('click', () => { if (ext) openExternal({ d: { title: o.title }, url: o.url, href: o.href }); else location.hash = 'doc/' + encodeURIComponent(p); });
+  $('#xclose').addEventListener('click', () => { if (leavePanelOk()) closeDocPanel(); });
+  $('#xopen').addEventListener('click', () => { if (ext) openExternal({ d: { title: o.title }, url: o.url, href: o.href }); else if (leavePanelOk()) location.hash = 'doc/' + encodeURIComponent(p); });
   const g = box.querySelector('.xgrip');
   g.addEventListener('pointerdown', e => {
     e.preventDefault(); g.setPointerCapture(e.pointerId); box.classList.add('resizing');
@@ -1383,8 +1406,28 @@ function openDocPanel(p, o) {
 }
 document.addEventListener('keydown', e => {
   const t = document.activeElement && document.activeElement.tagName;
-  if (e.key === 'Escape' && XP.path && t !== 'INPUT' && t !== 'TEXTAREA' && t !== 'SELECT') closeDocPanel();
+  if (e.key === 'Escape' && XP.path && t !== 'INPUT' && t !== 'TEXTAREA' && t !== 'SELECT' && leavePanelOk()) closeDocPanel();
 });
+// 패널에서 저장하거나 댓글을 남긴 뒤: 새로 고치지 않는다(그래프 배치와 패널이 날아가서다).
+// 먼저 패널을 읽기 화면으로 다시 그려 편집 칸과 댓글 칸을 걷고(남아 있으면 busy()라 반영하지 않는다), 최신 데이터를 받는다.
+// 받은 데이터로 그래프를 다시 그리거나(viewGraph가 패널을 다시 연다), 연결이 그대로면 applyLiveData가 패널만 다시 그린다.
+// 그 사이 다른 문서로 바꿨으면 패널은 두고 반영만 한다. 알림은 반영 뒤에 띄운다(새 문서 알림이 덮지 않게)
+async function panelAfterWrite(p, msg) {
+  if (XP.path === p) { const b = $('#xbody'); reopenDocPanel(XP.o, b ? b.scrollTop : 0); }
+  graphWaiting = false;
+  try { await graphLiveUpdate(); } finally { toast('<span>' + esc(msg) + '</span>', 2500); }
+}
+// 본문을 고치는 중에 댓글을 보냈으면 패널을 다시 그리지 않는다(고치던 본문이 사라진다). 댓글 칸만 비우고 반영은 편집이 끝날 때로 미룬다
+function panelCommented(p, clear) {
+  const b = $('#xbody');
+  if (XP.path === p && b && b.querySelector('#etext')) { clear(); graphWaiting = true; toast('<span>남겼어요</span>', 2500); return; }
+  panelAfterWrite(p, '남겼어요');
+}
+// 편집 취소: 패널 문서 뷰만 다시 그리고, 쓰는 동안 미뤄 둔 반영이 있으면 한다
+function panelCancel(p) {
+  if (XP.path === p) { const b = $('#xbody'); reopenDocPanel(XP.o, b ? b.scrollTop : 0); }
+  graphCatchUp();
+}
 window.addEventListener('resize', () => { const b = $('#xpanel'); if (b) xpSetWidth(b, xpWidth(), false); });
 // 모양 3 프로젝트의 "나": 사용자 정보는 홈에 있어서 홈 뷰어로 가는 링크만 둔다
 function viewMeHome() {
@@ -2644,6 +2687,10 @@ function viewGraph(carry) {
   h += '<div class="gwrap"><canvas id="glc" aria-hidden="true"></canvas>' + svg + '<div class="ginfo" id="gtrailbox" hidden></div><div class="gzoom" id="gzoom"></div>' + legend + panel +
     (nodes.length ? '' : '<p class="empty gempty">보일 문서가 없습니다. 오른쪽 위 "필터"에서 공통 문서나 보관 문서를 켜 보세요.</p>') + '</div>';
   const xpTop = $('#xbody') ? $('#xbody').scrollTop : 0;
+  // 패널에 쓰던 내용이 있으면(필터 단추처럼 사용자가 그래프를 다시 그리게 했을 때) 패널을 다시 그리지 않고 그 요소를 그대로 새 판으로 옮긴다.
+  // 실시간 반영은 쓰는 동안 미뤄지므로(graphWaiting) 여기에 오지 않는다
+  const xpKeep = XP.path && panelDirty() ? $('#xpanel') : null;
+  if (xpKeep) xpKeep.remove();
   $('#view').innerHTML = h;
   // 바깥 점을 패널로 열 때 넘기는 것: 이어진 내 문서, 그 작업 공간 뷰어 주소
   const extOpts = k => ({ ext: true, mates: [...adj[k]].map(j => nodes[j]).filter(m => !m.ext).map(m => m.d.path), url: nodes[k].url, href: nodes[k].href, title: nodes[k].d.title });
@@ -2651,6 +2698,7 @@ function viewGraph(carry) {
   // 그 문서가 사라졌으면 닫는다. 강조는 다 그린 뒤 syncSel이 맞춘다
   if (XP.path) {
     if (xpSig(XP.path) == null) closeDocPanel();
+    else if (xpKeep) { $('.gwrap').appendChild(xpKeep); xpKeep.querySelector('#xbody').scrollTop = xpTop; xpLayout(xpKeep); }
     else { const k = ix.get(XP.ext ? '@' + XP.path : XP.path); reopenDocPanel(XP.ext && k != null && nodes[k].ext ? extOpts(k) : XP.o, xpTop); }
   }
 
@@ -3103,17 +3151,22 @@ function viewGraph(carry) {
   }
 
   // 점을 누르면 그 문서를 옆 패널에 문서 뷰로 열고, 패널이 열린 동안 그 점과 이웃을 강조해 둔다(GS.sel). 바깥 점도 같다
+  // 패널에 쓰던 내용이 있으면 다른 문서로 바꾸기 전에 묻고, 거절하면 강조도 그대로 둔다(false를 돌려준다).
+  // 지금 연 문서를 다시 누르면 패널을 다시 그리지 않는다(쓰던 내용과 읽던 자리를 지킨다)
   function pick(k) {
-    const n = nodes[k]; if (!n) return;
+    const n = nodes[k]; if (!n) return false;
+    const p = n.ext ? n.d.path : n.id, same = p === XP.path && !!$('#xpanel');
+    if (!same && !leavePanelOk()) return false;
     GS.sel = k; paint();
-    if (n.ext) openDocPanel(n.d.path, extOpts(k)); else openDocPanel(n.id);
+    if (!same) { if (n.ext) openDocPanel(n.d.path, extOpts(k)); else openDocPanel(n.id); }
     revealSel(k);
+    return true;
   }
   // 마지막으로 누른 점과 자리, 시각. 두 번 누르기를 알아본다
   let lastTap = null;
   const recentTap = e => !!lastTap && performance.now() - lastTap.t < 500 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 8;
   // 빈 곳, 영토 덩어리를 누르면 패널과 강조를 함께 닫는다
-  function unpick() { closeDocPanel(); GS.sel = null; paint(); }
+  function unpick() { if (!leavePanelOk()) return; closeDocPanel(); GS.sel = null; paint(); }
   // 강조를 패널 문서에 맞춘다: 그 문서가 그래프에 보이는 점이면 그 점, 아니면(필터로 숨김, 그래프에 없음) 비운다
   function syncSel() {
     const k = XP.path ? ix.get(XP.ext ? '@' + XP.path : XP.path) : null;
@@ -3196,11 +3249,11 @@ function viewGraph(carry) {
       if (d.pan && d.go) openArea(d.go.a);
       else if (recentTap(e)) { /* 두 번 누르기의 두 번째: 그래프가 옮겨 가는 중이라 다른 곳에 떨어져도 무시한다 */ }
       else if (d.pan) unpick();
-      else { pick(d.k); lastTap = { k: d.k, x: e.clientX, y: e.clientY, t: performance.now() }; }
+      else if (pick(d.k)) lastTap = { k: d.k, x: e.clientX, y: e.clientY, t: performance.now() };
     }
     else if (!d.pan) { hoverK = null; if (grown.size) releaseHulls(d.k); paint(); }
-    // 끄는 동안 문서가 바뀌었으면 놓은 뒤에 반영한다
-    if (graphWaiting) { graphWaiting = false; setTimeout(graphLiveUpdate, 0); }
+    // 끄는 동안 문서가 바뀌었으면 놓은 뒤에 반영한다(패널에 쓰는 중이면 graphCatchUp이 계속 미룬다)
+    if (graphWaiting) setTimeout(graphCatchUp, 0);
   });
   svgEl.addEventListener('pointerleave', () => { if (!drag && hoverK != null) { hoverK = null; paint(); } });
   // 다른 작업 공간 영토 제목: 그 뷰어 그래프를 새 탭으로 연다(꺼져 있으면 openExternal이 알린다).
@@ -3213,7 +3266,7 @@ function viewGraph(carry) {
   // 같은 자리를 방금 눌렀으면 처음 누른 점으로 간다. 패널도 판(.gwrap) 안에 있어서 판에서 받는다
   $('.gwrap').addEventListener('dblclick', e => {
     const nd = e.target.closest && e.target.closest('#gsvg .nd'), k = recentTap(e) ? lastTap.k : nd ? +nd.dataset.k : null;
-    if (k != null && nodes[k] && !nodes[k].ext) location.hash = 'doc/' + encodeURIComponent(nodes[k].id);
+    if (k != null && nodes[k] && !nodes[k].ext && leavePanelOk()) location.hash = 'doc/' + encodeURIComponent(nodes[k].id);
   });
   $('#gfold').addEventListener('click', () => {
     GS.legendClosed = !GS.legendClosed; saveGS();
@@ -3376,7 +3429,10 @@ function viewGraph(carry) {
     else ul.scrollTop = oldTop != null ? oldTop : ul.scrollHeight;
     trailBox.querySelectorAll('.lnk').forEach(b => b.addEventListener('click', () => {
       const p = b.dataset.p, k = ix.has(p) ? ix.get(p) : ix.has('@' + p) ? ix.get('@' + p) : null;
+      // 보이는 점이면 pick이 묻고, 아니면 여기서 묻는다(한 번만 묻게)
       if (k != null && visibleNode(k)) pick(k);
+      else if (!leavePanelTo(p)) return;
+      else if (p === XP.path && $('#xpanel')) syncSel();
       else if (byPath.has(p)) { openDocPanel(p); syncSel(); }
       else if (k != null && xpSig(p) != null) { openDocPanel(p, extOpts(k)); syncSel(); }
     }));
@@ -3492,7 +3548,8 @@ function route() {
   // 문서 하나를 볼 때만 페이지가 스크롤된다. 나머지 화면은 창 높이에 맞추고 안쪽 칸만 스크롤한다
   document.body.classList.toggle('fit', !h.startsWith('doc/'));
   // 연결 화면을 떠나면 옆 패널을 닫는다(돌아와도 다시 열지 않는다)
-  if (h !== 'graph') closeDocPanel();
+  // 쓰는 동안 미뤄 둔 반영(graphWaiting)을 남긴 채 떠나면, 다른 화면이 옛 데이터를 그리지 않게 새로 고친다(다른 화면은 원래 파일이 바뀌면 새로 고친다)
+  if (h !== 'graph') { closeDocPanel(); if (graphWaiting) { graphWaiting = false; reloadKeeping({}); return; } }
   if (h.startsWith('doc/')) { setNav('docs'); viewDoc(h.slice(4)); return; }
   if (h === 'objects' || h.startsWith('objects/')) { setNav('objects'); viewObjects(h.split('/')[1] || 'questions'); return; }
   if (h === 'docs') { setNav('docs'); viewDocs($('#q').value); return; }
@@ -3540,6 +3597,8 @@ function onFilesChanged(paths) {
   const cur = currentDoc(), view = (location.hash.slice(1) || 'recent').split('/')[0];
   const label = paths.length === 1 ? esc(paths[0]) : '문서 ' + paths.length + '개';
   const offer = () => { const t = toast('<span>' + label + '가 바뀌었어요.</span> <button type="button" class="pill on" id="tReload">새로 고침</button>'); $('#tReload').addEventListener('click', () => reloadKeeping({ path: cur, old: cur && byPath.get(cur) ? byPath.get(cur).text : '' })); };
+  // 연결 화면에서 쓰는 중이면 알림을 띄우지 않고(알림의 새로 고침은 그래프와 패널을 날린다) 끌기 중처럼 미뤘다가 쓰기가 끝나면 반영한다(graphCatchUp)
+  if (busy() && !cur && view === 'graph') { if (paths.some(p => /\.(md|markdown)$/i.test(p))) graphWaiting = true; return; }
   if (busy()) return offer();
   if (cur) { if (touches(cur, paths)) reloadKeeping({ path: cur, old: byPath.get(cur) ? byPath.get(cur).text : '' }); else offer(); return; }
   // 연결 그래프는 페이지를 다시 읽으면 배치, 확대, 이동, 끌어 놓은 자리가 모두 처음으로 돌아간다.
@@ -3547,18 +3606,27 @@ function onFilesChanged(paths) {
   if (view === 'graph') { if (paths.some(p => /\.(md|markdown)$/i.test(p))) graphLiveUpdate(offer); return; }
   reloadKeeping({});
 }
+const onGraph = () => (location.hash.slice(1) || 'recent').split('/')[0] === 'graph';
+// 미뤄 둔 반영(graphWaiting)을 할 수 있으면 한다: 연결 화면이고, 끄는 중도 쓰는 중도 아닐 때.
+// 놓을 때, 편집 취소, 패널 닫기, 입력칸에서 초점이 빠질 때 부른다. 저장과 댓글 뒤에는 panelAfterWrite가 바로 받는다
+function graphCatchUp() {
+  if (!graphWaiting || !onGraph() || (LIVE && LIVE.dragging()) || busy()) return;
+  graphWaiting = false; graphLiveUpdate();
+}
+document.addEventListener('focusout', () => { if (graphWaiting) setTimeout(graphCatchUp, 0); });
 let liveRunning = false, liveAgain = false;
 async function graphLiveUpdate(offer) {
   if (liveRunning) { liveAgain = true; return; }
-  if (LIVE && LIVE.dragging()) { graphWaiting = true; return; }
+  // 끄는 중이거나 쓰는 중이면 미룬다. 놓거나 쓰기가 끝나면 graphCatchUp이 다시 부른다
+  if ((LIVE && LIVE.dragging()) || (onGraph() && busy())) { graphWaiting = true; return; }
   liveRunning = true;
   try {
     const r = await fetch('/data', { cache: 'no-store' });
     if (!r.ok) throw new Error('데이터를 받지 못함 ' + r.status);
     const next = await r.json();
-    // 받는 사이에 다른 화면으로 갔거나 무언가 쓰기 시작했으면 끼어들지 않는다
-    if ((location.hash.slice(1) || 'recent').split('/')[0] !== 'graph' || busy()) { if (offer) offer(); return; }
-    if (LIVE && LIVE.dragging()) { graphWaiting = true; return; }
+    // 받는 사이에 다른 화면으로 갔으면 알림만, 끌기나 쓰기를 시작했으면 미룬다
+    if (!onGraph()) { if (offer) offer(); return; }
+    if ((LIVE && LIVE.dragging()) || busy()) { graphWaiting = true; return; }
     applyLiveData(next);
   } catch (e) {
     // 서버가 예전 판이라 /data가 없으면 예전처럼 새로 고침 알림만 띄운다.
