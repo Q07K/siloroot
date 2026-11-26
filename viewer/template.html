@@ -263,6 +263,8 @@ select:hover{border-color:var(--faint)}
 .area path{stroke:none;pointer-events:none}
 .alab text{font-size:16px;font-weight:800;stroke:var(--surface);stroke-width:6px;stroke-linejoin:round;paint-order:stroke;pointer-events:none}
 .alab .ahit{fill:transparent;pointer-events:all;cursor:help}
+.alab.go .ahit{cursor:pointer}
+.alab.go .atag:hover text{text-decoration:underline}
 .alab .aico{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .alab .aico.halo{stroke:var(--surface);stroke-width:6}
 .aicon{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -643,6 +645,12 @@ function registerProjArea(name) {
   AREA_KEYS.push(a);
   AREA_C[a] = PROJ_C; AREA_ICON[a] = FOLDER_ICON; AREA_NAME[a] = name + ' 프로젝트'; AREA_SUB[a] = '홈 노트가 가리키는 문서 · 누르면 그 프로젝트 뷰어로';
 }
+// 다른 작업 공간 영역: 프로젝트 뷰어의 home, 홈 뷰어의 프로젝트 영역. 영토 제목을 누르면 그 뷰어로, 그 점을 누르면 옆 패널로 연다
+const foreignArea = a => (HOME_MODE ? isProjArea(a) : a === 'home');
+const areaViewerUrl = a => {
+  const w = (D.externals || []).find(x => (HOME_MODE ? x.label === areaLabel(a) : x.name === 'home'));
+  return (w && w.url) || (!HOME_MODE && a === 'home' && D.home && D.home.url) || null;
+};
 // @areas-end
 // 글자 폭(px): 클러스터 이름표를 가운데에 놓는 데 쓴다. 이름표는 고정 글자 크기로 그리고 그룹째 --fk만큼 키우므로 한 번 재면 된다
 let textWCtx = null;
@@ -1876,7 +1884,7 @@ function landCircle(ms, nodes, pad = 30) { const c = enclosingCircle(ms.flatMap(
 // 영역 하나의 SVG: [영토 g, 이름표 g]
 function areaSvg(s) {
   // 영역 폴더를 범례에서 모두 끈 영토: 빈 g만 둔다. 다시 켜면 drawAreas가 이 자리를 채운다
-  if (s.off) return ['<g class="area" data-a="' + s.a + '"></g>', '<g class="alab" data-a="' + s.a + '"></g>'];
+  if (s.off) return ['<g class="area" data-a="' + s.a + '"></g>', '<g class="alab' + (foreignArea(s.a) ? ' go' : '') + '" data-a="' + s.a + '"></g>'];
   const c = AREA_C[s.a], f1 = v => v.toFixed(1), st = ' style="fill:' + c + ';stroke:' + c + '"';
   // 이름표: 영토 아이콘 + 영어 이름. 화면 배율과 상관없이 같은 크기로 보이게 그룹째 --fk만큼 키운다(글자 크기는 16px 고정).
   // 한국어 설명(공유 · 팀과 나눌 수 있음 등)은 그래프에 쓰지 않고, 이름표에 마우스를 올리면 뜬다(data-tip)
@@ -1887,7 +1895,7 @@ function areaSvg(s) {
       '<rect class="ahit" x="' + (x0 - 6) + '" y="-22" width="' + (w + 12) + '" height="30" rx="6"></rect>' + ico +
       '<text x="' + (x0 + (hasI ? 24 : 0)) + '" y="0" style="fill:' + c + '">' + esc(nm) + '</text></g>';
   };
-  return ['<g class="area" data-a="' + s.a + '"><path d="' + s.d + '"' + st + '></path></g>', '<g class="alab" data-a="' + s.a + '">' + tag(s.lx, s.ly) + '</g>'];
+  return ['<g class="area" data-a="' + s.a + '"><path d="' + s.d + '"' + st + '></path></g>', '<g class="alab' + (foreignArea(s.a) ? ' go' : '') + '" data-a="' + s.a + '">' + tag(s.lx, s.ly) + '</g>'];
 }
 // 폴더 원 하나가 차지하는 자리(원, 위 이름표)를 점들로
 function hullPts(h, nodes, pad) {
@@ -2996,6 +3004,12 @@ function viewGraph(carry) {
     if (graphWaiting) { graphWaiting = false; setTimeout(graphLiveUpdate, 0); }
   });
   svgEl.addEventListener('pointerleave', () => { if (!drag && hoverK != null) { hoverK = null; paint(); } });
+  // 다른 작업 공간 영토 제목: 그 뷰어 그래프를 새 탭으로 연다(꺼져 있으면 openExternal이 알린다)
+  svgEl.addEventListener('click', e => {
+    const t = e.target.closest('.alab.go'); if (!t) return;
+    const a = t.dataset.a, url = areaViewerUrl(a);
+    openExternal({ d: { title: a === 'home' ? '홈' : areaLabel(a) }, url, href: url ? url + '/#graph' : null });
+  });
   svgEl.addEventListener('dblclick', e => { const nd = e.target.closest('.nd'); if (nd && !nodes[+nd.dataset.k].ext) location.hash = 'doc/' + encodeURIComponent(nodes[+nd.dataset.k].id); });
   $('#gfold').addEventListener('click', () => {
     GS.legendClosed = !GS.legendClosed; saveGS();

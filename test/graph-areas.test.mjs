@@ -9,17 +9,17 @@ import { fileURLToPath } from 'node:url';
 
 const TEMPLATE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'viewer', 'template.html');
 
-function areas(mode) {
+function areas(mode, externals = []) {
   const src = fs.readFileSync(TEMPLATE, 'utf8');
   const a = src.indexOf('// @areas-start'), b = src.indexOf('// @areas-end');
   assert.ok(a > 0 && b > a, 'template.html에 @areas-start, @areas-end 표시가 있어야 한다');
   const ctx = vm.createContext({
     window: { matchMedia: () => ({ matches: false }) },
     document: { querySelector: () => null },
-    D: { mode, docs: [], externals: [] },
+    D: { mode, docs: [], externals },
     folders: [],
   });
-  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color })', ctx);
+  return vm.runInContext(src.slice(a, b) + '\n;({ areaCalc, areaOf, areaMemo, EXTF, shownFolder, rootless, AREA_KEYS, AREA_C, AREA_ICON, AREA_NAME, isProjArea, areaLabel, registerProjArea, color, foreignArea, areaViewerUrl })', ctx);
 }
 const addExt = (A, f) => { A.EXTF.add(f); A.areaMemo.clear(); };
 
@@ -58,4 +58,17 @@ test('프로젝트 영역은 한 번만 등록되고 이름표와 색을 갖는�
   assert.equal(A.isProjArea('home'), false);
   assert.equal(A.areaLabel('p:siloroot'), 'siloroot');
   assert.equal(A.areaLabel('shared'), 'shared');
+});
+
+test('다른 작업 공간 영역: 프로젝트 뷰어는 home, 홈 뷰어는 프로젝트 영역', () => {
+  const P = areas('project', [{ id: '@home', name: 'home', label: '홈', url: 'http://127.0.0.1:4181' }]);
+  assert.equal(P.foreignArea('home'), true);
+  assert.equal(P.foreignArea('shared'), false);
+  assert.equal(P.foreignArea('private'), false);
+  assert.equal(P.areaViewerUrl('home'), 'http://127.0.0.1:4181');
+  const H = areas('home', [{ id: '@siloroot', name: 'siloroot', label: 'siloroot', url: 'http://127.0.0.1:4180' }]);
+  assert.equal(H.foreignArea('home'), false);
+  assert.equal(H.foreignArea('p:siloroot'), true);
+  assert.equal(H.areaViewerUrl('p:siloroot'), 'http://127.0.0.1:4180');
+  assert.equal(H.areaViewerUrl('p:없는-프로젝트'), null);
 });
