@@ -3049,7 +3049,7 @@ function viewGraph(carry) {
     const nd = e.target.closest('.nd'), hl = !nd && hulls ? e.target.closest('.hull') : null, p = toVB(e);
     drag = nd ? { k: +nd.dataset.k, sx: p.x, sy: p.y, moved: 0 }
       : hl && hulls.has(hl.dataset.f) ? { hull: hl.dataset.f, sx: p.x, sy: p.y, moved: 0 }
-      : { pan: true, sx: p.x, sy: p.y, ox: GS.x, oy: GS.y, moved: 0 };
+      : { pan: true, sx: p.x, sy: p.y, ox: GS.x, oy: GS.y, moved: 0, go: (e.target.closest('.alab.go') || {}).dataset };
     if (drag.hull) svgEl.classList.add('hdrag');
     coarseTrunk = !drag.pan;
     svgEl.setPointerCapture(e.pointerId); svgEl.classList.add('panning');
@@ -3076,18 +3076,18 @@ function viewGraph(carry) {
     // 자리 잡는 움직임이 없으면 바로 정밀하게, 있으면 멈춘 뒤 loop가 정밀하게 다시 그린다
     if (coarseTrunk && !raf) { coarseTrunk = false; refineLinks(); }
     if (d.hull) { if (d.moved < 3) select(null); }
-    else if (d.moved < 3) { if (d.pan) select(null); else pick(d.k); }
+    else if (d.moved < 3) { if (d.pan && d.go) openArea(d.go.a); else if (d.pan) select(null); else pick(d.k); }
     else if (!d.pan) { hoverK = null; if (grown.size) releaseHulls(d.k); paint(); }
     // 끄는 동안 문서가 바뀌었으면 놓은 뒤에 반영한다
     if (graphWaiting) { graphWaiting = false; setTimeout(graphLiveUpdate, 0); }
   });
   svgEl.addEventListener('pointerleave', () => { if (!drag && hoverK != null) { hoverK = null; paint(); } });
-  // 다른 작업 공간 영토 제목: 그 뷰어 그래프를 새 탭으로 연다(꺼져 있으면 openExternal이 알린다)
-  svgEl.addEventListener('click', e => {
-    const t = e.target.closest('.alab.go'); if (!t) return;
-    const a = t.dataset.a, url = areaViewerUrl(a);
+  // 다른 작업 공간 영토 제목: 그 뷰어 그래프를 새 탭으로 연다(꺼져 있으면 openExternal이 알린다).
+  // pointerdown이 svg에 포인터를 잡아서(setPointerCapture) click은 늘 svg로 온다. 그래서 누른 자리의 제목을 drag.go에 기억했다가 끌지 않고 놓으면 연다
+  function openArea(a) {
+    const url = areaViewerUrl(a);
     openExternal({ d: { title: a === 'home' ? '홈' : areaLabel(a) }, url, href: url ? url + '/#graph' : null });
-  });
+  }
   svgEl.addEventListener('dblclick', e => { const nd = e.target.closest('.nd'); if (nd && !nodes[+nd.dataset.k].ext) location.hash = 'doc/' + encodeURIComponent(nodes[+nd.dataset.k].id); });
   $('#gfold').addEventListener('click', () => {
     GS.legendClosed = !GS.legendClosed; saveGS();
