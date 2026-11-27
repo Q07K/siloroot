@@ -22,7 +22,7 @@ related: [shared/requirements/doc-slots.md, shared/requirements/connection-graph
 | 한 문서 뷰(문서 화면과 옆 패널 통일, 문서 뷰 디자인 개선) | `shared/requirements/unified-doc-view.md` | 1단계 0.8.7로 내보냄(PR #43, #44). 2단계 첫 항목 좁은 문서 뷰(위 단추 줄) main에 머지(PR #48), 0.8.9로 내보냄(PR #49). 받은 뒤 실제 화면 확인이 남음 |
 | 사용 기록에 자리별 문서 읽기·쓰기 세기 | `shared/requirements/metrics-doc-slots.md` | 0.8.8로 내보냄(PR #45, #46). 받은 뒤 실제 세션에서 새 칸 확인이 남음 |
 | 세션을 시작할 때 컨벤션을 맥락에 넣기 | `shared/requirements/conventions-on-session-start.md` | 0.8.9로 내보냄(PR #47, #49). 받은 뒤 실제 세션과 압축 뒤, Codex 확인이 남음 |
-| 새 점과 새 선을 다음 메시지까지 남기기 | `shared/requirements/persistent-new-marks.md` | PR #52(브랜치 `feat/persistent-new-marks`), 머지 전. AI가 정한 기본값 확인이 남음 |
+| 새 점과 새 선을 다음 메시지까지 남기기 | `shared/requirements/persistent-new-marks.md` | 0.8.11로 내보냄(PR #52). 받은 뒤 실제 세션 확인과 AI가 정한 기본값 확인이 남음 |
 
 ## 다음
 
