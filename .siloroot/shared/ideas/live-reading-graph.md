@@ -2,7 +2,7 @@
 type: idea
 status: 완료
 created: 2026-11-24
-related: [shared/issues/trail-misses-scripts.md, shared/design/live-reading-graph-decision-design.md, shared/plans/live-reading-graph-decision-plan.md, shared/issues/codex-support-missing.md, shared/ideas/reuse-evidence.md]
+related: [shared/issues/trail-misses-scripts.md, shared/design/live-reading-graph-decision-design.md, shared/plans/live-reading-graph-decision-plan.md, shared/issues/codex-support-missing.md, shared/ideas/reuse-evidence.md, shared/ideas/persistent-new-marks.md]
 ---
 
 # 연결 그래프에 Claude가 지금 읽는 문서 표시하기

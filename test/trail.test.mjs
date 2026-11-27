@@ -7,7 +7,7 @@ import { loadConfig, writeConfig } from '../lib/config.mjs';
 import { setHome } from '../lib/user.mjs';
 import {
   trailDir, toDocPath, docPathsInCommand, entriesFromHook, safeSession,
-  appendTrail, resetTrail, readTrail, latestTrail,
+  appendTrail, resetTrail, readTrail, latestTrail, readTurn, turnNew,
 } from '../lib/trail.mjs';
 
 const win = process.platform === 'win32';
@@ -143,6 +143,28 @@ test('resetTrail은 흔적 파일이 없는 세션의 파일을 만들지 않는
   const { cfg } = project();
   resetTrail(cfg, 'none');
   assert.equal(fs.existsSync(path.join(trailDir(cfg), 'none.jsonl')), false);
+});
+
+test('resetTrail은 흔적 파일이 없어도 새 메시지 표를 남기고, latestTrail은 그 표를 흔적으로 읽지 않는다', () => {
+  const { cfg } = project();
+  assert.equal(readTurn(cfg), null);
+  resetTrail(cfg, 'none', 1000);
+  assert.deepEqual(readTurn(cfg), { session: 'none', at: 1000 });
+  assert.deepEqual(latestTrail(cfg), { session: null, items: [] });
+  resetTrail(cfg, 's2', 2000);
+  assert.deepEqual(readTurn(cfg), { session: 's2', at: 2000 });
+});
+
+test('turnNew는 새 메시지 표가 바뀐 뒤 처음 본 모습을 기준으로 삼고, 기준에 없는 점과 선만 돌려준다', () => {
+  const { cfg } = project();
+  assert.equal(turnNew(cfg, ['a.md'], []), null);
+  resetTrail(cfg, 's1', 1000);
+  assert.deepEqual(turnNew(cfg, ['a.md', 'b.md'], ['a.md|b.md']), { at: 1000, nodes: [], links: [] });
+  assert.deepEqual(turnNew(cfg, ['a.md', 'b.md', 'c.md', '@home:x.md'], ['a.md|b.md', 'b.md|c.md']),
+    { at: 1000, nodes: ['c.md', '@home:x.md'], links: ['b.md|c.md'] });
+  // 다음 메시지: 그때 모습이 새 기준이 된다
+  resetTrail(cfg, 's1', 2000);
+  assert.deepEqual(turnNew(cfg, ['a.md', 'b.md', 'c.md'], ['a.md|b.md', 'b.md|c.md']), { at: 2000, nodes: [], links: [] });
 });
 
 test('흔적 폴더가 없으면 latestTrail은 빈 흔적을 준다', () => {
