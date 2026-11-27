@@ -2297,7 +2297,7 @@ function setTrail(data, first) {
   const newTurn = !first && next.turn != null && next.turn !== TRAIL.turn;
   const hadMarks = !!(D.turn && (D.turn.nodes.length || D.turn.links.length));
   TRAIL = next;
-  if (newTurn && D.turn) { D.turn = { at: next.turn, nodes: [], links: [] }; if (turnMarks) turnMarks(); }
+  if (newTurn && D.turn) { D.turn = { at: next.turn, nodes: [], links: [] }; if (turnMarks) turnMarks(!trailRedraw); }
   if (first) trailSeen = { session: next.session, n: next.items.length };
   if (!trailRedraw) return;
   trailRedraw();
@@ -3688,7 +3688,8 @@ function viewGraph(carry) {
   // 패널 문서가 그래프에 보이면 강조를 그 점에 둔다. 패널을 열고 닫을 때도 맞추게 건다(그래프가 사라지면 스스로 비운다)
   syncSel();
   xpChanged = () => { if (!svgEl.isConnected) { xpChanged = null; return; } syncSel(); };
-  turnMarks = () => {
+  // trail이 false면 흔적 목록은 다시 그리지 않는다(부르는 쪽이 곧 다시 그릴 때). 흔적을 괜히 다시 그리면 차오르던 선이 끊긴다
+  turnMarks = (trail = true) => {
     if (!svgEl.isConnected) { turnMarks = null; return; }
     [nw, nwL] = turnSets();
     nEls.forEach((el, k) => {
@@ -3699,7 +3700,7 @@ function viewGraph(carry) {
     });
     lEls.forEach((el, i) => { if (!el.classList.contains('born')) el.classList.toggle('nw', nwL.has(i)); });
     svgEl.classList.toggle('nwmany', nwL.size > NW_GLOW_MAX);
-    trailBuild();
+    if (trail) trailBuild();
   };
 
   LIVE = {
@@ -3865,6 +3866,7 @@ function applyLiveData(next) {
   const same = graphSig(D) === graphSig(next);
   const before = new Set(D.docs.map(d => d.path));
   const carry = LIVE && !same ? LIVE.snapshot() : null;
+  const turnBefore = JSON.stringify(D.turn || null);
   // 연결이 그대로여도 패널 문서의 글이 바뀌었으면 패널을 다시 그려야 해서, 바꾸기 전 지문을 남긴다
   const xpBefore = XP.path ? xpSig(XP.path) : null;
   for (const k of Object.keys(D)) delete D[k];
@@ -3881,7 +3883,7 @@ function applyLiveData(next) {
   for (const d of D.docs) if (!folders.includes(d.folder)) folders.push(d.folder);
   $('#meta').textContent = '문서 ' + D.docs.length + '개, 연결 ' + D.edges.length + '개, ' + fmtTime(D.builtAt) + ' 생성';
   if (same) {
-    if (turnMarks) turnMarks();
+    if (turnMarks && JSON.stringify(D.turn || null) !== turnBefore) turnMarks();
     // 그래프는 그대로 두고 패널만: 글이 바뀌었으면 읽던 자리를 지켜 다시 그리고, 문서가 없어졌으면 닫는다
     if (XP.path) { const now = xpSig(XP.path); if (now == null) closeDocPanel(); else if (now !== xpBefore) reopenDocPanel(XP.o, $('#xbody') ? $('#xbody').scrollTop : 0); }
     return;

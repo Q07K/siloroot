@@ -128,17 +128,26 @@ test('흔적이 바뀌면 /events로 trail 알림이 온다', async () => {
   }
 });
 
-test('새 메시지가 오면 서버가 그때 모습을 기준으로 잡고, 뒤에 생긴 문서와 연결만 새 것으로 싣는다', async () => {
+test('새 메시지가 오면 화면이 붙은 서버가 바로 기준을 잡고, 뒤에 생긴 문서와 연결만 새 것으로 싣는다', async () => {
   const cfg = loadConfig(root);
-  resetTrail(cfg, 's1');
-  const end = Date.now() + 5000;
+  const baseFile = path.join(cfg.stateDir, 'turn-base.json');
+  fs.rmSync(baseFile, { force: true });
+  const req = http.get(base + '/events', (res) => res.resume());
   let j = null;
-  while (Date.now() < end) {
-    j = await (await fetch(base + '/trail')).json();
-    if (j.turn != null && fs.existsSync(path.join(cfg.stateDir, 'turn-base.json'))) break;
-    await new Promise((r) => setTimeout(r, 100));
+  try {
+    await new Promise((r) => setTimeout(r, 300));
+    resetTrail(cfg, 's1');
+    const end = Date.now() + 5000;
+    while (Date.now() < end) {
+      j = await (await fetch(base + '/trail')).json();
+      if (j.turn != null && fs.existsSync(baseFile)) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  } finally {
+    req.destroy();
   }
   assert.equal(typeof j.turn, 'number');
+  assert.equal(JSON.parse(fs.readFileSync(baseFile, 'utf8')).at, j.turn);
   const was = await (await fetch(base + '/data')).json();
   assert.deepEqual(was.turn, { at: j.turn, nodes: [], links: [] });
   write(root, '02-study/b.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# b\n\n`02-study/a.md`\n');

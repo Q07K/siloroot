@@ -98,6 +98,7 @@ try { fs.watch(DOCS, { recursive: true }, (_e, f) => onChange(f)); } catch (e) {
 // 읽는 문서 흔적(.siloroot/state/trail/)이 바뀌면 가장 최근 세션의 흔적을 이름 단 알림(event: trail)으로 보낸다.
 // 훅이 연달아 붙여도 150ms 모아 한 번 보낸다. 흔적 파일이 생기기 전에 연 화면도 받도록 폴더를 먼저 만든다.
 // 새 메시지 표(trail/turn.json)가 바뀌었으면 알리기 전에 빌드해, 새 점과 새 선의 기준을 Claude가 고치기 전 모습으로 잡는다.
+// 붙은 화면이 없으면 빌드하지 않는다(메시지마다 빌드하지 않게). 그때는 화면을 연 뒤 첫 빌드가 기준을 잡는다(lib/trail.mjs turnNew).
 let trailTimer = null, turnAt = (readTurn(CFG) || {}).at ?? null;
 const trailNow = () => ({ ...latestTrail(CFG), turn: turnAt });
 function onTrail() {
@@ -106,7 +107,7 @@ function onTrail() {
     const at = (readTurn(CFG) || {}).at ?? null;
     if (at !== turnAt) {
       turnAt = at;
-      try { build(['--keep-snapshot', '--data-only']); } catch (e) { console.error('새 메시지 기준을 잡지 못했습니다:', e.message); }
+      if (clients.size) try { build(['--keep-snapshot', '--data-only']); } catch (e) { console.error('새 메시지 기준을 잡지 못했습니다:', e.message); }
     }
     const msg = 'event: trail\ndata: ' + JSON.stringify(trailNow()) + '\n\n';
     for (const res of clients) res.write(msg);
