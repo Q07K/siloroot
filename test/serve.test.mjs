@@ -98,13 +98,13 @@ test('확인할 경로가 폴더 밖이면 400', async () => {
 // --- 읽는 문서 흔적 (/trail, event: trail) ---
 import http from 'node:http';
 import { loadConfig } from '../lib/config.mjs';
-import { appendTrail } from '../lib/trail.mjs';
+import { appendTrail, resetTrail } from '../lib/trail.mjs';
 
 test('흔적이 없으면 /trail은 빈 흔적을 준다', async () => {
   const r = await fetch(base + '/trail');
   assert.equal(r.status, 200);
   assert.match(r.headers.get('content-type'), /application\/json/);
-  assert.deepEqual(await r.json(), { session: null, items: [] });
+  assert.deepEqual(await r.json(), { session: null, items: [], turn: null });
 });
 
 test('흔적 파일을 쓰면 /trail이 그 흔적을 준다', async () => {
@@ -126,6 +126,25 @@ test('흔적이 바뀌면 /events로 trail 알림이 온다', async () => {
   } finally {
     req.destroy();
   }
+});
+
+test('새 메시지가 오면 서버가 그때 모습을 기준으로 잡고, 뒤에 생긴 문서와 연결만 새 것으로 싣는다', async () => {
+  const cfg = loadConfig(root);
+  resetTrail(cfg, 's1');
+  const end = Date.now() + 5000;
+  let j = null;
+  while (Date.now() < end) {
+    j = await (await fetch(base + '/trail')).json();
+    if (j.turn != null && fs.existsSync(path.join(cfg.stateDir, 'turn-base.json'))) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(typeof j.turn, 'number');
+  const was = await (await fetch(base + '/data')).json();
+  assert.deepEqual(was.turn, { at: j.turn, nodes: [], links: [] });
+  write(root, '02-study/b.md', '---\ntype: study\nstatus: 검증 전\n---\n\n# b\n\n`02-study/a.md`\n');
+  const now = await (await fetch(base + '/data')).json();
+  assert.deepEqual(now.turn.nodes, ['02-study/b.md']);
+  assert.deepEqual(now.turn.links, ['02-study/a.md|02-study/b.md']);
 });
 
 test('모양 3 프로젝트의 뷰어 댓글은 private/feedback에 쓴다', async () => {

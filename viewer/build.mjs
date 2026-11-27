@@ -18,6 +18,7 @@ import { VOCAB } from '../lib/vocab.mjs';
 import { placesOf, localPlace, folderRules, groupOf, slotFolders } from '../lib/layout.mjs';
 import { readUser, workspaceRoot, WS_REF } from '../lib/user.mjs';
 import { makeIndex, resolveTarget as resolveLink } from '../lib/links.mjs';
+import { turnNew } from '../lib/trail.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -525,6 +526,17 @@ if (prev) {
   for (const p of Object.keys(prev.files)) if (!mdSet.has(p)) changes.removed.push(p);
 }
 
+// ---------- 5-1. 이번 메시지에 새로 생긴 점과 선 ----------
+// 연결 그래프가 다음 메시지까지 표시한다(viewer/template.html의 D.turn). 점과 선 이름은 그래프와 같게 짓는다:
+// 점은 문서 경로, 바깥 문서는 '@' + 대상. 선은 두 끝을 정렬해 '|'로 잇는다. 필터와 상관없이 원래 데이터로 견준다
+const turnKey = (a, b) => [a, b].sort().join('|');
+const turnIds = new Set(docs.map((d) => d.path));
+for (const e of extEdges) turnIds.add('@' + e.target);
+const turnKeys = new Set();
+for (const e of edges) if (e.from !== e.to) turnKeys.add(turnKey(e.from, e.to));
+for (const e of extEdges) turnKeys.add(turnKey(e.from, '@' + e.target));
+const turn = turnNew(CFG, turnIds, turnKeys);
+
 // ---------- 6. 쓰기 ----------
 const builtAt = Date.now();
 // 웹에서 고친 기록 (serve.mjs가 쓴다). 최근 50건만 싣는다.
@@ -541,7 +553,7 @@ const slots = slotFolders(CFG).filter((f) => fs.existsSync(path.join(DOCS, ...f.
 
 const data = {
   slots,
-  builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits,
+  builtAt, prevBuiltAt: prev ? prev.builtAt : null, root: path.basename(ROOT), docs, edges, objects, changes, edits, turn,
   mode: CFG.mode || 'project', schema: CFG.schema ?? null, home: homeLink, externals: [...externals.values()], extEdges, extTitles, extTexts, extFms,
 };
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
