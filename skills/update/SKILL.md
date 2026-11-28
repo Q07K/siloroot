@@ -61,6 +61,7 @@ description: SiloRoot 플러그인을 새 버전으로 올리고, 작업 공간�
    - `skipped`가 `newer`면 이 폴더는 더 새 플러그인으로 맞춰져 있다. 건드리지 않는다.
    - 올리지 않았으면 `pluginFrom`을 "옛 버전"으로 기억한다.
    - `upToDate`가 아니면 맞출 관리 블록(`refresh.blocks`에서 `skipped`가 아닌 것), 새로 만들 파일과 줄을 짧게 보여 준다.
+   - `codex`가 있고 `state`가 `created`나 `updated`면 Codex 전역 지침(`codex.file`)의 SiloRoot 블록도 맞춘다고 함께 보인다. 블록 밖은 건드리지 않는다. `conflict`면 표시가 짝이 맞지 않아 맞추지 못한다고 알린다.
    - `refresh.guideGaps`가 있으면 파일마다 빠진 표 항목(`items`)을 보이고 줄마다 더할지 묻는다. `<S>/templates/<tpl>`에서 그 항목이 든 줄을 찾아 보여 준다. 사용자가 일부러 지운 줄일 수 있다. 더하지 않기로 한 줄은 답의 `declined`에 넣는다.
 
 6. 맞춘다. 맞출 것이 있으면 바꾸기 전에 스크립트가 백업한다.
@@ -93,7 +94,7 @@ description: SiloRoot 플러그인을 새 버전으로 올리고, 작업 공간�
 
 ## 마치기
 
-10. 결과를 알린다: 플러그인 버전(올렸으면 전 → 후), 맞춘 것과 백업 이름(없으면 파일을 바꾸지 않은 것), 서버, 바뀐 것, 점검 결과(`check.warnings` 속성 경고 수, `check.broken` 끊어진 `related`).
+10. 결과를 알린다: 플러그인 버전(올렸으면 전 → 후), 맞춘 것과 백업 이름(없으면 파일을 바꾸지 않은 것), Codex 전역 지침(맞추기 출력의 `codex`가 `created`, `updated`면 그 파일), 서버, 바뀐 것, 점검 결과(`check.warnings` 속성 경고 수, `check.broken` 끊어진 `related`).
     - 맞추기 출력의 `migration`이 있고 `held`가 아니면 "작업 공간 모양 `from` → `to`로 옮길 것이 있습니다. `/siloroot:migrate`로 미리 보고 옮길 수 있습니다"를 알린다. `held`면 "모양 `from`에 머물고 있습니다"만 알린다.
     - 플러그인을 올렸으면 "새 스킬과 훅은 새 세션부터 적용됩니다"를 알린다.
     - 맞춘 것을 되돌리려면 `/siloroot:migrate`의 되돌리기를 쓴다고 알린다.

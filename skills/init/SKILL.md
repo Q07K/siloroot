@@ -49,7 +49,7 @@ description: 지금 프로젝트 폴더를 SiloRoot 작업 공간으로 초기�
    - `"error": "home-path-space"`면 홈 경로(사용자 폴더 아래면 그 뒤)에 공백이 있다. 규칙 블록의 `@` 불러오기가 공백에서 끊기므로 공백 없는 위치를 묻는다.
    - 이미 초기화된 프로젝트에서 `warnings`에 "홈을 찾지 못해"가 나오면 `~/.siloroot/user.json`을 잃은 것이다. 규칙 블록은 그대로 두었다. 홈 위치를 묻고 `--home "<홈>"`을 붙여 다시 실행하면 홈을 다시 잇고 이 프로젝트를 다시 등록한다. "user.json이 깨져서"가 나오면 그 파일을 고치거나 지울지 묻는다.
 
-   성공하면 출력은 JSON이다: `mode`, `layout`, `name`(이 프로젝트를 다른 문서에서 `<이름>:경로`로 가리킬 때 쓰는 이름), `home`, `homeCreated`, `homeAccess`(`added`, `present`, `invalid`, `skipped`, `not-asked`), `created`, `updated`, `skipped`, `warnings`, `notes`, `port`, `url`. 경로는 프로젝트 맨 위 기준이고, 빈 폴더는 끝에 `/`가 붙는다. `warnings`가 있으면 3단계에서 그대로 전한다. `homeAccess`가 `invalid`면 `.claude/settings.local.json`이 JSON이 아니라 건드리지 않았다고 알린다.
+   성공하면 출력은 JSON이다: `mode`, `layout`, `name`(이 프로젝트를 다른 문서에서 `<이름>:경로`로 가리킬 때 쓰는 이름), `home`, `homeCreated`, `homeAccess`(`added`, `present`, `invalid`, `skipped`, `not-asked`), `created`, `updated`, `skipped`, `warnings`, `notes`, `port`, `url`, `codex`(Codex를 쓰는 PC일 때만: Codex 전역 지침 파일 `file`과 그 SiloRoot 블록의 `state`). 경로는 프로젝트 맨 위 기준이고, 빈 폴더는 끝에 `/`가 붙는다. `warnings`가 있으면 3단계에서 그대로 전한다. `homeAccess`가 `invalid`면 `.claude/settings.local.json`이 JSON이 아니라 건드리지 않았다고 알린다.
 
    이미 있던 `metadata-guide.md`나 후보 자리의 `README.md`가 예전 버전이라 새 템플릿의 표 항목이 빠졌으면 `warnings`에 나온다. 파일을 덮어쓰지 말고, `${CLAUDE_PLUGIN_ROOT}/templates/`의 같은 파일과 비교해 빠진 줄만 더할지 사용자에게 묻는다. 사용자가 일부러 지운 줄일 수 있다.
 
@@ -65,6 +65,7 @@ description: 지금 프로젝트 폴더를 SiloRoot 작업 공간으로 초기�
    - 새로 만든 파일, 줄을 더한 파일, 이미 있어서 그대로 둔 파일. 홈을 새로 만들었으면 홈 위치도
    - 뷰어 주소 (`url`). 사용자 정보와 "나" 화면은 홈 뷰어에 있다
    - SiloRoot 규칙은 `CLAUDE.local.md`가 불러오므로 다음 세션부터 적용된다
+   - `codex`가 있으면 `notes`의 Codex 줄을 전한다. Codex는 `CLAUDE.local.md`를 읽지 않아서, 전역 지침(`~/.codex/AGENTS.md`)의 SiloRoot 블록과 세션 시작 훅이 규칙을 넣는다. Codex에서 SiloRoot 훅을 아직 신뢰하지 않았으면 신뢰해야 규칙 본문이 들어간다(데스크톱 **설정 → Hooks**, CLI `/hooks`)
    - 다음에 할 수 있는 것: 기술 질문을 하면 홈에 공부 노트가 생긴다(`/siloroot:note`), "검증해 줘"라고 하면 Claude가 질문한다(`/siloroot:verify`)
    - 다음 세션부터는 세션을 열 때 뷰어가 자동으로 켜진다
 

@@ -21,12 +21,22 @@ import { timeScript } from '../lib/metrics.mjs';
 import { applyRefresh, ensureLines, gitExcludeFile, EXCLUDE_HEAD } from '../lib/workspace-sync.mjs';
 import { readUser, setHome, registerProject, usedPorts, userDir, userFile, importPath, overlaps } from '../lib/user.mjs';
 import { addAdditionalDirectory } from '../lib/claude-settings.mjs';
+import { applyCodex } from '../lib/codex.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BUILD = path.join(here, '..', 'viewer', 'build.mjs');
 const slash = (p) => path.resolve(p).split(path.sep).join('/');
 const build = (root) => execFileSync(process.execPath, [BUILD, root], { stdio: 'ignore', windowsHide: true });
 const urlOf = (cfg) => 'http://127.0.0.1:' + cfg.port;
+
+// Codex 전역 지침의 SiloRoot 블록도 맞춘다(lib/codex.mjs). Codex를 쓰지 않으면(폴더가 없으면) codex를 적지 않는다
+function withCodex(res) {
+  const c = applyCodex();
+  if (!c) return res;
+  res.codex = { file: c.file, state: c.state };
+  if (c.message) (c.state === 'conflict' || c.state === 'error' ? res.warnings : res.notes).push(c.message);
+  return res;
+}
 
 // 새로 고른 홈 자리를 쓸 수 있는지 본다. 못 쓰면 { error, ... }, 쓸 수 있으면 null
 // - 홈 경로(사용자 폴더 아래면 ~/ 뒤)에 공백이 있으면 규칙 블록의 @ 불러오기가 공백에서 끊긴다
@@ -40,7 +50,8 @@ function checkHome(home, projectRoot) {
 }
 
 // 홈을 만들거나 맞춘다. 홈은 폴더 자체가 문서 뿌리(flat)이고 설정만 <홈>/.siloroot/에 둔다
-export async function initHome(homeArg) {
+// codex: false면 Codex 전역 지침을 맞추지 않는다(프로젝트 초기화가 홈을 만들 때. 프로젝트 쪽에서 한 번 맞추고 알린다)
+export async function initHome(homeArg, { codex = true } = {}) {
   const home = path.resolve(homeArg);
   if (readUser().invalid) return { error: 'user-json-invalid', file: userFile() };
   const existing = loadConfig(home);
@@ -59,7 +70,8 @@ export async function initHome(homeArg) {
   (configCreated ? created : skipped).push(rel(path.join(home, '.siloroot', 'config.json')));
   setHome(home);
   build(home);
-  return { mode: 'home', root: slash(home), created, updated, skipped, warnings, notes, port: cfg.port, url: urlOf(cfg) };
+  const res = { mode: 'home', root: slash(home), created, updated, skipped, warnings, notes, port: cfg.port, url: urlOf(cfg) };
+  return codex ? withCodex(res) : res;
 }
 
 // 홈 쓰기 허락: 프로젝트의 .claude/settings.local.json에 홈을 더한다. git 저장소면 그 파일을 이 PC의 제외 목록에도 넣는다
@@ -88,7 +100,7 @@ export async function initProject(rootArg, { home, homeAccess } = {}) {
         const hc = loadConfig(home);
         if (hc && hc.mode !== 'home') return { error: 'not-home', home: slash(home) };
         if (hc) { const bad = overlaps(home, root) ? { error: 'home-in-project', home: slash(home), project: slash(root) } : null; if (bad) return bad; setHome(home); }
-        else { const h = await initHome(home); if (h.error) return h; }
+        else { const h = await initHome(home, { codex: false }); if (h.error) return h; }
       }
       registerProject(root);
       u = readUser();
@@ -101,7 +113,7 @@ export async function initProject(rootArg, { home, homeAccess } = {}) {
     const res = { mode: existing.mode, layout: existing.layout, created, updated, skipped, warnings, notes, port: existing.port, url: urlOf(existing) };
     if (v3project && u.home) res.homeAccess = grantHomeAccess(root, u.home, homeAccess);
     build(root);
-    return res;
+    return withCodex(res);
   }
 
   // 새 프로젝트: 홈부터 정한다. 아무것도 만들기 전에 멈출 것을 본다
@@ -116,7 +128,7 @@ export async function initProject(rootArg, { home, homeAccess } = {}) {
   if (!homeCfg) { const bad = checkHome(homeDir, root); if (bad) return bad; }
   let homeCreated = false;
   if (!homeCfg) {
-    const h = await initHome(homeDir);
+    const h = await initHome(homeDir, { codex: false });
     if (h.error) return h;
     homeCreated = true;
   } else if (!u.home) {
@@ -131,10 +143,10 @@ export async function initProject(rootArg, { home, homeAccess } = {}) {
   created.push(rel(cfgFile));
   const homeAccessState = grantHomeAccess(root, homeDir, homeAccess);
   build(root);
-  return {
+  return withCodex({
     mode: 'project', layout: 'wrapped', name, home: homeDir, homeCreated, homeAccess: homeAccessState,
     created, updated, skipped, warnings, notes, port: cfg.port, url: urlOf(cfg),
-  };
+  });
 }
 
 function parseArgs(argv) {

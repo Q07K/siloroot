@@ -33,9 +33,9 @@ claude plugin install siloroot@siloroot --scope project
 - 설치를 부탁한 대화에는 적용되지 않는다. 설치가 끝나면 같은 프로젝트에서 새 세션을 열고 `/siloroot:init`을 실행한다.
 - 업데이트도 같다. "이 프로젝트의 SiloRoot 플러그인 업데이트해 줘"라고 하면 Claude가 `claude plugin update siloroot@siloroot --scope project`를 실행한다. 적용하려면 새 세션을 연다.
 
-### Codex에서 문서 흔적 보기
+### Codex에서 쓰기
 
-이미 초기화한 SiloRoot 작업 공간에서 Codex의 셸 읽기와 `apply_patch` 편집을 연결 그래프의 흔적으로 볼 수 있다.
+이미 초기화한 SiloRoot 작업 공간에서 Codex도 SiloRoot 작업 규칙을 따르고, Codex의 셸 읽기와 `apply_patch` 편집을 연결 그래프의 흔적으로 볼 수 있다.
 
 ```powershell
 codex plugin marketplace add Q07K/siloroot
@@ -47,6 +47,11 @@ codex plugin add siloroot@siloroot
 뷰어가 꺼져 있으면 `node "<SiloRoot 플러그인 폴더>/viewer/serve.mjs" "<작업 공간 폴더>"`로 켠다. 파일 흔적은 현재 Codex 세션에서 새 메시지를 보내면 비워진다.
 
 모양 3 이상 프로젝트에서는 Codex 세션도 시작할 때 Claude Code와 같은 방식으로 프로젝트 컨벤션을 받는다(아래 "뷰어"의 훅 설명). Codex는 훅 출력을 약 2,500토큰으로 제한하므로, 3,000자를 넘으면 본문 대신 컨벤션 문서 목록을 넣는다.
+
+Codex는 `CLAUDE.local.md`를 읽지 않아서, SiloRoot 작업 규칙(`.siloroot/CLAUDE.md`, 홈은 `CLAUDE.md`)을 두 길로 넣는다.
+
+- 세션 시작 훅이 규칙 본문과, 그 안의 `@` 줄이 가리키는 사용자 정보를 맥락에 넣는다. 이 훅은 출력 한도(`additionalContextLimit`)를 12,000토큰으로 올려 둔다. 훅을 신뢰해야 돈다.
+- `/siloroot:init`과 `/siloroot:update`가 Codex 전역 지침(`~/.codex/AGENTS.md`, `CODEX_HOME`을 따른다. `AGENTS.override.md`가 있으면 그 파일)에 SiloRoot 관리 블록을 넣는다. SiloRoot 폴더에서는 규칙 파일을 먼저 읽고, "문서로 써 줘"는 마크다운 문서로 만들라는 짧은 안내다. 훅을 신뢰하지 않았을 때의 안전망이다. 블록 밖은 건드리지 않고, Codex 폴더가 없으면 만들지 않는다.
 
 ## 스킬
 

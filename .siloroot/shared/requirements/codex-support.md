@@ -2,7 +2,7 @@
 type: requirement
 status: 진행 중
 created: 2026-11-25
-related: [shared/issues/codex-support-missing.md, shared/roadmap.md]
+related: [shared/issues/codex-support-missing.md, shared/issues/codex-rules-not-loaded.md, shared/roadmap.md]
 ---
 
 # Codex에서 SiloRoot 쓰기
@@ -27,7 +27,7 @@ Codex에서 SiloRoot 스킬을 읽을 수 있어도 Claude Code용 훅으로는 
 | 범위 | 확인할 것 |
 | --- | --- |
 | 설치와 업데이트 | 데스크톱과 CLI의 설치·업데이트·새 세션 흐름, 캐시 버전 교체, 새 훅 검토, `/siloroot:update`가 관리할 대상 |
-| 초기화와 규칙 | Codex에서 초기화를 실행하는 방법, `AGENTS.md`로 관리 규칙을 읽는 방법, 기존 Claude Code 작업 공간과 같이 쓰는 경우 |
+| 초기화와 규칙 | Codex에서 초기화를 실행하는 방법, `AGENTS.md`로 관리 규칙을 읽는 방법, 기존 Claude Code 작업 공간과 같이 쓰는 경우. 2026-11-29 규칙을 못 읽어 문서를 엉뚱한 곳·Word로 만든 일이 남: `shared/issues/codex-rules-not-loaded.md` |
 | 뷰어와 알림 | 세션 시작 시 프로젝트와 홈 뷰어를 자동으로 열지, 피드백·후보·업데이트 알림이 Codex에도 전달되는지 |
 | 기록 범위 | `functions.exec` 안의 셸과 패치는 Windows Codex CLI의 도구 묶음 방식에서 확인했다. 파일 MCP와 서브에이전트의 지원 범위도 확인한다 |
 | 턴 기록 | Codex `Stop` 이벤트와 대화 기록에서 세션·턴·토큰을 가져올 수 있는지, Claude Code와 어떤 단위까지 비교할 수 있는지 |

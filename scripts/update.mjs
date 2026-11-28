@@ -29,6 +29,7 @@ import { createBackup, sealBackup, listBackups, restoreBackup, pruneBackups } fr
 import { timeScript } from '../lib/metrics.mjs';
 import { isOlder, ensureServer } from '../lib/servers.mjs';
 import { readUser } from '../lib/user.mjs';
+import { planCodex, applyCodex } from '../lib/codex.mjs';
 import { UPDATE_FROM } from '../lib/update-check.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -163,11 +164,13 @@ export function applyUpdate(rootArg, answersArg = {}) {
 
   let refresh = null;
   let refreshError = null;
+  let codex = null;
   try {
     if (!stoppedAt) {
       if (heldTo != null) updateConfig(root, { hold: heldTo });
       try {
         refresh = applyRefresh(root, loadConfig(root), { declined });
+        codex = applyCodex();
         updateConfig(root, { plugin: pluginVersion() });
       } catch (e) {
         // 맞추기에서 실패하면 plugin을 적지 않고 멈춘다. 마이그레이션은 이미 적용됐다
@@ -180,7 +183,7 @@ export function applyUpdate(rootArg, answersArg = {}) {
     if (backup) { sealBackup(root, backup); pruneBackups(root); }
   }
   const after = loadConfig(root);
-  const out = { backup, migrations: results, refresh, check: check(root), schema: after.schema, plugin: after.plugin, stoppedAt };
+  const out = { backup, migrations: results, refresh, codex, check: check(root), schema: after.schema, plugin: after.plugin, stoppedAt };
   if (refreshError) out.refreshError = refreshError;
   return out;
 }
@@ -259,7 +262,10 @@ export function planRefreshOnly(rootArg) {
   const { root, cfg } = o;
   if (newerThanMe(cfg)) return { skipped: 'newer', plugin: cfg.plugin, pluginTo: pluginVersion() };
   const refresh = planRefresh(root, cfg, { declined: readDeclined(cfg) });
-  return { schema: cfg.schema, pluginFrom: cfg.plugin, pluginTo: pluginVersion(), refresh, upToDate: refreshClean(refresh) && !refresh.guideGaps.length, migration: nextMigration(cfg) };
+  // Codex 전역 지침 블록(lib/codex.mjs). Codex를 쓰지 않으면 null. 표시가 짝이 안 맞으면(conflict) 맞추지 못하므로 맞출 것으로 세지 않는다
+  const codex = planCodex();
+  const codexClean = !codex || codex.state === 'skipped' || codex.state === 'conflict';
+  return { schema: cfg.schema, pluginFrom: cfg.plugin, pluginTo: pluginVersion(), refresh, codex, upToDate: refreshClean(refresh) && !refresh.guideGaps.length && codexClean, migration: nextMigration(cfg) };
 }
 
 // 마이그레이션 없이 맞추기만 한다. hold를 적지 않는다(옮길지는 /siloroot:migrate에서 정한다)
@@ -272,16 +278,17 @@ export function applyRefreshOnly(rootArg, answersArg = {}) {
   const plan = planRefresh(root, cfg, { declined });
   let backup = null;
   if (!refreshClean(plan)) backup = createBackup(root, { from: cfg.schema, to: cfg.schema, files: ['.siloroot/config.json', ...refreshChanges(plan)], creates: [] }).name;
-  let refresh = null, refreshError = null;
+  let refresh = null, refreshError = null, codex = null;
   try {
     refresh = applyRefresh(root, cfg, { declined });
+    codex = applyCodex();
     updateConfig(root, { plugin: pluginVersion() });
   } catch (e) {
     refreshError = e.message;
   } finally {
     if (backup) { sealBackup(root, backup); pruneBackups(root); }
   }
-  const out = { backup, refresh, check: check(root), plugin: loadConfig(root).plugin, migration: nextMigration(loadConfig(root)) };
+  const out = { backup, refresh, codex, check: check(root), plugin: loadConfig(root).plugin, migration: nextMigration(loadConfig(root)) };
   if (refreshError) out.refreshError = refreshError;
   return out;
 }
