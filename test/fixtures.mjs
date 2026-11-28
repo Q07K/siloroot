@@ -9,6 +9,8 @@ if (!process.env.SILOROOT_USER_DIR) {
   fs.mkdirSync(dir, { recursive: true });
   process.env.SILOROOT_USER_DIR = dir;
 }
+// Codex 안에서 테스트를 돌려도 진짜 Codex 전역 지침(~/.codex/AGENTS.md)을 건드리지 않게 한다. 테스트의 Codex 폴더는 임시 사용자 폴더 밑이다(lib/codex.mjs)
+delete process.env.CODEX_HOME;
 
 // 공백과 한글이 든 새 임시 프로젝트 폴더를 만든다.
 export function makeProject(name = '테스트 폴더 A') {

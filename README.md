@@ -33,9 +33,9 @@ Install the SiloRoot plugin in this project. The marketplace is Q07K/siloroot.
 - The conversation where you asked does not get the plugin. When the install finishes, open a new session in the same project and run `/siloroot:init`.
 - Updates work the same way. Ask "Update the SiloRoot plugin in this project" and Claude runs `claude plugin update siloroot@siloroot --scope project`. Open a new session to apply it.
 
-### View document activity from Codex
+### Use from Codex
 
-In an existing SiloRoot workspace, the connection graph can show document activity from Codex shell reads and `apply_patch` edits.
+In an existing SiloRoot workspace, Codex follows the SiloRoot workspace rules too, and the connection graph can show document activity from Codex shell reads and `apply_patch` edits.
 
 ```powershell
 codex plugin marketplace add Q07K/siloroot
@@ -47,6 +47,11 @@ To test a local checkout, use its absolute path in place of the GitHub repositor
 If the viewer is stopped, run `node "<SiloRoot plugin folder>/viewer/serve.mjs" "<workspace folder>"`. A new message clears the current Codex session's trail.
 
 A Codex session in a layout 3 or later project also gets the project's conventions at session start, the same way as in Claude Code (see the hook notes under "Viewer"). Codex caps hook output at about 2,500 tokens, so above 3,000 characters it gets the list of convention documents instead of their text.
+
+Codex does not read `CLAUDE.local.md`, so the SiloRoot workspace rules (`.siloroot/CLAUDE.md`, or `CLAUDE.md` in the home) reach it in two ways.
+
+- A session start hook adds the rules, plus the profile that their `@` line points to, to the context. This hook raises its output limit (`additionalContextLimit`) to 12,000 tokens. It runs only after you trust it.
+- `/siloroot:init` and `/siloroot:update` add a SiloRoot managed block to the Codex global instructions (`~/.codex/AGENTS.md`, following `CODEX_HOME`, or `AGENTS.override.md` if that file is in use). The block is a short note: in a SiloRoot folder, read the rules file first, and "write it up as a document" means a Markdown document. It covers the case where the hooks are not trusted. Text outside the block is left alone, and nothing is created when there is no Codex folder.
 
 ## Skills
 
