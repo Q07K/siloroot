@@ -18,7 +18,7 @@ related: [shared/requirements/codex-support.md, shared/issues/codex-support-miss
   - 속성 `type: guide`도 metadata-guide에 없는 값
 - 새 세션: "이거 문서로 ㄱㄱ" → Codex 기본 `documents` 스킬(Word `.docx` 전용)을 불러 폴더 맨 위에 `.docx`를 만듦
   - `.siloroot/CLAUDE.md`를 한 번도 읽지 않음
-  - 세션 시작 맥락에 SiloRoot 규칙이 없음(새 작업 공간이라 컨벤션 문서도 없어 컨벤션 훅 출력도 빈 글)
+  - 세션 시작 맥락에 SiloRoot 규칙이 없음
 
 ## 원인
 
@@ -30,6 +30,8 @@ related: [shared/requirements/codex-support.md, shared/issues/codex-support-miss
   - Codex 지침 파일에는 `@경로` 같은 불러오기 문법이 없음
 - Codex용 SessionStart 훅(`hooks/codex-hooks.json`)은 컨벤션 문서만 넣음. 작업 규칙(자리 표, 흐름 나누기, 마칠 때)은 넣지 않음
 - 규칙이 없으니 "문서"라는 말이 `documents` 스킬 설명(Word, `.docx`)에 걸림
+- 그 작업 공간에는 Codex 훅이 돈 기록(`state/metrics.jsonl`의 `hook:conventions`, 흔적 파일)이 하나도 없음. 데스크톱에서 SiloRoot 훅을 아직 신뢰하지 않은 것. 훅으로 규칙을 넣어도 신뢰 전에는 돌지 않음
+- `shared/runbook/`은 템플릿의 `shared/README.md`에 "운영할 것이 생기면 `shared/runbook/`을 더한다"고 적혀 있어서 그대로 따른 것
 
 추정(아직 확인 안 함):
 
@@ -47,8 +49,12 @@ related: [shared/requirements/codex-support.md, shared/issues/codex-support-miss
   - Codex 폴더(`CODEX_HOME`, 없으면 `~/.codex`)가 없으면 아무것도 안 만듦
   - `AGENTS.override.md`가 비어 있지 않으면 그 파일에, 아니면 `AGENTS.md`에
   - 작업 공간 밖 파일이라 작업 공간 백업에 담지 않음
-- 관리 블록 템플릿 넷(프로젝트·홈, 모양 3·4)에 "문서로 써 줘 = 자리 표에 맞는 마크다운" 한 줄을 더함. 템플릿만 바뀌어 `SCHEMA`는 그대로
-- 남은 확인: 실제 Codex 데스크톱에서 플러그인을 올리고 새 훅을 신뢰한 뒤, 새 세션 맥락에 규칙이 들어가고 "문서로 써 줘"가 마크다운 문서로 가는지
+- 관리 블록 템플릿 넷(프로젝트·홈, 모양 3·4)에 "문서로 써 줘 = 자리 표에 맞는 마크다운. 맞는 자리가 없으면 새 폴더 전에 묻는다" 한 줄을 더함. 템플릿만 바뀌어 `SCHEMA`는 그대로
+- 템플릿 `shared/README.md`의 runbook 줄을 "더할지 사용자에게 묻는다"로 바꿈
+- 확인: Codex CLI 0.170.0(Windows) 임시 프로필에 이 브랜치를 설치하고 훅 신뢰를 건너뛰어 세션을 엶
+  - 훅 파일을 거부하지 않았고 SessionStart 훅 둘이 모두 돎(규칙 6,585자)
+  - 세션 기록에 규칙 본문, 펼친 사용자 정보, 전역 지침 블록이 모두 들어감. 잘림(`hook_outputs`) 없음
+- 남은 확인: 실제 데스크톱에서 플러그인을 올리고 `/siloroot:update`, 훅 신뢰 뒤 "문서로 써 줘"가 마크다운 문서로 가는지
 
 고른 길과 견준 것:
 

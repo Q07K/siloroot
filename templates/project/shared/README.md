@@ -22,6 +22,6 @@ related: [metadata-guide.md]
 | `shared/conventions/` | 팀이 따르는 약속과 정책, 용어집(`glossary.md`) (`convention`) |
 
 - 자리 폴더마다 `README.md`가 있다. 무엇을 넣고 무엇을 넣지 않는지는 거기에 있다.
-- 운영할 것(배포, 장애 대응)이 생기면 `shared/runbook/`을 더한다.
+- 운영할 것(배포, 장애 대응)이 생기면 `shared/runbook/`을 더할지 사용자에게 묻는다.
 - 여기 문서는 팀원이 볼 수 없는 문서(개인 영역과 홈의 문서)를 가리키지 않는다. 뷰어의 속성 점검이 경고한다.
 - 팀원이 이 저장소를 받아 `/siloroot:init`을 하면 이 폴더를 그대로 쓰고 나머지를 자기 것으로 만든다.

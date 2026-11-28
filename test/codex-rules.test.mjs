@@ -64,7 +64,7 @@ test('홈에서는 홈의 CLAUDE.md를 넣는다', async () => {
   await v4Project();
   const ctx = ctxOf(run(HOME()));
   assert.match(ctx, /작업 규칙입니다\(`CLAUDE\.md`\)/);
-  assert.match(ctx, /홈 맨 위에 두거나 표에 없는 폴더를 새로 만들지 않는다/);
+  assert.match(ctx, /홈 맨 위에 두지 않는다. 맞는 자리가 없거나 모르겠으면 새 폴더를 만들기 전에 사용자에게 묻는다/);
 });
 
 test('글자 수를 넘으면 본문 대신 규칙 파일을 읽으라는 안내만 넣는다', async () => {
